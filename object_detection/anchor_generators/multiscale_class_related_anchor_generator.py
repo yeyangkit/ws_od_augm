@@ -25,11 +25,11 @@ from object_detection.core import anchor_generator
 from object_detection.core import box_list_ops
 
 
-class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
+class MultiscaleClassRelatedAnchorGenerator(anchor_generator.AnchorGenerator):
   """Generate a grid of anchors for multiple CNN layers of different scale."""
 
-  def __init__(self, min_level, max_level, anchor_scale, aspect_ratios,
-               scales_per_octave, normalize_coordinates=True, include_root_block=True,
+  def __init__(self, min_level, max_level, anchor_scales_list, aspect_ratios_list,
+               normalize_coordinates=True, include_root_block=True,
                root_downsampling_rate=2, late_downsample=False, store_non_strided_activations=True):
     """Constructs a MultiscaleGridAnchorGenerator.
 
@@ -54,15 +54,15 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
         coordinates. (defaults to True).
     """
     self._anchor_grid_info = []
-    self._aspect_ratios = aspect_ratios
-    self._scales_per_octave = scales_per_octave
+    self._anchor_scales_list = anchor_scales_list
+    self._aspect_ratios_list = aspect_ratios_list
     self._normalize_coordinates = normalize_coordinates
 
-    scales = [2**(float(scale) / scales_per_octave)
-              for scale in range(scales_per_octave)]
-    aspects = list(aspect_ratios)
+    if (len(anchor_scales_list) != (max_level - min_level + 1)) or (len(aspect_ratios_list) != (max_level - min_level + 1)):
+      raise ValueError('Amount of anchor levels must be tuned with used fpn level.')
 
-    for level in range(min_level, max_level + 1):
+    for i, level in enumerate(range(min_level, max_level + 1)):
+
       ## Instead of downsampling rate 4 of root block, the new block has downsampling rate 2
       if not include_root_block:
         if root_downsampling_rate == 2:
@@ -74,18 +74,24 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
             level = level - 1
         else:
           raise ValueError('If the original root block is not used, the root downampling rate must be 1 or 2.')
+
       if late_downsample:
         level = level - 1
 
       anchor_stride = [2**level, 2**level]
-      base_anchor_size = [2**level * anchor_scale, 2**level * anchor_scale]
+      base_anchor_size = [self._anchor_scales_list[i][0], self._anchor_scales_list[i][0]]
+      aspects = self._aspect_ratios_list[i]
+      scales = []
+      for scale in self._anchor_scales_list[i]:
+        scales.append(float(scale / base_anchor_size[0]))
+
       self._anchor_grid_info.append({
           'level': level,
           'info': [scales, aspects, base_anchor_size, anchor_stride]
       })
 
   def name_scope(self):
-    return 'MultiscaleGridAnchorGenerator'
+    return 'MultiscaleClassRelatedGridAnchorGenerator'
 
   def num_anchors_per_location(self):
     """Returns the number of anchors per spatial location.
@@ -94,8 +100,10 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
       a list of integers, one for each expected feature map to be passed to
       the Generate function.
     """
-    return len(self._anchor_grid_info) * [
-        len(self._aspect_ratios) * self._scales_per_octave]
+    num = []
+    for index in range(len(self._anchor_grid_info)):
+      num.append(len(self._aspect_ratios_list[index]) * len(self._anchor_scales_list[index]))
+    return num
 
   def _generate(self, feature_map_shape_list, im_height=1, im_width=1):
     """Generates a collection of bounding boxes to be used as anchors.
@@ -123,6 +131,9 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
       ValueError: if im_height and im_width are 1, but normalized coordinates
         were requested.
     """
+    if not isinstance(im_height, int) or not isinstance(im_width, int):
+      raise ValueError('MultiscaleGridAnchorGenerator currently requires '
+                       'input image shape to be statically defined.')
     anchor_grid_list = []
     for feat_shape, grid_info in zip(feature_map_shape_list,
                                      self._anchor_grid_info):
@@ -134,11 +145,10 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
       feat_h = feat_shape[0]
       feat_w = feat_shape[1]
       anchor_offset = [0, 0]
-      if isinstance(im_height, int) and isinstance(im_width, int):
-        if im_height % 2.0**level == 0 or im_height == 1:
-          anchor_offset[0] = stride / 2.0
-        if im_width % 2.0**level == 0 or im_width == 1:
-          anchor_offset[1] = stride / 2.0
+      if im_height % 2.0**level == 0 or im_height == 1:
+        anchor_offset[0] = stride / 2.0
+      if im_width % 2.0**level == 0 or im_width == 1:
+        anchor_offset[1] = stride / 2.0
       ag = grid_anchor_generator.GridAnchorGenerator(
           scales,
           aspect_ratios,
