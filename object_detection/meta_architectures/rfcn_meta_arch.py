@@ -317,6 +317,8 @@ class RFCNMetaArch(faster_rcnn_meta_arch.FasterRCNNMetaArch):
           proposal_boxes=proposal_boxes_normalized)
     refined_box_encodings = tf.squeeze(
         tf.concat(box_predictions[box_predictor.BOX_ENCODINGS], axis=1), axis=1)
+    refined_box_3d_encodings = tf.squeeze(
+        tf.concat(box_predictions[box_predictor.BOX_3D_ENCODINGS], axis=1), axis=1)
     class_predictions_with_background = tf.squeeze(
         tf.concat(
             box_predictions[box_predictor.CLASS_PREDICTIONS_WITH_BACKGROUND],
@@ -329,6 +331,7 @@ class RFCNMetaArch(faster_rcnn_meta_arch.FasterRCNNMetaArch):
 
     prediction_dict = {
         'refined_box_encodings': refined_box_encodings,
+        'refined_box_3d_encodings': refined_box_3d_encodings,
         'class_predictions_with_background':
         class_predictions_with_background,
         'num_proposals': num_proposals,

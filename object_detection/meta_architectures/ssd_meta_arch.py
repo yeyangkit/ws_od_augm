@@ -276,6 +276,7 @@ class SSDMetaArch(model.DetectionModel):
                normalize_loss_by_num_matches,
                hard_example_miner,
                target_assigner_instance,
+               use_occupancy_mask=False,
                add_summaries=True,
                normalize_loc_loss_by_codesize=False,
                freeze_batchnorm=False,
@@ -421,6 +422,8 @@ class SSDMetaArch(model.DetectionModel):
     self._score_conversion_fn = score_conversion_fn
 
     self._anchors = None
+    self._indicators = None
+    self._use_occupancy_mask = use_occupancy_mask
     self._add_summaries = add_summaries
     self._batched_prediction_tensor_names = []
     self._expected_loss_weights_fn = expected_loss_weights_fn
@@ -435,6 +438,13 @@ class SSDMetaArch(model.DetectionModel):
       raise RuntimeError('anchors have not been constructed yet!')
     if not isinstance(self._anchors, box_list.BoxList):
       raise RuntimeError('anchors should be a BoxList object, but is not.')
+    # if not isinstance(self._anchors, list):
+    #   if not isinstance(self._anchors, box_list.BoxList):
+    #     raise RuntimeError('anchors should be a BoxList object, but is not.')
+    # else:
+    #   if not all(
+    #     isinstance(anchors, box_list.BoxList) for anchors in self._anchors):
+    #     raise ValueError('anchors_batch must be a BoxList or list of BoxLists.')
     return self._anchors
 
   @property
@@ -520,7 +530,7 @@ class SSDMetaArch(model.DetectionModel):
         ],
         axis=1)
 
-  def predict(self, preprocessed_inputs, true_image_shapes):
+  def predict(self, preprocessed_inputs, occupancy_masks, true_image_shapes):
     """Predicts unpostprocessed tensors from input tensor.
 
     This function takes an input batch of images and runs it through the forward
@@ -567,7 +577,7 @@ class SSDMetaArch(model.DetectionModel):
                                [preprocessed_inputs]):
           feature_maps = self._feature_extractor.extract_features(
               preprocessed_inputs)
-
+    self._add_histogram_summaries()
     feature_map_spatial_dims = self._get_feature_map_spatial_dims(
         feature_maps)
     image_shape = shape_utils.combined_static_and_dynamic_shape(
@@ -593,12 +603,52 @@ class SSDMetaArch(model.DetectionModel):
     }
     for prediction_key, prediction_list in iter(predictor_results_dict.items()):
       prediction = tf.concat(prediction_list, axis=1)
-      if (prediction_key == 'box_encodings' and prediction.shape.ndims == 4 and
+      if (prediction_key == 'box_3d_encodings' and prediction.shape.ndims == 6 and
           prediction.shape[2] == 1):
         prediction = tf.squeeze(prediction, axis=2)
       predictions_dict[prediction_key] = prediction
     self._batched_prediction_tensor_names = [x for x in predictions_dict
                                              if x != 'anchors']
+    if self._use_occupancy_mask:
+
+      def filter_fn(mask):
+        return box_list_ops.filtering_using_binary_mask(box_list_ops.to_absolute_coordinates(self._anchors, image_shape[1], image_shape[2], maximum_normalized_coordinate=1.2), mask)
+
+      batch_indicator = shape_utils.static_or_dynamic_map_fn(filter_fn, occupancy_masks, dtype=tf.bool)
+      batch_num_anchors = tf.reduce_sum(tf.cast(batch_indicator, dtype=tf.int32), axis=1)
+      max_num_anchors = tf.reduce_max(batch_num_anchors)
+      tf.summary.scalar('Max_num_anchors', max_num_anchors, family='filtering_with_mask')
+
+      def assign_indicator_fn(inputs):
+        indicator, num_anchors = inputs
+        num_random_sample = tf.subtract(max_num_anchors, num_anchors)
+        indices = tf.where(tf.logical_not(indicator))
+        indices = tf.random_shuffle(indices)
+        indices = tf.reshape(indices, [-1])
+        num_random_sample = tf.minimum(tf.size(indices), num_random_sample)
+        selected_indices = tf.slice(indices, [0], tf.reshape(num_random_sample, [1]))
+        selected_indicator = ops.indices_to_dense_vector(selected_indices, tf.shape(indicator)[0])
+        selected_indicator = tf.equal(selected_indicator, 1)
+        final_indicator = tf.logical_or(indicator, selected_indicator)
+        return final_indicator
+
+      batch_final_indicator = shape_utils.static_or_dynamic_map_fn(assign_indicator_fn, [batch_indicator, batch_num_anchors], dtype=tf.bool)
+
+      def filter_result_fn(inputs):
+        final_indicator, box_3d_encodings, class_predictions_with_background = inputs
+        filtered_box_3d_encodings = tf.boolean_mask(box_3d_encodings, final_indicator)
+        filtered_class_predictions_with_background = tf.boolean_mask(class_predictions_with_background, final_indicator)
+        return [filtered_box_3d_encodings, filtered_class_predictions_with_background]
+
+      batch_box_3d_encodings = predictions_dict['box_3d_encodings']
+      batch_class_predictions_with_background = predictions_dict['class_predictions_with_background']
+      result = shape_utils.static_or_dynamic_map_fn(
+        filter_result_fn, [batch_final_indicator, batch_box_3d_encodings, batch_class_predictions_with_background], dtype=[tf.float32, tf.float32])
+      batch_filtered_box_3d_encodings, batch_filtered_class_predictions_with_background = result
+      predictions_dict['box_3d_encodings'] = batch_filtered_box_3d_encodings
+      predictions_dict['class_predictions_with_background'] = batch_filtered_class_predictions_with_background
+      self._indicators = batch_final_indicator
+
     return predictions_dict
 
   def _get_feature_map_spatial_dims(self, feature_maps):
@@ -673,21 +723,27 @@ class SSDMetaArch(model.DetectionModel):
       ValueError: if prediction_dict does not contain `box_encodings` or
         `class_predictions_with_background` fields.
     """
-    if ('box_encodings' not in prediction_dict or
+    if ('box_3d_encodings' not in prediction_dict or
         'class_predictions_with_background' not in prediction_dict):
       raise ValueError('prediction_dict does not contain expected entries.')
     if 'anchors' not in prediction_dict:
       prediction_dict['anchors'] = self.anchors.get()
     with tf.name_scope('Postprocessor'):
       preprocessed_images = prediction_dict['preprocessed_inputs']
-      box_encodings = prediction_dict['box_encodings']
-      box_encodings = tf.identity(box_encodings, 'raw_box_encodings')
+      box_3d_encodings = prediction_dict['box_3d_encodings']
+      box_3d_encodings = tf.identity(box_encodings, 'raw_box_3d_encodings')
       class_predictions_with_background = (
           prediction_dict['class_predictions_with_background'])
-      detection_boxes, detection_keypoints = self._batch_decode(
-          box_encodings, prediction_dict['anchors'])
-      detection_boxes = tf.identity(detection_boxes, 'raw_box_locations')
+      detection_boxes_3d = self._batch_decode_3d(box_3d_encodings)
+      detection_boxes = tf.identity(detection_boxes_3d, 'box_3d_to_convert')
+      boxes_shape = shape_utils.combined_static_and_dynamic_shape(detection_boxes)
+      detection_boxes = tf.reshape(detection_boxes, [-1, 6])
+      detection_boxes = box_list.Box3dList(detection_boxes)
+      detection_boxes = detection_boxes.convert_to_boxlist()
+      detection_boxes = tf.reshape(detection_boxes.get(), [boxes_shape[0], boxes_shape[1], 4])
       detection_boxes = tf.expand_dims(detection_boxes, axis=2)
+      detection_boxes_3d = tf.identity(detection_boxes_3d, 'raw_box_3d_locations')
+      detection_boxes_3d = tf.expand_dims(detection_boxes_3d, axis=2)
 
       detection_scores_with_background = self._score_conversion_fn(
           class_predictions_with_background)
@@ -713,9 +769,10 @@ class SSDMetaArch(model.DetectionModel):
         detection_keypoints = tf.identity(
             detection_keypoints, 'raw_keypoint_locations')
         additional_fields[fields.BoxListFields.keypoints] = detection_keypoints
-      (nmsed_boxes, nmsed_scores, nmsed_classes, nmsed_masks,
+      (nmsed_boxes, nmsed_boxes_3d, nmsed_scores, nmsed_classes, nmsed_masks,
        nmsed_additional_fields, num_detections) = self._non_max_suppression_fn(
            detection_boxes,
+           detection_boxes_3d,
            detection_scores,
            clip_window=self._compute_clip_window(preprocessed_images,
                                                  true_image_shapes),
@@ -724,6 +781,8 @@ class SSDMetaArch(model.DetectionModel):
       detection_dict = {
           fields.DetectionResultFields.detection_boxes:
               nmsed_boxes,
+          fields.DetectionResultFields.detection_boxes_3d:
+              nmsed_boxes_3d,
           fields.DetectionResultFields.detection_scores:
               nmsed_scores,
           fields.DetectionResultFields.detection_classes:
@@ -781,15 +840,18 @@ class SSDMetaArch(model.DetectionModel):
       confidences = None
       if self.groundtruth_has_field(fields.BoxListFields.confidences):
         confidences = self.groundtruth_lists(fields.BoxListFields.confidences)
-      (batch_cls_targets, batch_cls_weights, batch_reg_targets,
+      (batch_cls_targets, batch_cls_weights, batch_reg_targets, batch_reg_targets_3d,
        batch_reg_weights, batch_match) = self._assign_targets(
            self.groundtruth_lists(fields.BoxListFields.boxes),
+           self.groundtruth_lists(fields.BoxListFields.boxes_3d),
            self.groundtruth_lists(fields.BoxListFields.classes),
            keypoints, weights, confidences)
       match_list = [matcher.Match(match) for match in tf.unstack(batch_match)]
       if self._add_summaries:
-        self._summarize_target_assignment(
-            self.groundtruth_lists(fields.BoxListFields.boxes), match_list)
+        self._summarize_classwise_target_assignment(
+            self.groundtruth_lists(fields.BoxListFields.boxes),
+            self.groundtruth_lists(fields.BoxListFields.classes),
+            match_list)
 
       if self._random_example_sampler:
         batch_cls_per_anchor_weights = tf.reduce_mean(
@@ -811,13 +873,12 @@ class SSDMetaArch(model.DetectionModel):
       if self.groundtruth_has_field(fields.InputDataFields.is_annotated):
         losses_mask = tf.stack(self.groundtruth_lists(
             fields.InputDataFields.is_annotated))
-      location_losses = self._localization_loss(
-          prediction_dict['box_encodings'],
-          batch_reg_targets,
+      location_losses_3d = self._localization_loss(
+          prediction_dict['box_3d_encodings'],
+          batch_reg_targets_3d,
           ignore_nan_targets=True,
           weights=batch_reg_weights,
           losses_mask=losses_mask)
-
       cls_losses = self._classification_loss(
           prediction_dict['class_predictions_with_background'],
           batch_cls_targets,
@@ -849,7 +910,7 @@ class SSDMetaArch(model.DetectionModel):
           batch_cls_targets = tf.concat(
               [1 - batch_cls_targets, batch_cls_targets], axis=-1)
 
-          location_losses = tf.tile(location_losses, [1, num_classes])
+          location_losses_3d = tf.tile(location_losses_3d, [1, num_classes])
 
         foreground_weights, background_weights = (
             self._expected_loss_weights_fn(batch_cls_targets))
@@ -858,19 +919,19 @@ class SSDMetaArch(model.DetectionModel):
             foreground_weights * cls_losses +
             background_weights * unmatched_cls_losses)
 
-        location_losses *= foreground_weights
+        location_losses_3d *= foreground_weights
 
         classification_loss = tf.reduce_sum(cls_losses)
-        localization_loss = tf.reduce_sum(location_losses)
+        localization_loss_3d = tf.reduce_sum(location_losses_3d)
       elif self._hard_example_miner:
         cls_losses = ops.reduce_sum_trailing_dimensions(cls_losses, ndims=2)
-        (localization_loss, classification_loss) = self._apply_hard_mining(
-            location_losses, cls_losses, prediction_dict, match_list)
+        (localization_loss_3d, classification_loss) = self._apply_hard_mining(
+            location_losses_3d, cls_losses, prediction_dict, match_list)
         if self._add_summaries:
           self._hard_example_miner.summarize()
       else:
         cls_losses = ops.reduce_sum_trailing_dimensions(cls_losses, ndims=2)
-        localization_loss = tf.reduce_sum(location_losses)
+        localization_loss_3d = tf.reduce_sum(location_losses_3d)
         classification_loss = tf.reduce_sum(cls_losses)
 
       # Optionally normalize by number of positive matches
@@ -882,10 +943,10 @@ class SSDMetaArch(model.DetectionModel):
 
       localization_loss_normalizer = normalizer
       if self._normalize_loc_loss_by_codesize:
-        localization_loss_normalizer *= self._box_coder.code_size
+        localization_loss_normalizer *= self._box_coder.code_size_3d
       localization_loss = tf.multiply((self._localization_loss_weight /
                                        localization_loss_normalizer),
-                                      localization_loss,
+                                      localization_loss_3d,
                                       name='localization_loss')
       classification_loss = tf.multiply((self._classification_loss_weight /
                                          normalizer), classification_loss,
@@ -939,6 +1000,7 @@ class SSDMetaArch(model.DetectionModel):
 
   def _assign_targets(self,
                       groundtruth_boxes_list,
+                      groundtruth_boxes_3d_list,
                       groundtruth_classes_list,
                       groundtruth_keypoints_list=None,
                       groundtruth_weights_list=None,
@@ -980,6 +1042,17 @@ class SSDMetaArch(model.DetectionModel):
     groundtruth_boxlists = [
         box_list.BoxList(boxes) for boxes in groundtruth_boxes_list
     ]
+    groundtruth_boxlists_3d = [
+        box_list.Box3dList(boxes) for boxes in groundtruth_boxes_3d_list
+    ]
+    anchors = self.anchors
+    if self._use_occupancy_mask:
+      indicator_list = tf.unstack(self._indicators)
+      filtered_anchors = [
+          box_list_ops.boolean_mask(anchors, indicator) for indicator in indicator_list
+      ]
+      anchors = filtered_anchors
+
     train_using_confidences = (self._is_training and
                                self._use_confidences_as_targets)
     if self._add_background_class:
@@ -1002,8 +1075,9 @@ class SSDMetaArch(model.DetectionModel):
     if train_using_confidences:
       return target_assigner.batch_assign_confidences(
           self._target_assigner,
-          self.anchors,
+          anchors,
           groundtruth_boxlists,
+          groundtruth_boxlists_3d,
           groundtruth_confidences_with_background_list,
           groundtruth_weights_list,
           self._unmatched_class_label,
@@ -1012,8 +1086,9 @@ class SSDMetaArch(model.DetectionModel):
     else:
       return target_assigner.batch_assign_targets(
           self._target_assigner,
-          self.anchors,
+          anchors,
           groundtruth_boxlists,
+          groundtruth_boxlists_3d,
           groundtruth_classes_with_background_list,
           self._unmatched_class_label,
           groundtruth_weights_list)
@@ -1078,6 +1153,84 @@ class SSDMetaArch(model.DetectionModel):
     tf.summary.scalar('AvgNumIgnoredAnchorsPerImage',
                       avg_ignored_anchors,
                       family='TargetAssignment')
+
+  def _summarize_classwise_target_assignment(self, groundtruth_boxes_list, groundtruth_classes_list,
+                                             match_list):
+    """Creates tensorflow summaries for the input boxes and anchors.
+
+    This function creates four summaries corresponding to the average
+    number (over images in a batch) of (1) groundtruth boxes, (2) anchors
+    marked as positive, (3) anchors marked as negative, and (4) anchors marked
+    as ignored.
+
+    Args:
+      groundtruth_boxes_list: a list of 2-D tensors of shape [num_boxes, 4]
+        containing corners of the groundtruth boxes.
+      groundtruth_classes_list: a list of 2-D one-hot (or k-hot) tensors of
+        shape [num_boxes, num_classes] containing the class targets with the 0th
+        index assumed to map to the first non-background class.
+      match_list: a list of matcher.Match objects encoding the match between
+        anchors and groundtruth boxes for each image of the batch,
+        with rows of the Match objects corresponding to groundtruth boxes
+        and columns corresponding to anchors.
+    """
+    num_boxes_per_image = tf.stack(
+        [tf.shape(x)[0] for x in groundtruth_boxes_list])
+    pos_anchors_per_image = tf.stack(
+        [match.num_matched_columns() for match in match_list])
+    neg_anchors_per_image = tf.stack(
+        [match.num_unmatched_columns() for match in match_list])
+    ignored_anchors_per_image = tf.stack(
+        [match.num_ignored_columns() for match in match_list])
+
+    num_cars_list = []
+    num_pedestrians_list = []
+    num_cyclists_list = []
+
+    for match, groundtruth_classes in zip(match_list,
+                                          groundtruth_classes_list):
+      matched_row_indices = match.matched_row_indices()
+      result = tf.gather(groundtruth_classes, matched_row_indices, axis=0)
+      result = tf.argmax(result, axis=1)
+
+      num_cars = tf.reduce_sum(tf.cast(tf.equal(result, 0), tf.int32))
+      num_pedestrians = tf.reduce_sum(tf.cast(tf.equal(result, 1), tf.int32))
+      num_cyclists = tf.reduce_sum(tf.cast(tf.equal(result, 2), tf.int32))
+      num_cars_list.append(num_cars)
+      num_pedestrians_list.append(num_pedestrians)
+      num_cyclists_list.append(num_cyclists)
+
+    pos_car_anchors_per_image = tf.stack(num_cars_list)
+    pos_pedestrian_anchors_per_image = tf.stack(num_pedestrians_list)
+    pos_cyclist_anchors_per_image = tf.stack(num_cyclists_list)
+
+    tf.summary.scalar('AvgNumGroundtruthBoxesPerImage',
+                      tf.reduce_mean(tf.to_float(num_boxes_per_image)),
+                      family='TargetAssignment')
+    tf.summary.scalar('AvgNumPositiveAnchorsPerImage',
+                      tf.reduce_mean(tf.to_float(pos_anchors_per_image)),
+                      family='TargetAssignment')
+    tf.summary.scalar('AvgNumNegativeAnchorsPerImage',
+                      tf.reduce_mean(tf.to_float(neg_anchors_per_image)),
+                      family='TargetAssignment')
+    tf.summary.scalar('AvgNumIgnoredAnchorsPerImage',
+                      tf.reduce_mean(tf.to_float(ignored_anchors_per_image)),
+                      family='TargetAssignment')
+
+    tf.summary.scalar('AvgNumPositiveCarAnchorsPerImage',
+                      tf.reduce_mean(tf.to_float(pos_car_anchors_per_image)),
+                      family='TargetAssignment')
+    tf.summary.scalar('AvgNumPositivePedestrianAnchorsPerImage',
+                      tf.reduce_mean(tf.to_float(pos_pedestrian_anchors_per_image)),
+                      family='TargetAssignment')
+    tf.summary.scalar('AvgNumPositiveCyclistAnchorsPerImage',
+                      tf.reduce_mean(tf.to_float(pos_cyclist_anchors_per_image)),
+                      family='TargetAssignment')
+
+  def _add_histogram_summaries(self):
+    histogram = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
+    for variable in slim.get_model_variables():
+      histogram.add(tf.summary.histogram(variable.op.name, variable))
 
   def _apply_hard_mining(self, location_losses, cls_losses, prediction_dict,
                          match_list):
@@ -1147,9 +1300,17 @@ class SSDMetaArch(model.DetectionModel):
     combined_shape = shape_utils.combined_static_and_dynamic_shape(
         box_encodings)
     batch_size = combined_shape[0]
-    tiled_anchor_boxes = tf.tile(tf.expand_dims(anchors, 0), [batch_size, 1, 1])
-    tiled_anchors_boxlist = box_list.BoxList(
-        tf.reshape(tiled_anchor_boxes, [-1, 4]))
+    if self._use_occupancy_mask:
+      anchors = self.anchors.get()
+      def filter_anchor_fn(inputs):
+        return tf.boolean_mask(anchors, inputs)
+      filtered_anchors = shape_utils.static_or_dynamic_map_fn(filter_anchor_fn, self._indicators, dtype=tf.float32)
+      filtered_anchors = tf.reshape(filtered_anchors, [-1, 4])
+      tiled_anchors_boxlist = box_list.BoxList(filtered_anchors)
+    else:
+      tiled_anchor_boxes = tf.tile(tf.expand_dims(anchors, 0), [batch_size, 1, 1])
+      tiled_anchors_boxlist = box_list.BoxList(
+          tf.reshape(tiled_anchor_boxes, [-1, 4]))
     decoded_boxes = self._box_coder.decode(
         tf.reshape(box_encodings, [-1, self._box_coder.code_size]),
         tiled_anchors_boxlist)
@@ -1164,6 +1325,42 @@ class SSDMetaArch(model.DetectionModel):
     decoded_boxes = tf.reshape(decoded_boxes.get(), tf.stack(
         [combined_shape[0], combined_shape[1], 4]))
     return decoded_boxes, decoded_keypoints
+
+  def _batch_decode_3d(self, box_encodings):
+    """Decodes a batch of box encodings with respect to the anchors.
+
+    Args:
+      box_encodings: A float32 tensor of shape
+        [batch_size, num_anchors, box_code_size] containing box encodings.
+
+    Returns:
+      decoded_boxes: A float32 tensor of shape
+        [batch_size, num_anchors, 4] containing the decoded boxes.
+      decoded_keypoints: A float32 tensor of shape
+        [batch_size, num_anchors, num_keypoints, 2] containing the decoded
+        keypoints if present in the input `box_encodings`, None otherwise.
+    """
+    combined_shape = shape_utils.combined_static_and_dynamic_shape(
+        box_encodings)
+    batch_size = combined_shape[0]
+    if self._use_occupancy_mask:
+      anchors = self.anchors.get()
+      def filter_anchor_fn(inputs):
+        return tf.boolean_mask(anchors, inputs)
+      filtered_anchors = shape_utils.static_or_dynamic_map_fn(filter_anchor_fn, self._indicators, dtype=tf.float32)
+      filtered_anchors = tf.reshape(filtered_anchors, [-1, 4])
+      tiled_anchors_boxlist = box_list.BoxList(filtered_anchors)
+    else:
+      tiled_anchor_boxes = tf.tile(
+          tf.expand_dims(self.anchors.get(), 0), [batch_size, 1, 1])
+      tiled_anchors_boxlist = box_list.BoxList(
+          tf.reshape(tiled_anchor_boxes, [-1, 4]))
+    decoded_boxes = self._box_coder.decode_3d(
+        tf.reshape(box_encodings, [-1, self._box_coder.code_size_3d]),
+        tiled_anchors_boxlist)
+    decoded_boxes = tf.reshape(decoded_boxes.get(), tf.stack(
+        [combined_shape[0], combined_shape[1], 6]))
+    return decoded_boxes
 
   def regularization_losses(self):
     """Returns a list of regularization losses for this model.
