@@ -93,6 +93,8 @@ def _extract_predictions_and_losses(model,
     groundtruth = {
         fields.InputDataFields.groundtruth_boxes:
             input_dict[fields.InputDataFields.groundtruth_boxes],
+        fields.InputDataFields.groundtruth_boxes_3d:
+            input_dict[fields.InputDataFields.groundtruth_boxes_3d],
         fields.InputDataFields.groundtruth_classes:
             input_dict[fields.InputDataFields.groundtruth_classes],
         fields.InputDataFields.groundtruth_area:
@@ -120,6 +122,7 @@ def _extract_predictions_and_losses(model,
     label_id_offset = 1
     model.provide_groundtruth(
         [input_dict[fields.InputDataFields.groundtruth_boxes]],
+        [input_dict[fields.InputDataFields.groundtruth_boxes_3d]],
         [tf.one_hot(input_dict[fields.InputDataFields.groundtruth_classes]
                     - label_id_offset, depth=model.num_classes)],
         groundtruth_masks_list, groundtruth_keypoints_list)

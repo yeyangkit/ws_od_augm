@@ -111,11 +111,13 @@ def main(unused_argv):
   model_fn = functools.partial(
       model_builder.build, model_config=model_config, is_training=False)
 
-  def get_next(config):
+  def get_next(config, input_features, input_channels):
     return dataset_builder.make_initializable_iterator(
-        dataset_builder.build(config)).get_next()
+        dataset_builder.build(config, input_features, input_channels)).get_next()
 
-  create_input_dict_fn = functools.partial(get_next, input_config)
+  create_input_dict_fn = functools.partial(get_next, input_config,
+                                           model_config.faster_rcnn.input_features,
+                                           model_config.faster_rcnn.input_channels)
 
   categories = label_map_util.create_categories_from_labelmap(
       input_config.label_map_path)
