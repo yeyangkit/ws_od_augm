@@ -94,6 +94,56 @@ class NegSqDistSimilarity(RegionSimilarityCalculator):
     """
     return -1 * box_list_ops.sq_dist(boxlist1, boxlist2)
 
+class NegSqCenterDistSimilarity(RegionSimilarityCalculator):
+  """Class to compute similarity based on the squared distance metric.
+
+  This class computes pairwise similarity between two BoxLists based on the
+  negative squared distance metric.
+  """
+
+  def _compare(self, boxlist1, boxlist2):
+    """Compute matrix of (negated) sq distances.
+
+    Args:
+      boxlist1: BoxList holding N boxes.
+      boxlist2: BoxList holding M boxes.
+
+    Returns:
+      A tensor with shape [N, M] representing negated pairwise squared distance.
+    """
+    return -1 * box_list_ops.sq_center_dist(boxlist1, boxlist2)
+
+class RelativeDistanceSimilarity(RegionSimilarityCalculator):
+
+  def __init__(self, positive_threshold=0.5, negative_threshold=1.0):
+    """Initialize the ThresholdedIouSimilarity.
+
+    Args:
+      iou_threshold: For a given pair of boxes, if the IOU is > iou_threshold,
+        then the comparison result will be the foreground probability of
+        the first box, otherwise it will be zero.
+    """
+    self._positive_threshold = positive_threshold
+    self._negative_threshold = negative_threshold
+
+  def _compare(self, boxlist1, boxlist2):
+    return box_list_ops.two_thresh_check(boxlist1, boxlist2, self._positive_threshold, self._negative_threshold)
+
+class IoaWeightedNegSqDistSimilarity(RegionSimilarityCalculator):
+
+  def _compare(self, boxlist1, boxlist2):
+    reserved_ioa = tf.transpose(box_list_ops.ioa(boxlist2, boxlist1))
+    neg_sq_dist = -1 * box_list_ops.sq_dist(boxlist1, boxlist2)
+
+    return tf.multiply(tf.scalar_mul(2, tf.sigmoid(neg_sq_dist)), reserved_ioa)
+
+class IoaWeightedNegSqCenterDistSimilarity(RegionSimilarityCalculator):
+
+  def _compare(self, boxlist1, boxlist2):
+    reserved_ioa = tf.transpose(box_list_ops.ioa(boxlist2, boxlist1))
+    neg_sq_center_dist = -1 * box_list_ops.sq_center_dist(boxlist1, boxlist2)
+
+    return tf.multiply(tf.scalar_mul(2, tf.sigmoid(neg_sq_center_dist)), reserved_ioa)
 
 class IoaSimilarity(RegionSimilarityCalculator):
   """Class to compute similarity based on Intersection over Area (IOA) metric.
@@ -113,6 +163,54 @@ class IoaSimilarity(RegionSimilarityCalculator):
       A tensor with shape [N, M] representing pairwise IOA scores.
     """
     return box_list_ops.ioa(boxlist1, boxlist2)
+
+class IoaSimilarityInversed(RegionSimilarityCalculator):
+  """Class to compute similarity based on Intersection over Area (IOA) metric.
+
+  This class computes pairwise similarity between two BoxLists based on their
+  pairwise intersections divided by the areas of first BoxLists.
+  """
+
+  def _compare(self, boxlist1, boxlist2):
+    """Compute pairwise IOA similarity between the two BoxLists.
+
+    Args:
+      boxlist1: BoxList holding N boxes.
+      boxlist2: BoxList holding M boxes.
+
+    Returns:
+      A tensor with shape [N, M] representing pairwise IOA scores.
+    """
+    return tf.transpose(box_list_ops.ioa(boxlist2, boxlist1))
+
+class IoaSimilarityCombined(RegionSimilarityCalculator):
+  """Class to compute similarity based on Intersection over Area (IOA) metric.
+
+  This class computes pairwise similarity between two BoxLists based on their
+  pairwise intersections divided by the areas of each BoxLists.
+  """
+
+  def __init__(self, anchor_related_weight):
+
+    self._anchor_related_weight = anchor_related_weight
+
+    if not 0 <= self._anchor_related_weight <= 1:
+      raise ValueError("Anchor related weight must be a value between 0 and 1.")
+
+    self._ground_truth_related_weight = 1 - self._anchor_related_weight
+
+  def _compare(self, boxlist1, boxlist2):
+    """Compute pairwise IOA similarity between the two BoxLists.
+
+    Args:
+      boxlist1: BoxList holding N boxes.
+      boxlist2: BoxList holding M boxes.
+
+    Returns:
+      A tensor with shape [N, M] representing pairwise IOA scores.
+    """
+    return tf.scalar_mul(self._anchor_related_weight, box_list_ops.ioa(boxlist1, boxlist2)) + \
+           tf.scalar_mul(self._ground_truth_related_weight, tf.transpose(box_list_ops.ioa(boxlist2, boxlist1)))
 
 
 class ThresholdedIouSimilarity(RegionSimilarityCalculator):

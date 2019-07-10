@@ -529,6 +529,7 @@ class HardExampleMiner(object):
 
   def __call__(self,
                location_losses,
+               location_losses_3d,
                cls_losses,
                decoded_boxlist_list,
                match_list=None):
@@ -537,6 +538,8 @@ class HardExampleMiner(object):
     Args:
       location_losses: a float tensor of shape [num_images, num_anchors]
         representing anchorwise localization losses.
+      location_losses_3d: a float tensor of shape [num_images, num_anchors]
+        representing anchorwise localization losses for rotated boxes.
       cls_losses: a float tensor of shape [num_images, num_anchors]
         representing anchorwise classification losses.
       decoded_boxlist_list: a list of decoded BoxList representing location
@@ -552,6 +555,8 @@ class HardExampleMiner(object):
     Returns:
       mined_location_loss: a float scalar with sum of localization losses from
         selected hard examples.
+      mined_location_loss_3d: a float scalar with sum of localization losses 3d
+        for rotated boxes from selected hard examples.
       mined_cls_loss: a float scalar with sum of classification losses from
         selected hard examples.
     Raises:
@@ -562,9 +567,11 @@ class HardExampleMiner(object):
         len(decoded_boxlist_list).
     """
     mined_location_losses = []
+    mined_location_losses_3d = []
     mined_cls_losses = []
     location_losses = tf.unstack(location_losses)
     cls_losses = tf.unstack(cls_losses)
+    location_losses_3d = tf.unstack(location_losses_3d)
     num_images = len(decoded_boxlist_list)
     if not match_list:
       match_list = num_images * [None]
@@ -602,14 +609,17 @@ class HardExampleMiner(object):
         num_negatives_list.append(num_negatives)
       mined_location_losses.append(
           tf.reduce_sum(tf.gather(location_losses[ind], selected_indices)))
+      mined_location_losses_3d.append(
+          tf.reduce_sum(tf.gather(location_losses_3d[ind], selected_indices)))
       mined_cls_losses.append(
           tf.reduce_sum(tf.gather(cls_losses[ind], selected_indices)))
     location_loss = tf.reduce_sum(tf.stack(mined_location_losses))
+    location_loss_3d = tf.reduce_sum(tf.stack(mined_location_losses_3d))
     cls_loss = tf.reduce_sum(tf.stack(mined_cls_losses))
     if match and self._max_negatives_per_positive:
       self._num_positives_list = num_positives_list
       self._num_negatives_list = num_negatives_list
-    return (location_loss, cls_loss)
+    return (location_loss, location_loss_3d, cls_loss)
 
   def summarize(self):
     """Summarize the number of positives and negatives after mining."""

@@ -167,7 +167,7 @@ class DetectionModel(_BaseClass):
     pass
 
   @abc.abstractmethod
-  def predict(self, preprocessed_inputs, true_image_shapes):
+  def predict(self, preprocessed_inputs, occupancy_masks, true_image_shapes):
     """Predict prediction tensors from inputs tensor.
 
     Outputs of this function can be passed to loss or postprocess functions.
@@ -262,6 +262,7 @@ class DetectionModel(_BaseClass):
 
   def provide_groundtruth(self,
                           groundtruth_boxes_list,
+                          groundtruth_boxes_3d_list,
                           groundtruth_classes_list,
                           groundtruth_masks_list=None,
                           groundtruth_keypoints_list=None,
@@ -300,6 +301,7 @@ class DetectionModel(_BaseClass):
         images have been labeled or not.
     """
     self._groundtruth_lists[fields.BoxListFields.boxes] = groundtruth_boxes_list
+    self._groundtruth_lists[fields.BoxListFields.boxes_3d] = groundtruth_boxes_3d_list
     self._groundtruth_lists[
         fields.BoxListFields.classes] = groundtruth_classes_list
     if groundtruth_weights_list:

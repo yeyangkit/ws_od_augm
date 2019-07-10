@@ -53,7 +53,7 @@ class BoxList(object):
           float32 format.
     """
     if len(boxes.get_shape()) != 2 or boxes.get_shape()[-1] != 4:
-      raise ValueError('Invalid dimensions for box data.')
+      raise ValueError('Invalid dimensions for 2d box data.')
     if boxes.dtype != tf.float32:
       raise ValueError('Invalid tensor type: should be tf.float32')
     self.data = {'boxes': boxes}
@@ -175,6 +175,25 @@ class BoxList(object):
       xcenter = xmin + width / 2.
       return [ycenter, xcenter, height, width]
 
+  def get_center_coordinates(self, scope=None):
+    """Computes the center coordinates of the boxes.
+
+    Args:
+      scope: name scope of the function.
+
+    Returns:
+      a tensor of shape [N, 2].
+    """
+    with tf.name_scope(scope, 'get_center_coordinates'):
+      box_corners = self.get()
+      ymin, xmin, ymax, xmax = tf.unstack(tf.transpose(box_corners))
+      width = xmax - xmin
+      height = ymax - ymin
+      ycenter = ymin + height / 2.
+      xcenter = xmin + width / 2.
+      center = tf.stack([ycenter, xcenter], axis=1)
+      return center
+
   def transpose_coordinates(self, scope=None):
     """Transpose the coordinate representation in a boxlist.
 
@@ -207,3 +226,100 @@ class BoxList(object):
         raise ValueError('boxlist must contain all specified fields')
       tensor_dict[field] = self.get_field(field)
     return tensor_dict
+
+
+class Box3dList(object):
+
+  def __init__(self, boxes):
+    if len(boxes.get_shape()) != 2 or boxes.get_shape()[-1] != 6:
+      raise ValueError('Invalid dimensions for 3d box data.')
+    if boxes.dtype != tf.float32:
+      raise ValueError('Invalid tensor type: should be tf.float32')
+    self.data = {'boxes': boxes}
+
+  def num_boxes(self):
+    return tf.shape(self.data['boxes'])[0]
+
+  def num_boxes_static(self):
+    return self.data['boxes'].get_shape()[0].value
+
+  def get_all_fields(self):
+    return self.data.keys()
+
+  def get_extra_fields(self):
+    return [k for k in self.data.keys() if k != 'boxes']
+
+  def add_field(self, field, field_data):
+    self.data[field] = field_data
+
+  def has_field(self, field):
+    return field in self.data
+
+  def get(self):
+    return self.get_field('boxes')
+
+  def set(self, boxes):
+    if len(boxes.get_shape()) != 2 or boxes.get_shape()[-1] != 5:
+      raise ValueError('Invalid dimensions for box data.')
+    self.data['boxes'] = boxes
+
+  def get_field(self, field):
+    if not self.has_field(field):
+      raise ValueError('field ' + str(field) + ' does not exist')
+    return self.data[field]
+
+  def set_field(self, field, value):
+    if not self.has_field(field):
+      raise ValueError('field %s does not exist' % field)
+    self.data[field] = value
+
+  def get_center_coordinates_and_sizes(self, scope=None):
+    with tf.name_scope(scope, 'get_center_coordinates_and_sizes'):
+      box_corners = self.get()
+      x_c, y_c, w, h, sin_angle, cos_angle = tf.unstack(tf.transpose(box_corners))
+      return [x_c, y_c, w, h, sin_angle, cos_angle]
+
+  def transpose_coordinates(self, scope=None):
+    with tf.name_scope(scope, 'transpose_coordinates'):
+      x_c, y_c, w, h, sin_angle, cos_angle = tf.split(
+        value=self.get(), num_or_size_splits=6, axis=1)
+      angle = tf.atan2(sin_angle, cos_angle) / 2
+      angle = 1.571 - angle
+      if angle < 0:
+        angle = 3.141 + angle
+      sin_angle = tf.sin(2*angle)
+      cos_angle = tf.cos(2*angle)
+
+      self.set(tf.concat([y_c, x_c, w, h, sin_angle, cos_angle], 1))
+
+  def as_tensor_dict(self, fields=None):
+    tensor_dict = {}
+    if fields is None:
+      fields = self.get_all_fields()
+    for field in fields:
+      if not self.has_field(field):
+        raise ValueError('boxlist must contain all specified fields')
+      tensor_dict[field] = self.get_field(field)
+    return tensor_dict
+
+  def _calculate_box_corner(self, x_c, y_c, w, l, phi):
+    return (l * tf.cos(phi) - w * tf.sin(phi)) + x_c, (l * tf.sin(phi) + w * tf.cos(phi)) + y_c
+
+  def convert_to_boxlist(self, scope=None):
+    with tf.name_scope(scope, 'convert_to_boxlist_2d'):
+      x, y, w, h, sin_angle, cos_angle = tf.split(value=self.get(), num_or_size_splits=6, axis=1)
+      angle = tf.atan2(sin_angle, cos_angle) / 2
+
+      x1, y1 = self._calculate_box_corner(x, y, w / 2, h / 2, angle)
+      x2, y2 = self._calculate_box_corner(x, y, - w / 2, h / 2, angle)
+      x3, y3 = self._calculate_box_corner(x, y, - w / 2, - h / 2, angle)
+      x4, y4 = self._calculate_box_corner(x, y, w / 2, - h / 2, angle)
+
+      xmin = tf.minimum(x1, tf.minimum(tf.minimum(x4, x3), x2))
+      xmax = tf.maximum(x1, tf.maximum(tf.maximum(x4, x3), x2))
+      ymin = tf.minimum(y1, tf.minimum(tf.minimum(y4, y3), y2))
+      ymax = tf.maximum(y1, tf.maximum(tf.maximum(y4, y3), y2))
+
+      box_aligned = tf.concat([ymin, xmin, ymax, xmax], 1)
+
+      return BoxList(box_aligned)

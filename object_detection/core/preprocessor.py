@@ -362,6 +362,14 @@ def _flip_boxes_left_right(boxes):
   flipped_boxes = tf.concat([ymin, flipped_xmin, ymax, flipped_xmax], 1)
   return flipped_boxes
 
+def _flip_boxes_3d_left_right(boxes_3d):
+        x_c, y_c, w, h, sin_angle, cos_angle = tf.split(value=boxes_3d, num_or_size_splits=6, axis=1)
+        flipped_x_c = tf.subtract(1.0, x_c)
+        sin_angle = - sin_angle
+        cos_angle = cos_angle
+        flipped_boxes_3d = tf.concat([flipped_x_c, y_c, w, h, sin_angle, cos_angle], 1)
+        return flipped_boxes_3d
+
 
 def _flip_boxes_up_down(boxes):
   """Up-down flip the boxes.
@@ -403,6 +411,74 @@ def _rot90_boxes(boxes):
       [rotated_ymin, rotated_xmin, rotated_ymax, rotated_xmax], 1)
   return rotated_boxes
 
+def _rotate_point_counterclockwise(x, y, phi, offset_x, offset_y):
+  return ((x - offset_x) * tf.cos(-phi) - (y - offset_y) * tf.sin(-phi)) + offset_x, ((x - offset_x) * tf.sin(-phi) + (y - offset_y) * tf.cos(-phi)) + offset_y
+
+def _calculate_box_corner(x_c, y_c, w, l, phi):
+  return (l * tf.cos(phi) - w * tf.sin(phi)) + x_c, (l * tf.sin(phi) + w * tf.cos(phi)) + y_c
+
+def _point_inside(x, y):
+  return tf.logical_and(tf.logical_and(tf.greater(x, 0), tf.less(x, 1)),
+                        tf.logical_and(tf.greater(y, 0), tf.less(y, 1)))
+
+def _mask_point(x, y, mask):
+  return tf.expand_dims(tf.boolean_mask(x, mask), 1), tf.expand_dims(tf.boolean_mask(y, mask), 1)
+
+def _rot_boxes(box_inclined, angle_rot, rows, cols):
+
+  def _box_inside(xmin, ymin, xmax, ymax):
+    return tf.logical_and(_point_inside(xmin, ymin), _point_inside(xmax, ymax))
+
+  x, y, w, h, sin_angle, cos_angle = tf.split(value=box_inclined, num_or_size_splits=6, axis=1)
+
+  x *= cols
+  y *= rows
+
+  angle = tf.atan2(sin_angle, cos_angle) / 2
+  vec_s_x = tf.cos(angle)
+  vec_s_y = tf.sin(angle)
+  angle = angle - angle_rot
+
+  x, y = _rotate_point_counterclockwise(x, y, angle_rot, cols/2, rows/2)
+
+  w /= tf.sqrt(vec_s_x * vec_s_x / (rows * rows) + vec_s_y * vec_s_y / (cols * cols))
+  h /= tf.sqrt(vec_s_x * vec_s_x / (cols * cols) + vec_s_y * vec_s_y / (rows * rows))
+
+  x1, y1 = _calculate_box_corner(x, y, w / 2, h / 2, angle)
+  x2, y2 = _calculate_box_corner(x, y, - w / 2, h / 2, angle)
+  x3, y3 = _calculate_box_corner(x, y, - w / 2, - h / 2, angle)
+  x4, y4 = _calculate_box_corner(x, y, w / 2, - h / 2, angle)
+
+  x /= cols
+  y /= rows
+  x1 /= cols
+  y1 /= rows
+  x2 /= cols
+  y2 /= rows
+  x3 /= cols
+  y3 /= rows
+  x4 /= cols
+  y4 /= rows
+
+  vec_s_x = tf.cos(angle)
+  vec_s_y = tf.sin(angle)
+  w *= tf.sqrt(vec_s_x * vec_s_x / (rows * rows) + vec_s_y * vec_s_y / (cols * cols))
+  h *= tf.sqrt(vec_s_x * vec_s_x / (cols * cols) + vec_s_y * vec_s_y / (rows * rows))
+
+  sin_angle = tf.sin(2 * angle)
+  cos_angle = tf.cos(2 * angle)
+  box_inclined = tf.concat([x, y, w, h, sin_angle, cos_angle], 1)
+
+  xmin = tf.minimum(x1, tf.minimum(tf.minimum(x4, x3), x2))
+  xmax = tf.maximum(x1, tf.maximum(tf.maximum(x4, x3), x2))
+  ymin = tf.minimum(y1, tf.minimum(tf.minimum(y4, y3), y2))
+  ymax = tf.maximum(y1, tf.maximum(tf.maximum(y4, y3), y2))
+
+  mask = _box_inside(xmin, ymin, xmax, ymax)
+
+  box_aligned = tf.concat([ymin, xmin, ymax, xmax], 1)
+
+  return box_aligned, box_inclined, mask
 
 def _flip_masks_left_right(masks):
   """Left-right flip masks.
@@ -448,6 +524,7 @@ def _rot90_masks(masks):
 
 
 def random_horizontal_flip(image,
+                           occupancy_mask,
                            boxes=None,
                            masks=None,
                            keypoints=None,
@@ -520,11 +597,21 @@ def random_horizontal_flip(image,
     image = tf.cond(do_a_flip_random, lambda: _flip_image(image), lambda: image)
     result.append(image)
 
+    # flip occupancy mask
+    occupancy_mask = tf.cond(do_a_flip_random, lambda: _flip_image(occupancy_mask), lambda: occupancy_mask)
+    result.append(occupancy_mask)
+
     # flip boxes
     if boxes is not None:
       boxes = tf.cond(do_a_flip_random, lambda: _flip_boxes_left_right(boxes),
                       lambda: boxes)
       result.append(boxes)
+
+    # flip boxes 3d
+    if boxes_3d is not None:
+        boxes_3d = tf.cond(do_a_flip_random, lambda: _flip_boxes_3d_left_right(boxes_3d),
+                           lambda: boxes_3d)
+        result.append(boxes_3d)
 
     # flip masks
     if masks is not None:
@@ -729,6 +816,50 @@ def random_rotation90(image,
 
     return tuple(result)
 
+def random_rotation(image,
+                    occupancy_mask,
+                    boxes_aligned=None,
+                    boxes_inclined=None,
+                    masks=None,
+                    keypoints=None,
+                    seed=None):
+
+  def _rot_image(image):
+    rows = tf.shape(image)[0]
+    cols = tf.shape(image)[1]
+    image_rotated = tf.contrib.image.rotate(image, angle, interpolation='BILINEAR')
+    #image_rotated_crop.set_shape([None, None, 3])
+    return image_rotated
+
+  with tf.name_scope('RandomRotation', values=[image, boxes_aligned]):
+    result = []
+
+    angle = tf.random_uniform([], minval=-1.5708, maxval=1.5708, seed=seed)
+    # flip boxes
+    if boxes_aligned is not None:
+      rows = tf.cast(tf.shape(image)[0], tf.float32)
+      cols = tf.cast(tf.shape(image)[1], tf.float32)
+      boxes_aligned_rot, boxes_inclined_rot, mask = _rot_boxes(boxes_inclined, angle, rows, cols)
+      all_boxes_in_image = tf.reduce_all(mask)
+      image = tf.cond(all_boxes_in_image, lambda: _rot_image(image), lambda: image)
+      result.append(image)
+      occupancy_mask = tf.cond(all_boxes_in_image, lambda: _rot_image(occupancy_mask), lambda: occupancy_mask)
+      result.append(occupancy_mask)
+      boxes_aligned = tf.cond(all_boxes_in_image, lambda: boxes_aligned_rot, lambda: boxes_aligned)
+      result.append(boxes_aligned)
+      boxes_inclined = tf.cond(all_boxes_in_image, lambda: boxes_inclined_rot, lambda: boxes_inclined)
+      result.append(boxes_inclined)
+
+    # flip masks
+    if masks is not None:
+      result.append(masks)
+
+    # flip keypoints
+    if keypoints is not None:
+      result.append(keypoints)
+
+    return tuple(result)
+
 
 def random_pixel_value_scale(image,
                              minval=0.9,
@@ -772,6 +903,7 @@ def random_pixel_value_scale(image,
 
 
 def random_image_scale(image,
+                       occupancy_mask,
                        masks=None,
                        min_scale_ratio=0.5,
                        max_scale_ratio=2.0,
@@ -819,6 +951,9 @@ def random_image_scale(image,
     image = tf.image.resize_images(
         image, [image_newysize, image_newxsize], align_corners=True)
     result.append(image)
+    occupancy_mask = tf.image.resize_images(
+        occupancy_mask, [image_newysize, image_newxsize], align_corners=True)
+    result.append(occupancy_mask)
     if masks is not None:
       masks = tf.image.resize_images(
           masks, [image_newysize, image_newxsize],
@@ -3329,7 +3464,9 @@ def get_default_func_arg_map(include_label_weights=True,
       normalize_image: (fields.InputDataFields.image,),
       random_horizontal_flip: (
           fields.InputDataFields.image,
+          fields.InputDataFields.occupancy_mask,
           fields.InputDataFields.groundtruth_boxes,
+          fields.InputDataFields.groundtruth_boxes_3d,
           groundtruth_instance_masks,
           groundtruth_keypoints,
       ),
@@ -3345,9 +3482,18 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_instance_masks,
           groundtruth_keypoints,
       ),
+      random_rotation: (
+          fields.InputDataFields.image,
+          fields.InputDataFields.occupancy_mask,
+          fields.InputDataFields.groundtruth_boxes,
+          fields.InputDataFields.groundtruth_boxes_3d,
+          groundtruth_instance_masks,
+          groundtruth_keypoints,
+      ),
       random_pixel_value_scale: (fields.InputDataFields.image,),
       random_image_scale: (
           fields.InputDataFields.image,
+          fields.InputDataFields.occupancy_mask,
           groundtruth_instance_masks,
       ),
       random_rgb_to_gray: (fields.InputDataFields.image,),
@@ -3523,6 +3669,12 @@ def preprocess(tensor_dict,
       raise ValueError('images in tensor_dict should be rank 4')
     image = tf.squeeze(images, axis=0)
     tensor_dict[fields.InputDataFields.image] = image
+  if fields.InputDataFields.occupancy_mask in tensor_dict:
+    occ_mask = tensor_dict[fields.InputDataFields.occupancy_mask]
+    if len(occ_mask.get_shape()) != 4:
+      raise ValueError('images in tensor_dict should be rank 4')
+    occ_mask = tf.squeeze(occ_mask, axis=0)
+    tensor_dict[fields.InputDataFields.occupancy_mask] = occ_mask
 
   # Preprocess inputs based on preprocess_options
   for option in preprocess_options:
@@ -3558,5 +3710,9 @@ def preprocess(tensor_dict,
     image = tensor_dict[fields.InputDataFields.image]
     images = tf.expand_dims(image, 0)
     tensor_dict[fields.InputDataFields.image] = images
+  if fields.InputDataFields.occupancy_mask in tensor_dict:
+    occ_mask = tensor_dict[fields.InputDataFields.occupancy_mask]
+    occ_mask = tf.expand_dims(occ_mask, 0)
+    tensor_dict[fields.InputDataFields.occupancy_mask] = occ_mask
 
   return tensor_dict

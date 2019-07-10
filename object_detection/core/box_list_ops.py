@@ -99,6 +99,71 @@ def scale(boxlist, y_scale, x_scale, scope=None):
         tf.concat([y_min, x_min, y_max, x_max], 1))
     return _copy_extra_fields(scaled_boxlist, boxlist)
 
+def scale_3d(boxlist, y_scale, x_scale, scope=None):
+    """scale box coordinates in x and y dimensions.
+
+    Args:
+      boxlist: BoxList holding N boxes
+      y_scale: (float) scalar tensor
+      x_scale: (float) scalar tensor
+      scope: name scope.
+
+    Returns:
+      boxlist: BoxList holding N boxes
+    """
+    # TODO: if in image plane scaling must be same as in tf record creation
+    # INFO: No Scaling done, parameter in to_absolute_coordinates set to false -> no check if scaled
+    # INFO: called by to_absolute_coordinates()
+
+    with tf.name_scope(scope, 'Scale'):
+        y_scale = tf.cast(y_scale, tf.float32)
+        x_scale = tf.cast(x_scale, tf.float32)
+        x_c, y_c, w, h, sin_angle, cos_angle = tf.split(
+            value=boxlist.get(), num_or_size_splits=6, axis=1)
+        x_c_s = x_c * x_scale
+        y_c_s = y_c * y_scale
+
+        angle = tf.atan2(sin_angle, cos_angle) / 2
+
+        vec_s_x = tf.cos(angle)
+        vec_s_y = tf.sin(angle)
+        h_s = h / tf.sqrt((vec_s_x / x_scale) * (vec_s_x / x_scale) + (vec_s_y / y_scale) * (vec_s_y / y_scale))
+        w_s = w / tf.sqrt((vec_s_x / y_scale) * (vec_s_x / y_scale) + (vec_s_y / x_scale) * (vec_s_y / x_scale))
+        scaled_boxlist = box_list.Box3dList(
+            tf.concat([x_c_s, y_c_s, w_s, h_s, sin_angle, cos_angle], 1))
+        return _copy_extra_fields(scaled_boxlist, boxlist)
+
+def scale_box(boxlist, y_scale, x_scale, scope=None):
+  """scale box coordinates in x and y dimensions.
+
+  Args:
+    boxlist: BoxList holding N boxes
+    y_scale: (float) scalar tensor
+    x_scale: (float) scalar tensor
+    scope: name scope.
+
+  Returns:
+    boxlist: BoxList holding N boxes
+  """
+  with tf.name_scope(scope, 'Scale_Box'):
+    y_scale = tf.cast(y_scale, tf.float32)
+    x_scale = tf.cast(x_scale, tf.float32)
+    y_min, x_min, y_max, x_max = tf.split(value=boxlist.get(), num_or_size_splits=4, axis=1)
+    h = y_max - y_min
+    w = x_max - x_min
+    yc = y_min + h / 2
+    xc = x_min + w / 2
+
+    h = h * y_scale
+    w = w * x_scale
+
+    y_min = yc - h / 2
+    y_max = yc + h / 2
+    x_min = xc - w / 2
+    x_max = xc + w / 2
+    scaled_boxlist = box_list.BoxList(
+        tf.concat([y_min, x_min, y_max, x_max], 1))
+    return _copy_extra_fields(scaled_boxlist, boxlist)
 
 def clip_to_window(boxlist, window, filter_nonoverlapping=True, scope=None):
   """Clip bounding boxes to a window.
@@ -130,6 +195,15 @@ def clip_to_window(boxlist, window, filter_nonoverlapping=True, scope=None):
         tf.concat([y_min_clipped, x_min_clipped, y_max_clipped, x_max_clipped],
                   1))
     clipped = _copy_extra_fields(clipped, boxlist)
+    if clipped.has_field('boxes_3d'):
+      x_c, y_c, w, h, sin_angle, cos_angle = tf.split(
+        value=boxlist.get_field('boxes_3d'), num_or_size_splits=6, axis=1)
+      y_c_clipped = tf.maximum(tf.minimum(y_c, win_y_max), win_y_min)
+      x_c_clipped = tf.maximum(tf.minimum(x_c, win_x_max), win_x_min)
+      clipped_3d = box_list.Box3dList(
+        tf.concat([x_c_clipped, y_c_clipped, w, h, sin_angle, cos_angle],
+                  1))
+      clipped.set_field('boxes_3d', clipped_3d.get())
     if filter_nonoverlapping:
       areas = area(clipped)
       nonzero_area_indices = tf.cast(
@@ -201,6 +275,44 @@ def prune_completely_outside_window(boxlist, window, scope=None):
         tf.where(tf.logical_not(tf.reduce_any(coordinate_violations, 1))), [-1])
     return gather(boxlist, valid_indices), valid_indices
 
+def two_thresh_check(boxlist1, boxlist2, pos_scale, neg_scale, scope=None):
+
+  with tf.name_scope(scope, '2ThreshCheck'):
+    pos_windows = scale_box(boxlist1, pos_scale, pos_scale)
+    neg_windows = scale_box(boxlist1, neg_scale, neg_scale)
+    center = boxlist2.get_center_coordinates()
+    ya, xa = tf.unstack(center, axis=1)
+
+    pos_y_min, pos_x_min, pos_y_max, pos_x_max = tf.split(value=pos_windows.get(), num_or_size_splits=4, axis=1)
+    y_in_range = tf.logical_and(tf.greater_equal(pos_y_max, ya), tf.less_equal(pos_y_min, ya))
+    x_in_range = tf.logical_and(tf.greater_equal(pos_x_max, xa), tf.less_equal(pos_x_min, xa))
+    in_positive_range = tf.cast(tf.logical_and(x_in_range, y_in_range), dtype=tf.float32)
+
+    neg_y_min, neg_x_min, neg_y_max, neg_x_max = tf.split(value=neg_windows.get(), num_or_size_splits=4, axis=1)
+    y_out_range = tf.logical_or(tf.less(neg_y_max, ya), tf.greater(neg_y_min, ya))
+    x_out_range = tf.logical_or(tf.less(neg_x_max, xa), tf.greater(pos_x_min, xa))
+    in_negative_range = tf.cast(tf.logical_or(x_out_range, y_out_range), dtype=tf.float32)
+
+    return 0.5 * (in_positive_range - in_negative_range + 1.0)
+
+def filtering_using_binary_mask(boxlist, mask, scope=None):
+  """ Filter the Boxlist that have no overlapping with the binary mask.
+
+  Args:
+    boxlist: a BoxList holding M_in boxes.
+    occupancy_mask: a [height, width, 1] image tensor with value 0 or 1.
+
+  Returns:
+    indicator: A [M] boolean tensor.
+  """
+  with tf.name_scope(scope, 'FilteringUsingBniaryMask'):
+    center = boxlist.get_center_coordinates()
+    center = tf.cast(center, dtype=tf.int32)
+    mask = tf.squeeze(mask, axis=2)
+    indicator = tf.gather_nd(mask, center)
+    indicator = tf.not_equal(indicator, 0.0)
+
+    return indicator
 
 def intersection(boxlist1, boxlist2, scope=None):
   """Compute pairwise intersection areas between boxes.
@@ -389,6 +501,11 @@ def change_coordinate_frame(boxlist, window, scope=None):
         boxlist.get() - [window[0], window[1], window[0], window[1]]),
                         1.0 / win_height, 1.0 / win_width)
     boxlist_new = _copy_extra_fields(boxlist_new, boxlist)
+    if boxlist_new.has_field('boxes_3d'):
+        boxlist_new_3d = scale_3d(box_list.Box3dList(
+            boxlist.get_field('boxes_3d') - [window[1], window[0], 0, 0, 0, 0]),
+            1.0 / win_height, 1.0 / win_width)
+        boxlist_new.set_field('boxes_3d', boxlist_new_3d.get())
     return boxlist_new
 
 
@@ -420,6 +537,14 @@ def sq_dist(boxlist1, boxlist2, scope=None):
                           transpose_a=False, transpose_b=True)
     return sqnorm1 + tf.transpose(sqnorm2) - 2.0 * innerprod
 
+def sq_center_dist(boxlist1, boxlist2, scope=None):
+
+  with tf.name_scope(scope, 'CenterSqDist'):
+    sqnorm1 = tf.reduce_sum(tf.square(boxlist1.get_center_coordinates()), 1, keep_dims=True)
+    sqnorm2 = tf.reduce_sum(tf.square(boxlist2.get_center_coordinates()), 1, keep_dims=True)
+    innerprod = tf.matmul(boxlist1.get_center_coordinates(), boxlist2.get_center_coordinates(),
+                          transpose_a=False, transpose_b=True)
+    return sqnorm1 + tf.transpose(sqnorm2) - 2.0 * innerprod
 
 def boolean_mask(boxlist, indicator, fields=None, scope=None,
                  use_static_shapes=False, indicator_sum=None):
@@ -482,6 +607,40 @@ def boolean_mask(boxlist, indicator, fields=None, scope=None,
         subboxlist.add_field(field, subfieldlist)
       return subboxlist
 
+def boolean_mask_3d(boxlist, indicator, fields=None, scope=None,
+                 use_static_shapes=False, indicator_sum=None):
+  with tf.name_scope(scope, 'BooleanMask'):
+    if indicator.shape.ndims != 1:
+      raise ValueError('indicator should have rank 1')
+    if indicator.dtype != tf.bool:
+      raise ValueError('indicator should be a boolean tensor')
+    if use_static_shapes:
+      if not (indicator_sum and isinstance(indicator_sum, int)):
+        raise ValueError('`indicator_sum` must be a of type int')
+      selected_positions = tf.to_float(indicator)
+      indexed_positions = tf.cast(
+          tf.multiply(
+              tf.cumsum(selected_positions), selected_positions),
+          dtype=tf.int32)
+      one_hot_selector = tf.one_hot(
+          indexed_positions - 1, indicator_sum, dtype=tf.float32)
+      sampled_indices = tf.cast(
+          tf.tensordot(
+              tf.to_float(tf.range(tf.shape(indicator)[0])),
+              one_hot_selector,
+              axes=[0, 0]),
+          dtype=tf.int32)
+      return gather_3d(boxlist, sampled_indices, use_static_shapes=True)
+    else:
+      subboxlist = box_list.Box3dList(tf.boolean_mask(boxlist.get(), indicator))
+      if fields is None:
+        fields = boxlist.get_extra_fields()
+      for field in fields:
+        if not boxlist.has_field(field):
+          raise ValueError('boxlist must contain all specified fields')
+        subfieldlist = tf.boolean_mask(boxlist.get_field(field), indicator)
+        subboxlist.add_field(field, subfieldlist)
+      return subboxlist
 
 def gather(boxlist, indices, fields=None, scope=None, use_static_shapes=False):
   """Gather boxes from BoxList according to indices and return new BoxList.
@@ -527,6 +686,25 @@ def gather(boxlist, indices, fields=None, scope=None, use_static_shapes=False):
       subboxlist.add_field(field, subfieldlist)
     return subboxlist
 
+def gather_3d(boxlist, indices, fields=None, scope=None, use_static_shapes=False):
+    with tf.name_scope(scope, 'Gather'):
+        if len(indices.shape.as_list()) != 1:
+            raise ValueError('indices should have rank 1')
+        if indices.dtype != tf.int32 and indices.dtype != tf.int64:
+            raise ValueError('indices should be an int32 / int64 tensor')
+        gather_op = tf.gather
+        if use_static_shapes:
+            gather_op = ops.matmul_gather_on_zeroth_axis
+        subboxlist = box_list.Box3dList(gather_op(boxlist.get(), indices))
+        if fields is None:
+            fields = boxlist.get_extra_fields()
+        fields += ['boxes']
+        for field in fields:
+            if not boxlist.has_field(field):
+                raise ValueError('boxlist must contain all specified fields')
+            subfieldlist = gather_op(boxlist.get_field(field), indices)
+            subboxlist.add_field(field, subfieldlist)
+        return subboxlist
 
 def concatenate(boxlists, fields=None, scope=None):
   """Concatenate list of BoxLists.
@@ -842,6 +1020,46 @@ def to_absolute_coordinates(boxlist,
 
     return scale(boxlist, height, width)
 
+def to_absolute_coordinates_3d(boxlist,
+                               height,
+                               width,
+                               check_range=True,
+                               maximum_normalized_coordinate=360.0,
+                               scope=None):
+    """Converts normalized box coordinates to absolute pixel coordinates.
+
+    This function raises an assertion failed error when the maximum box coordinate
+    value is larger than maximum_normalized_coordinate (in which case coordinates
+    are already absolute).
+
+    Args:
+      boxlist: BoxList with coordinates in range [0, 1].
+      height: Maximum value for height of absolute box coordinates.
+      width: Maximum value for width of absolute box coordinates.
+      check_range: If True, checks if the coordinates are normalized or not.
+      maximum_normalized_coordinate: Maximum coordinate value to be considered
+        as normalized, default to 1.01.
+      scope: name scope.
+
+    Returns:
+      boxlist with absolute coordinates in terms of the image size.
+
+    """
+    with tf.name_scope(scope, 'ToAbsoluteCoordinates'):
+        height = tf.cast(height, tf.float32)
+        width = tf.cast(width, tf.float32)
+
+        # Ensure range of input boxes is correct.
+        if check_range:
+            box_maximum = tf.reduce_max(boxlist.get())
+            max_assert = tf.Assert(
+                tf.greater_equal(maximum_normalized_coordinate, box_maximum),
+                ['maximum box coordinate value is larger '
+                 'than %f: ' % maximum_normalized_coordinate, box_maximum])
+            with tf.control_dependencies([max_assert]):
+                width = tf.identity(width)
+
+        return scale_3d(boxlist, height, width)
 
 def refine_boxes_multi_class(pool_boxes,
                              num_classes,
