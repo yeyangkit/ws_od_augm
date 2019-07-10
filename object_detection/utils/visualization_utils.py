@@ -30,6 +30,7 @@ import PIL.ImageColor as ImageColor
 import PIL.ImageDraw as ImageDraw
 import PIL.ImageFont as ImageFont
 import six
+import math
 import tensorflow as tf
 
 from object_detection.core import standard_fields as fields
@@ -229,6 +230,73 @@ def draw_bounding_box_on_image(image,
         font=font)
     text_bottom -= text_height - 2 * margin
 
+def draw_3d_box_on_image_array(image,
+                               box_3d,
+                               color='red',
+                               thickness=4,
+                               use_normalized_coordinates=True):
+    image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
+    draw_3d_box_on_image(image_pil, box_3d, color,
+                              thickness, use_normalized_coordinates)
+    np.copyto(image, np.array(image_pil))
+
+def _calculate_box_corner(x_c, y_c, w, l, phi):
+  return (l * math.cos(phi) - w * math.sin(phi)) + x_c, (l * math.sin(phi) + w * math.cos(phi)) + y_c
+
+def draw_3d_box_on_image(image,
+                         box_3d,
+                         color='red',
+                         thickness=4,
+                         use_normalized_coordinates=True):
+
+    draw = ImageDraw.Draw(image)
+    #im_width, im_height = image.size
+    cols, rows = image.size
+    x_c, y_c, w, h, sin_angle, cos_angle = box_3d
+
+    angle = math.atan2(sin_angle, cos_angle) / 2
+
+    if angle > 1.571:
+        angle = 1.571
+    elif angle < -1.571:
+        angle = -1.571
+
+    #vec_h_x = h * math.cos(angle) / 2.0
+    #vec_h_y = h * math.sin(angle) / 2.0
+    #vec_w_x = - w * math.sin(angle) / 2.0
+    #vec_w_y = w * math.cos(angle) / 2.0
+    #x1 = x_c - vec_w_x - vec_h_x
+    #x2 = x_c - vec_w_x + vec_h_x
+    #x3 = x_c + vec_w_x + vec_h_x
+    #x4 = x_c + vec_w_x - vec_h_x
+    #y1 = y_c - vec_w_y - vec_h_y
+    #y2 = y_c - vec_w_y + vec_h_y
+    #y3 = y_c + vec_w_y + vec_h_y
+    #y4 = y_c + vec_w_y - vec_h_y
+
+    x_c *= cols
+    y_c *= rows
+
+    vec_s_x = math.cos(angle)
+    vec_s_y = math.sin(angle)
+
+    w /= math.sqrt(vec_s_x * vec_s_x / (rows * rows) + vec_s_y * vec_s_y / (cols * cols))
+    h /= math.sqrt(vec_s_x * vec_s_x / (cols * cols) + vec_s_y * vec_s_y / (rows * rows))
+
+    x1, y1 = _calculate_box_corner(x_c, y_c, w / 2, h / 2, angle)
+    x2, y2 = _calculate_box_corner(x_c, y_c, - w / 2, h / 2, angle)
+    x3, y3 = _calculate_box_corner(x_c, y_c, - w / 2, - h / 2, angle)
+    x4, y4 = _calculate_box_corner(x_c, y_c, w / 2, - h / 2, angle)
+
+
+    #if use_normalized_coordinates:
+    #    (x1, x2, x3, x4, y1, y2, y3, y4) = (x1 * im_width, x2 * im_width,
+    #                                        x3 * im_width, x4 * im_width,
+    #                                        y1 * im_height, y2 * im_height,
+    #                                        y3 * im_height, y4 * im_height)
+
+    draw.line([(x1, y1), (x2, y2), (x3, y3), (x4, y4), (x1, y1)]
+              , width=thickness, fill=color)
 
 def draw_bounding_boxes_on_image_array(image,
                                        boxes,
@@ -687,6 +755,7 @@ def visualize_boxes_and_labels_on_image_array(
     classes,
     scores,
     category_index,
+    boxes_3d=None,
     instance_masks=None,
     instance_boundaries=None,
     keypoints=None,
@@ -751,12 +820,15 @@ def visualize_boxes_and_labels_on_image_array(
   box_to_instance_masks_map = {}
   box_to_instance_boundaries_map = {}
   box_to_keypoints_map = collections.defaultdict(list)
+  box_to_box_3d_map = collections.defaultdict(list)
   box_to_track_ids_map = {}
   if not max_boxes_to_draw:
     max_boxes_to_draw = boxes.shape[0]
   for i in range(min(max_boxes_to_draw, boxes.shape[0])):
     if scores is None or scores[i] > min_score_thresh:
       box = tuple(boxes[i].tolist())
+      if boxes_3d is not None:
+          box_to_box_3d_map[box] = boxes_3d[i]
       if instance_masks is not None:
         box_to_instance_masks_map[box] = instance_masks[i]
       if instance_boundaries is not None:
@@ -801,10 +873,13 @@ def visualize_boxes_and_labels_on_image_array(
   for box, color in box_to_color_map.items():
     ymin, xmin, ymax, xmax = box
     if instance_masks is not None:
-      draw_mask_on_image_array(
+    if boxes_3d is not None:
+      draw_3d_box_on_image_array(
           image,
-          box_to_instance_masks_map[box],
-          color=color
+          box_to_box_3d_map[box],
+          color=color,
+          thickness=line_thickness,
+          use_normalized_coordinates=use_normalized_coordinates
       )
     if instance_boundaries is not None:
       draw_mask_on_image_array(
