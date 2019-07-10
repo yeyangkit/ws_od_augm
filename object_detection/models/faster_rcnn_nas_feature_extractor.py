@@ -119,6 +119,8 @@ class FasterRCNNNASFeatureExtractor(
   def __init__(self,
                is_training,
                first_stage_features_stride,
+               num_input_channels=3,
+               channel_means=None,
                batch_norm_trainable=False,
                reuse_weights=None,
                weight_decay=0.0):

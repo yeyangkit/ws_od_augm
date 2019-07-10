@@ -650,6 +650,7 @@ class KerasFpnTopDownFeatureMaps(tf.keras.Model):
 def fpn_top_down_feature_maps(image_features,
                               depth,
                               use_depthwise=False,
+                              use_deconvolution=False,
                               use_explicit_padding=False,
                               use_bounded_activations=False,
                               scope=None,
@@ -702,8 +703,11 @@ def fpn_top_down_feature_maps(image_features,
             top_down_shape = top_down.shape.as_list()
             top_down = tf.image.resize_nearest_neighbor(
                 top_down, [top_down_shape[1] * 2, top_down_shape[2] * 2])
+        elif use_deconvolution:
+          top_down = slim.conv2d_transpose(top_down, depth, [3, 3], 2,
+                                           scope='deconvolutional_upsampling_%d' % level)
         else:
-          top_down = ops.nearest_neighbor_upsampling(top_down, scale=2)
+          top_down = ops.nearest_neighbor_upsampling(top_down, 2)
         residual = slim.conv2d(
             image_features[level][1], depth, [1, 1],
             activation_fn=None, normalizer_fn=None,
@@ -733,6 +737,126 @@ def fpn_top_down_feature_maps(image_features,
       return collections.OrderedDict(reversed(
           list(zip(output_feature_map_keys, output_feature_maps_list))))
 
+def full_fpn_top_down_feature_maps(image_features,
+                                   deeper_image_features,
+                                   depth,
+                                   use_depthwise=False,
+                                   use_deconvolution=False,
+                                   scope=None):
+  """Generates `top-down` feature maps for Feature Pyramid Networks.
+
+  See https://arxiv.org/abs/1612.03144 for details.
+
+  Args:
+    image_features: list of tuples of (tensor_name, image_feature_tensor).
+      Spatial resolutions of succesive tensors must reduce exactly by a factor
+      of 2.
+    depth: depth of output feature maps.
+    use_depthwise: use depthwise separable conv instead of regular conv.
+    scope: A scope name to wrap this op under.
+
+  Returns:
+    feature_maps: an OrderedDict mapping keys (feature map names) to
+      tensors where each tensor has shape [batch, height_i, width_i, depth_i].
+  """
+  with tf.name_scope(scope, 'top_down'):
+    num_predict_levels = len(image_features)
+    num_levels = len(image_features) + len(deeper_image_features)
+    output_feature_maps_list = []
+    output_feature_map_keys = []
+    with slim.arg_scope(
+        [slim.conv2d, slim.separable_conv2d], padding='SAME', stride=1):
+      top_down = slim.conv2d(
+          deeper_image_features[-1][1],
+          depth, [1, 1], activation_fn=None, normalizer_fn=None,
+          scope='projection_%d' % num_levels)
+
+      for level in reversed(range(num_levels - num_predict_levels - 1)):
+        if use_deconvolution:
+          top_down = slim.conv2d_transpose(top_down, depth, [3, 3], 2,
+                                           scope='deconvolutional_upsampling_%d' % level)
+        else:
+          top_down = ops.nearest_neighbor_upsampling(top_down, 2)
+        residual = slim.conv2d(
+            deeper_image_features[level][1], depth, [1, 1],
+            activation_fn=None, normalizer_fn=None,
+            scope='projection_%d' % (level + num_predict_levels + 1))
+        top_down += residual
+
+      for level in reversed(range(num_predict_levels)):
+        if use_deconvolution:
+          top_down = slim.conv2d_transpose(top_down, depth, [3, 3], 2,
+                                           scope='deconvolutional_upsampling_%d' % (level + num_levels - num_predict_levels - 1))
+        else:
+          top_down = ops.nearest_neighbor_upsampling(top_down, 2)
+        residual = slim.conv2d(
+            image_features[level][1], depth, [1, 1],
+            activation_fn=None, normalizer_fn=None,
+            scope='projection_%d' % (level + 1))
+        top_down += residual
+        if use_depthwise:
+          conv_op = functools.partial(slim.separable_conv2d, depth_multiplier=1)
+        else:
+          conv_op = slim.conv2d
+        output_feature_maps_list.append(conv_op(
+            top_down,
+            depth, [3, 3],
+            scope='smoothing_%d' % (level + 1)))
+        output_feature_map_keys.append('top_down_%s' % image_features[level][0])
+      return collections.OrderedDict(reversed(
+          list(zip(output_feature_map_keys, output_feature_maps_list))))
+
+def multiscale_fusion_feature_maps(image_features,
+                                   depth=256,
+                                   use_depthwise=False,
+                                   scope=None):
+  """Generates `top-down` feature maps for Feature Pyramid Networks.
+
+  See https://arxiv.org/abs/1612.03144 for details.
+
+  Args:
+    image_features: list of tuples of (tensor_name, image_feature_tensor).
+      Spatial resolutions of succesive tensors must reduce exactly by a factor
+      of 2.
+    depth: depth of output feature maps.
+    use_depthwise: use depthwise separable conv instead of regular conv.
+    scope: A scope name to wrap this op under.
+
+  Returns:
+    feature_maps: an OrderedDict mapping keys (feature map names) to
+      tensors where each tensor has shape [batch, height_i, width_i, depth_i].
+  """
+  with tf.name_scope(scope, 'top_down'):
+    num_levels = len(image_features)
+    if num_levels != 4:
+      raise ValueError('For fusion of feature maps, all stages of backbone network must be used.')
+    output_feature_maps_list = []
+    feature_maps_list = []
+    output_feature_map_keys = ['feature_map']
+    with slim.arg_scope(
+        [slim.conv2d, slim.separable_conv2d], padding='SAME', stride=1):
+
+      feature_maps_list.append(slim.max_pool2d(image_features[0][1], [3, 3], stride=2, padding='SAME', scope='maxpool_downsampling'))
+      feature_maps_list.append(image_features[1][1])
+      deconv1 = slim.conv2d_transpose(image_features[2][1], 192, [3, 3], 2, scope='deconvolutional_upsampling_1')
+      feature_maps_list.append(deconv1)
+      deconv2 = slim.conv2d_transpose(image_features[3][1], 256, [3, 3], 2, scope='deconvolutional_upsampling_2_1')
+      deconv2 = slim.conv2d_transpose(deconv2, 256, [3, 3], 2, scope='deconvolutional_upsampling_2_2')
+      feature_maps_list.append(deconv2)
+
+      feature_map = tf.concat(feature_maps_list, axis=3)
+
+      if use_depthwise:
+        conv_op = functools.partial(slim.separable_conv2d, depth_multiplier=1)
+      else:
+        conv_op = slim.conv2d
+      output_feature_maps_list.append(conv_op(
+          feature_map,
+          depth, [3, 3],
+          scope='smoothing'))
+
+      return collections.OrderedDict(reversed(
+          list(zip(output_feature_map_keys, output_feature_maps_list))))    
 
 def pooling_pyramid_feature_maps(base_feature_map_depth, num_layers,
                                  image_features, replace_pool_with_conv=False):

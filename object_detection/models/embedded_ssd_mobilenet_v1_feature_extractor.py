@@ -50,6 +50,8 @@ class EmbeddedSSDMobileNetV1FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                min_depth,
                pad_to_multiple,
                conv_hyperparams_fn,
+               num_input_channels=3,
+               channel_means=None,
                reuse_weights=None,
                use_explicit_padding=False,
                use_depthwise=False,

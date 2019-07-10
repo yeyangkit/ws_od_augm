@@ -37,6 +37,8 @@ class _SSDResnetPpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                conv_hyperparams_fn,
                resnet_base_fn,
                resnet_scope_name,
+               num_input_channels=3,
+               channel_means=None,
                reuse_weights=None,
                use_explicit_padding=False,
                use_depthwise=False,
@@ -77,11 +79,15 @@ class _SSDResnetPpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
         is_training, depth_multiplier, min_depth, pad_to_multiple,
         conv_hyperparams_fn, reuse_weights, use_explicit_padding, use_depthwise,
         override_base_feature_extractor_hyperparams)
+    if channel_means is None:
+        channel_means = [123.68, 116.779, 103.939]
     self._resnet_base_fn = resnet_base_fn
     self._resnet_scope_name = resnet_scope_name
     self._base_feature_map_depth = base_feature_map_depth
     self._num_layers = num_layers
     self._use_bounded_activations = use_bounded_activations
+    self._channel_means = channel_means
+
 
   def _filter_features(self, image_features):
     # TODO(rathodv): Change resnet endpoint to strip scope prefixes instead
@@ -109,11 +115,7 @@ class _SSDResnetPpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
       preprocessed_inputs: a [batch, height, width, channels] float tensor
         representing a batch of images.
     """
-    if resized_inputs.shape.as_list()[3] == 3:
-      channel_means = [123.68, 116.779, 103.939]
-      return resized_inputs - [[channel_means]]
-    else:
-      return resized_inputs
+    return resized_inputs - [[self._channel_means[:]]]
 
   def extract_features(self, preprocessed_inputs):
     """Extract features from preprocessed inputs.
@@ -173,6 +175,8 @@ class SSDResnet50V1PpnFeatureExtractor(_SSDResnetPpnFeatureExtractor):
                min_depth,
                pad_to_multiple,
                conv_hyperparams_fn,
+               num_input_channels=3,
+               channel_means=None,
                reuse_weights=None,
                use_explicit_padding=False,
                use_depthwise=False,
@@ -199,6 +203,7 @@ class SSDResnet50V1PpnFeatureExtractor(_SSDResnetPpnFeatureExtractor):
     super(SSDResnet50V1PpnFeatureExtractor, self).__init__(
         is_training, depth_multiplier, min_depth, pad_to_multiple,
         conv_hyperparams_fn, resnet_v1.resnet_v1_50, 'resnet_v1_50',
+        num_input_channels, channel_means,
         reuse_weights, use_explicit_padding, use_depthwise,
         override_base_feature_extractor_hyperparams=(
             override_base_feature_extractor_hyperparams))
@@ -213,6 +218,8 @@ class SSDResnet101V1PpnFeatureExtractor(_SSDResnetPpnFeatureExtractor):
                min_depth,
                pad_to_multiple,
                conv_hyperparams_fn,
+               num_input_channels=3,
+               channel_means=None,
                reuse_weights=None,
                use_explicit_padding=False,
                use_depthwise=False,
@@ -239,6 +246,7 @@ class SSDResnet101V1PpnFeatureExtractor(_SSDResnetPpnFeatureExtractor):
     super(SSDResnet101V1PpnFeatureExtractor, self).__init__(
         is_training, depth_multiplier, min_depth, pad_to_multiple,
         conv_hyperparams_fn, resnet_v1.resnet_v1_101, 'resnet_v1_101',
+        num_input_channels, channel_means,
         reuse_weights, use_explicit_padding, use_depthwise,
         override_base_feature_extractor_hyperparams=(
             override_base_feature_extractor_hyperparams))
@@ -253,6 +261,8 @@ class SSDResnet152V1PpnFeatureExtractor(_SSDResnetPpnFeatureExtractor):
                min_depth,
                pad_to_multiple,
                conv_hyperparams_fn,
+               num_input_channels=3,
+               channel_means=None,
                reuse_weights=None,
                use_explicit_padding=False,
                use_depthwise=False,
@@ -279,6 +289,7 @@ class SSDResnet152V1PpnFeatureExtractor(_SSDResnetPpnFeatureExtractor):
     super(SSDResnet152V1PpnFeatureExtractor, self).__init__(
         is_training, depth_multiplier, min_depth, pad_to_multiple,
         conv_hyperparams_fn, resnet_v1.resnet_v1_152, 'resnet_v1_152',
+        num_input_channels, channel_means,
         reuse_weights, use_explicit_padding, use_depthwise,
         override_base_feature_extractor_hyperparams=(
             override_base_feature_extractor_hyperparams))
