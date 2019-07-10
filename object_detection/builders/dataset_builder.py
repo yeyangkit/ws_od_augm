@@ -89,7 +89,7 @@ def read_dataset(file_read_func, input_files, config):
   return records_dataset
 
 
-def build(input_reader_config, batch_size=None, transform_input_data_fn=None):
+def build(input_reader_config, input_features=None, input_channels=None, batch_size=None, transform_input_data_fn=None):
   """Builds a tf.data.Dataset.
 
   Builds a tf.data.Dataset by applying the `transform_input_data_fn` on all
@@ -121,7 +121,10 @@ def build(input_reader_config, batch_size=None, transform_input_data_fn=None):
     label_map_proto_file = None
     if input_reader_config.HasField('label_map_path'):
       label_map_proto_file = input_reader_config.label_map_path
-    decoder = tf_example_decoder.TfExampleDecoder(
+    decoder = tf_multi_layer_decoder.TfMultiLayerDecoder(
+        ['x_c', 'y_c', 'w', 'h', 'sin_angle', 'cos_angle'],
+        input_features,
+        input_channels,
         load_instance_masks=input_reader_config.load_instance_masks,
         load_multiclass_scores=input_reader_config.load_multiclass_scores,
         instance_mask_type=input_reader_config.mask_type,

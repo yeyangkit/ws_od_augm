@@ -92,6 +92,12 @@ def build_convolutional_box_predictor(is_training,
       kernel_size=kernel_size,
       use_depthwise=use_depthwise,
       box_encodings_clip_range=box_encodings_clip_range)
+  box_3d_prediction_head = box_head.ConvolutionalBoxHead(
+      is_training=is_training,
+      box_code_size=6,
+      kernel_size=kernel_size,
+      use_depthwise=use_depthwise,
+      scope = 'Box3DEncodingPredictor')
   class_prediction_head = class_head.ConvolutionalClassHead(
       is_training=is_training,
       num_class_slots=num_classes + 1 if add_background_class else num_classes,
@@ -106,8 +112,10 @@ def build_convolutional_box_predictor(is_training,
       is_training=is_training,
       num_classes=num_classes,
       box_prediction_head=box_prediction_head,
+      box_3d_prediction_head=box_3d_prediction_head,
       class_prediction_head=class_prediction_head,
       other_heads=other_heads,
+      kernel_size=kernel_size,
       conv_hyperparams_fn=conv_hyperparams_fn,
       num_layers_before_predictor=num_layers_before_predictor,
       min_depth=min_depth,
@@ -278,11 +286,12 @@ def build_weight_shared_convolutional_box_predictor(
   Returns:
     A WeightSharedConvolutionalBoxPredictor class.
   """
-  box_prediction_head = box_head.WeightSharedConvolutionalBoxHead(
-      box_code_size=box_code_size,
+  box_3d_prediction_head = box_head.WeightSharedConvolutionalBoxHead(
+      box_code_size=6,
       kernel_size=kernel_size,
       use_depthwise=use_depthwise,
-      box_encodings_clip_range=box_encodings_clip_range)
+      box_encodings_clip_range=box_encodings_clip_range,
+      scope='Box3DPredictor')
   class_prediction_head = (
       class_head.WeightSharedConvolutionalClassHead(
           num_class_slots=(
@@ -297,7 +306,7 @@ def build_weight_shared_convolutional_box_predictor(
   return convolutional_box_predictor.WeightSharedConvolutionalBoxPredictor(
       is_training=is_training,
       num_classes=num_classes,
-      box_prediction_head=box_prediction_head,
+      box_prediction_head=box_3d_prediction_head,
       class_prediction_head=class_prediction_head,
       other_heads=other_heads,
       conv_hyperparams_fn=conv_hyperparams_fn,

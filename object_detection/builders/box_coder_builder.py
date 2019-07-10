@@ -42,7 +42,9 @@ def build(box_coder_config):
         box_coder_config.faster_rcnn_box_coder.y_scale,
         box_coder_config.faster_rcnn_box_coder.x_scale,
         box_coder_config.faster_rcnn_box_coder.height_scale,
-        box_coder_config.faster_rcnn_box_coder.width_scale
+        box_coder_config.faster_rcnn_box_coder.width_scale,
+        box_coder_config.faster_rcnn_box_coder.sin_scale,
+        box_coder_config.faster_rcnn_box_coder.cos_scale
     ])
   if box_coder_config.WhichOneof('box_coder_oneof') == 'keypoint_box_coder':
     return keypoint_box_coder.KeypointBoxCoder(

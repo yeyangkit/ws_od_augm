@@ -68,6 +68,12 @@ SSD_FEATURE_EXTRACTOR_CLASS_MAP = {
     'ssd_mobilenet_v1_ppn': SSDMobileNetV1PpnFeatureExtractor,
     'ssd_mobilenet_v2': SSDMobileNetV2FeatureExtractor,
     'ssd_mobilenet_v2_fpn': SSDMobileNetV2FpnFeatureExtractor,
+    'ssd_resnet18_v1_fpn': ssd_resnet_v1_fpn.SSDResnet18V1FpnFeatureExtractor,
+    'ssd_resnet34_v1_fpn': ssd_resnet_v1_fpn.SSDResnet34V1FpnFeatureExtractor,
+    'ssd_resnet50_v1_fpn_lightweight': ssd_resnet_v1_fpn.SSDResnet50V1LightweightFpnFeatureExtractor,
+    'ssd_resnet50_v1_fpn_late_downsample': ssd_resnet_v1_fpn.SSDResnet50V1LateDownsampleFpnFeatureExtractor,
+    'ssd_resnet50_v1_multiscale': ssd_resnet_multiscale.SSDResnet50V1MultiscaleFeatureExtractor,
+    'ssd_resnet50_v1_lightweight_multiscale': ssd_resnet_multiscale.SSDResnet50V1LightweightMultiscaleFeatureExtractor,
     'ssd_resnet50_v1_fpn': ssd_resnet_v1_fpn.SSDResnet50V1FpnFeatureExtractor,
     'ssd_resnet101_v1_fpn': ssd_resnet_v1_fpn.SSDResnet101V1FpnFeatureExtractor,
     'ssd_resnet152_v1_fpn': ssd_resnet_v1_fpn.SSDResnet152V1FpnFeatureExtractor,
@@ -128,16 +134,20 @@ def build(model_config, is_training, add_summaries=True):
   if not isinstance(model_config, model_pb2.DetectionModel):
     raise ValueError('model_config not of type model_pb2.DetectionModel.')
   meta_architecture = model_config.WhichOneof('model')
+  input_features = model_config.input_features
   if meta_architecture == 'ssd':
-    return _build_ssd_model(model_config.ssd, is_training, add_summaries)
+    return _build_ssd_model(model_config.ssd, is_training, add_summaries, sum(model_config.input_channels),
+                            input_features, add_background_class)
   if meta_architecture == 'faster_rcnn':
     return _build_faster_rcnn_model(model_config.faster_rcnn, is_training,
-                                    add_summaries)
+                                    add_summaries, sum(model_config.input_channels))
   raise ValueError('Unknown meta architecture: {}'.format(meta_architecture))
 
 
 def _build_ssd_feature_extractor(feature_extractor_config,
                                  is_training,
+                                 input_features,
+                                 num_input_channels=3,
                                  freeze_batchnorm,
                                  reuse_weights=None):
   """Builds a ssd_meta_arch.SSDFeatureExtractor based on config.
@@ -158,12 +168,20 @@ def _build_ssd_feature_extractor(feature_extractor_config,
     ValueError: On invalid feature extractor type.
   """
   feature_type = feature_extractor_config.type
+  sparsity_type = [feature in ['detections', 'decay_rate', 'intensity', 'zmax', 'zmin'] for feature in input_features]
+  sparse_dense_branch = feature_extractor_config.sparse_dense_branch
   is_keras_extractor = feature_type in SSD_KERAS_FEATURE_EXTRACTOR_CLASS_MAP
   depth_multiplier = feature_extractor_config.depth_multiplier
   min_depth = feature_extractor_config.min_depth
   pad_to_multiple = feature_extractor_config.pad_to_multiple
   use_explicit_padding = feature_extractor_config.use_explicit_padding
   use_depthwise = feature_extractor_config.use_depthwise
+  channel_means = feature_extractor_config.channel_means
+  include_root_block = feature_extractor_config.include_root_block
+  depthwise_convolution = feature_extractor_config.depthwise_convolution
+  max_pool_subsample = feature_extractor_config.max_pool_subsample
+  root_downsampling_rate = feature_extractor_config.root_downsampling_rate
+  store_non_strided_activations = feature_extractor_config.store_non_strided_activations
 
   if is_keras_extractor:
     conv_hyperparams = hyperparams_builder.KerasLayerHyperparams(
@@ -192,12 +210,30 @@ def _build_ssd_feature_extractor(feature_extractor_config,
           min_depth,
       'pad_to_multiple':
           pad_to_multiple,
+      'sparsity_type':
+          sparsity_type,
+      'sparse_dense_branch':
+          sparse_dense_branch,
+      'num_input_channels':
+          num_input_channels,
+      'channel_means':
+          channel_means,
       'use_explicit_padding':
           use_explicit_padding,
       'use_depthwise':
           use_depthwise,
       'override_base_feature_extractor_hyperparams':
-          override_base_feature_extractor_hyperparams
+          override_base_feature_extractor_hyperparams,
+      'include_root_block':
+          include_root_block,
+      'depthwise_convolution':
+          depthwise_convolution,
+      'max_pool_subsample':
+          max_pool_subsample,
+      'root_downsampling_rate':
+          root_downsampling_rate,
+      'store_non_strided_activations':
+          store_non_strided_activations,
   }
 
   if feature_extractor_config.HasField('replace_preprocessor_with_placeholder'):
@@ -226,12 +262,17 @@ def _build_ssd_feature_extractor(feature_extractor_config,
             feature_extractor_config.fpn.max_level,
         'additional_layer_depth':
             feature_extractor_config.fpn.additional_layer_depth,
+        'use_deconvolution':
+            feature_extractor_config.fpn.use_deconvolution,
+        'use_full_feature_extractor':
+            feature_extractor_config.fpn.use_full_feature_extractor,
     })
 
   return feature_extractor_class(**kwargs)
 
 
-def _build_ssd_model(ssd_config, is_training, add_summaries):
+def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
+                     input_features):
   """Builds an SSD detection model based on the model config.
 
   Args:
@@ -252,7 +293,9 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
   feature_extractor = _build_ssd_feature_extractor(
       feature_extractor_config=ssd_config.feature_extractor,
       freeze_batchnorm=ssd_config.freeze_batchnorm,
-      is_training=is_training)
+      is_training=is_training,
+      input_features=input_features,
+      num_input_channels=num_input_channels)
 
   box_coder = box_coder_builder.build(ssd_config.box_coder)
   matcher = matcher_builder.build(ssd_config.matcher)
@@ -261,7 +304,9 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
   encode_background_as_zeros = ssd_config.encode_background_as_zeros
   negative_class_weight = ssd_config.negative_class_weight
   anchor_generator = anchor_generator_builder.build(
-      ssd_config.anchor_generator)
+      ssd_config.anchor_generator, ssd_config.feature_extractor.include_root_block,
+      ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
+      ssd_config.feature_extractor.store_non_strided_activations)
   if feature_extractor.is_keras_model:
     ssd_box_predictor = box_predictor_builder.build_keras(
         hyperparams_fn=hyperparams_builder.KerasLayerHyperparams,
@@ -285,6 +330,9 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
    expected_loss_weights_fn) = losses_builder.build(ssd_config.loss)
   normalize_loss_by_num_matches = ssd_config.normalize_loss_by_num_matches
   normalize_loc_loss_by_codesize = ssd_config.normalize_loc_loss_by_codesize
+  specific_threshold = ssd_config.specific_threshold
+  threshold_offset = ssd_config.threshold_offset
+  increse_small_object_size = ssd_config.increse_small_object_size
 
   equalization_loss_config = ops.EqualizationLossConfig(
       weight=ssd_config.loss.equalization_loss.weight,
@@ -294,7 +342,12 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
       region_similarity_calculator,
       matcher,
       box_coder,
-      negative_class_weight=negative_class_weight)
+      negative_class_weight=negative_class_weight,
+      weight_regression_loss_by_score=weight_regression_loss_by_score,
+      increse_small_object_size=increse_small_object_size,
+      specific_threshold=specific_threshold,
+      threshold_offset=threshold_offset)
+  use_occupancy_mask = ssd_config.use_occupancy_mask
 
   ssd_meta_arch_fn = ssd_meta_arch.SSDMetaArch
   kwargs = {}
@@ -316,6 +369,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
       normalize_loss_by_num_matches=normalize_loss_by_num_matches,
       hard_example_miner=hard_example_miner,
       target_assigner_instance=target_assigner_instance,
+      use_occupancy_mask=use_occupancy_mask,
       add_summaries=add_summaries,
       normalize_loc_loss_by_codesize=normalize_loc_loss_by_codesize,
       freeze_batchnorm=ssd_config.freeze_batchnorm,
@@ -331,7 +385,7 @@ def _build_ssd_model(ssd_config, is_training, add_summaries):
 
 
 def _build_faster_rcnn_feature_extractor(
-    feature_extractor_config, is_training, reuse_weights=None,
+    feature_extractor_config, is_training, num_input_channels=3, reuse_weights=None,
     inplace_batchnorm_update=False):
   """Builds a faster_rcnn_meta_arch.FasterRCNNFeatureExtractor based on config.
 
@@ -358,6 +412,7 @@ def _build_faster_rcnn_feature_extractor(
   first_stage_features_stride = (
       feature_extractor_config.first_stage_features_stride)
   batch_norm_trainable = feature_extractor_config.batch_norm_trainable
+  channel_means = feature_extractor_config.channel_means
 
   if feature_type not in FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP:
     raise ValueError('Unknown Faster R-CNN feature_extractor: {}'.format(
@@ -365,8 +420,8 @@ def _build_faster_rcnn_feature_extractor(
   feature_extractor_class = FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP[
       feature_type]
   return feature_extractor_class(
-      is_training, first_stage_features_stride,
-      batch_norm_trainable, reuse_weights=reuse_weights)
+      is_training, first_stage_features_stride, num_input_channels,
+      channel_means, batch_norm_trainable, reuse_weights=reuse_weights)
 
 
 def _build_faster_rcnn_keras_feature_extractor(
@@ -407,7 +462,7 @@ def _build_faster_rcnn_keras_feature_extractor(
       batch_norm_trainable)
 
 
-def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries):
+def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries, num_input_channels):
   """Builds a Faster R-CNN or R-FCN detection model based on the model config.
 
   Builds R-FCN model if the second_stage_box_predictor in the config is of type
@@ -438,7 +493,7 @@ def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries):
         inplace_batchnorm_update=frcnn_config.inplace_batchnorm_update)
   else:
     feature_extractor = _build_faster_rcnn_feature_extractor(
-        frcnn_config.feature_extractor, is_training,
+        frcnn_config.feature_extractor, is_training, num_input_channels,
         inplace_batchnorm_update=frcnn_config.inplace_batchnorm_update)
 
   number_of_stages = frcnn_config.number_of_stages
@@ -476,7 +531,7 @@ def _build_faster_rcnn_model(frcnn_config, is_training, add_summaries):
     raise ValueError('second_stage_batch_size should be no greater than '
                      'first_stage_max_proposals.')
   first_stage_non_max_suppression_fn = functools.partial(
-      post_processing.batch_multiclass_non_max_suppression,
+      post_processing.batch_multiclass_non_max_suppression_rpn,
       score_thresh=frcnn_config.first_stage_nms_score_threshold,
       iou_thresh=frcnn_config.first_stage_nms_iou_threshold,
       max_size_per_class=frcnn_config.first_stage_max_proposals,

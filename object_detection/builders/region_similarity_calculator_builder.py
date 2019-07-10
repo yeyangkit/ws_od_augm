@@ -49,11 +49,26 @@ def build(region_similarity_calculator_config):
     return region_similarity_calculator.IouSimilarity()
   if similarity_calculator == 'ioa_similarity':
     return region_similarity_calculator.IoaSimilarity()
+  if similarity_calculator == 'ioa_similarity_inversed':
+    return region_similarity_calculator.IoaSimilarityInversed()
+  if similarity_calculator == 'ioa_similarity_combined':
+    return region_similarity_calculator.IoaSimilarityCombined(
+        region_similarity_calculator_config.ioa_similarity_combined.anchor_related_weight
+    )
   if similarity_calculator == 'neg_sq_dist_similarity':
     return region_similarity_calculator.NegSqDistSimilarity()
   if similarity_calculator == 'thresholded_iou_similarity':
     return region_similarity_calculator.ThresholdedIouSimilarity(
         region_similarity_calculator_config.thresholded_iou_similarity
         .iou_threshold)
+  if similarity_calculator == 'ioa_weighted_neg_sq_dist_similarity':
+    return  region_similarity_calculator.IoaWeightedNegSqDistSimilarity()
+  if similarity_calculator == 'ioa_weighted_neg_sq_center_dist_similarity':
+    return  region_similarity_calculator.IoaWeightedNegSqCenterDistSimilarity()
+  if similarity_calculator == 'relative_distance_similarity':
+    return region_similarity_calculator.RelativeDistanceSimilarity(
+        region_similarity_calculator_config.relative_distance_similarity.positive_threshold,
+        region_similarity_calculator_config.relative_distance_similarity.negative_threshold
+    )
 
   raise ValueError('Unknown region similarity calculator.')

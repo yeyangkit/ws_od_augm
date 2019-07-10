@@ -22,7 +22,7 @@ from object_detection.anchor_generators import multiscale_grid_anchor_generator
 from object_detection.protos import anchor_generator_pb2
 
 
-def build(anchor_generator_config):
+def build(anchor_generator_config, include_root_block, root_downsampling_rate, feature_extractor_type, store_non_strided_activations):
   """Builds an anchor generator based on the config.
 
   Args:
@@ -39,6 +39,10 @@ def build(anchor_generator_config):
                     anchor_generator_pb2.AnchorGenerator):
     raise ValueError('anchor_generator_config not of type '
                      'anchor_generator_pb2.AnchorGenerator')
+  late_downsample = False
+  if 'late_downsample' in feature_extractor_type:
+    late_downsample = True
+
   if anchor_generator_config.WhichOneof(
       'anchor_generator_oneof') == 'grid_anchor_generator':
     grid_anchor_generator_config = anchor_generator_config.grid_anchor_generator
@@ -89,7 +93,33 @@ def build(anchor_generator_config):
         cfg.anchor_scale,
         [float(aspect_ratio) for aspect_ratio in cfg.aspect_ratios],
         cfg.scales_per_octave,
-        cfg.normalize_coordinates
+        cfg.normalize_coordinates,
+        include_root_block,
+        root_downsampling_rate,
+        late_downsample,
+        store_non_strided_activations
+    )
+  elif anchor_generator_config.WhichOneof(
+      'anchor_generator_oneof') == 'multiscale_class_related_anchor_generator':
+    cfg = anchor_generator_config.multiscale_class_related_anchor_generator
+    anchor_scales_cfg_list = [x.anchor_scales for x in cfg.info]
+    aspect_ratios_cfg_list = [x.aspect_ratios for x in cfg.info]
+    anchor_scales_list = []
+    aspect_ratios_list = []
+    for anchor_scales in anchor_scales_cfg_list:
+      anchor_scales_list.append([float(anchor_scale) for anchor_scale in anchor_scales])
+    for aspect_ratios in aspect_ratios_cfg_list:
+      aspect_ratios_list.append([float(aspect_ratio) for aspect_ratio in aspect_ratios])
+    return multiscale_class_related_anchor_generator.MultiscaleClassRelatedAnchorGenerator(
+        cfg.min_level,
+        cfg.max_level,
+        anchor_scales_list,
+        aspect_ratios_list,
+        cfg.normalize_coordinates,
+        include_root_block,
+        root_downsampling_rate,
+        late_downsample,
+        store_non_strided_activations
     )
   elif anchor_generator_config.WhichOneof(
       'anchor_generator_oneof') == 'flexible_grid_anchor_generator':
