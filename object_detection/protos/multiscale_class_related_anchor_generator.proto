@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package object_detection.protos;
+
+// Configuration proto for RetinaNet anchor generator described in
+// https://arxiv.org/abs/1708.02002. See
+// anchor_generators/multiscale_grid_anchor_generator.py for details.
+message MultiscaleClassRelatedAnchorGenerator {
+  // minimum level in feature pyramid
+  optional int32 min_level = 1 [default = 3];
+
+  // maximum level in feature pyramid
+  optional int32 max_level = 2 [default = 7];
+
+  message AnchorInformation {
+      // Scale of anchor to feature stride
+      repeated float anchor_scales = 2;
+
+      // Aspect ratios for anchors at each grid point.
+      repeated float aspect_ratios = 3;
+  }
+
+  repeated AnchorInformation info = 3;
+
+  // Whether to produce anchors in normalized coordinates.
+  optional bool normalize_coordinates = 4 [default = true];
+}

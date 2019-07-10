@@ -141,6 +141,14 @@ message Ssd {
 
   // Configs for mask head.
   optional MaskHead mask_head_config = 25;
+
+  optional bool use_occupancy_mask = 26 [default=false];
+
+  optional bool increse_small_object_size = 27 [default=false];
+
+  optional bool specific_threshold = 28 [default=false];
+
+  optional float threshold_offset = 29 [default=0.2];
 }
 
 message SsdFeatureExtractor {
@@ -189,6 +197,21 @@ message SsdFeatureExtractor {
   // placeholder. This should only be used if all the image preprocessing steps
   // happen outside the graph.
   optional bool replace_preprocessor_with_placeholder = 11 [default = false];
+
+  optional bool include_root_block = 12 [default = true];
+
+  // Whether to use depthwise separable convolutions in the modified root block
+  optional bool depthwise_convolution = 13 [default = false];
+
+  optional bool max_pool_subsample = 14 [default = false];
+
+  optional int32 root_downsampling_rate = 15 [default = 2];
+
+  optional bool sparse_dense_branch = 16 [default = false];
+
+  optional bool store_non_strided_activations = 17 [default = true];
+
+  repeated float channel_means = 18;
 }
 
 // Configuration for Feature Pyramid Networks.
@@ -215,5 +238,9 @@ message FeaturePyramidNetworks {
 
   // channel depth for additional coarse feature layers.
   optional int32 additional_layer_depth = 3 [default = 256];
+
+  optional bool use_deconvolution = 4 [default = false];
+
+  optional bool use_full_feature_extractor = 5 [default = false];
 
 }

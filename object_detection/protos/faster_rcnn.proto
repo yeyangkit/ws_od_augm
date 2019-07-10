@@ -183,4 +183,6 @@ message FasterRcnnFeatureExtractor {
   // When training with a relative large batch size (e.g. 8), it could be
   // desirable to enable batch norm update.
   optional bool batch_norm_trainable = 3 [default=false];
+
+  repeated float channel_means = 4;
 }

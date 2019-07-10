@@ -11,4 +11,6 @@ message DetectionModel {
     FasterRcnn faster_rcnn = 1;
     Ssd ssd = 2;
   }
+  repeated string input_features = 3;
+  repeated int32 input_channels = 4;
 }

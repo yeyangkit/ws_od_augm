@@ -10,6 +10,11 @@ message RegionSimilarityCalculator {
     IouSimilarity iou_similarity = 2;
     IoaSimilarity ioa_similarity = 3;
     ThresholdedIouSimilarity thresholded_iou_similarity = 4;
+    IoaSimilarityInversed ioa_similarity_inversed = 5;
+    IoaSimilarityCombined ioa_similarity_combined = 6;
+    IoaWeightedNegSqDistSimilarity ioa_weighted_neg_sq_dist_similarity = 7;
+    IoaWeightedNegSqCenterDistSimilarity ioa_weighted_neg_sq_center_dist_similarity = 8;
+    RelativeDistanceSimilarity relative_distance_similarity = 9;
   }
 }
 
@@ -25,9 +30,27 @@ message IouSimilarity {
 message IoaSimilarity {
 }
 
+message IoaSimilarityInversed{
+}
+
+message IoaWeightedNegSqDistSimilarity{
+}
+
+message IoaWeightedNegSqCenterDistSimilarity{
+}
+
+message IoaSimilarityCombined {
+  optional float anchor_related_weight = 1 [default = 0.5];
+}
+
 // Configuration for thresholded-intersection-over-union similarity calculator.
 message ThresholdedIouSimilarity {
 
   // IOU threshold used for filtering scores.
   optional float iou_threshold = 1 [default = 0.5];
+}
+
+message RelativeDistanceSimilarity {
+  optional float positive_threshold = 1 [default = 0.5];
+  optional float negative_threshold = 2 [default = 1.0];
 }

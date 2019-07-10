@@ -36,6 +36,7 @@ message PreprocessingStep {
     ConvertClassLogitsToSoftmax convert_class_logits_to_softmax = 28;
     RandomAbsolutePadImage random_absolute_pad_image = 29;
     RandomSelfConcatImage random_self_concat_image = 30;
+    RandomRotation random_rotation = 31;
   }
 }
 
@@ -86,6 +87,8 @@ message RandomVerticalFlip {
 // Randomly rotates the image and detections by 90 degrees counter-clockwise
 // 50% of the time.
 message RandomRotation90 {}
+
+message RandomRotation {}
 
 // Randomly scales the values of all pixels in the image by some constant value
 // between [minval, maxval], then clip the value to a range between [0, 1.0].

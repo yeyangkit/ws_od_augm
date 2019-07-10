@@ -14,4 +14,7 @@ message FasterRcnnBoxCoder {
 
   // Scale factor for anchor encoded box width.
   optional float width_scale = 4 [default = 5.0];
+
+  optional float sin_scale = 5 [default = 5.0];
+  optional float cos_scale = 6 [default = 5.0];
 }
