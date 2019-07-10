@@ -21,6 +21,7 @@ from object_detection.utils import ops
 slim = tf.contrib.slim
 
 BOX_ENCODINGS = box_predictor.BOX_ENCODINGS
+BOX_3D_ENCODINGS = box_predictor.BOX_3D_ENCODINGS
 CLASS_PREDICTIONS_WITH_BACKGROUND = (
     box_predictor.CLASS_PREDICTIONS_WITH_BACKGROUND)
 MASK_PREDICTIONS = box_predictor.MASK_PREDICTIONS
@@ -119,19 +120,36 @@ class RfcnBoxPredictor(box_predictor.BoxPredictor):
                                     self._num_spatial_bins[1] *
                                     self.num_classes *
                                     self._box_code_size)
+      location_feature_map_depth_3d = (self._num_spatial_bins[0] *
+                                    self._num_spatial_bins[1] *
+                                    self.num_classes *
+                                    6)
       location_feature_map = slim.conv2d(net, location_feature_map_depth,
                                          [1, 1], activation_fn=None,
                                          scope='refined_locations')
+      location_feature_map_3d = slim.conv2d(net, location_feature_map_depth_3d,
+                                         [1, 1], activation_fn=None,
+                                         scope='refined_locations_3d')
       box_encodings = ops.batch_position_sensitive_crop_regions(
           location_feature_map,
           boxes=proposal_boxes,
           crop_size=self._crop_size,
           num_spatial_bins=self._num_spatial_bins,
           global_pool=True)
+      box_encodings_3d = ops.batch_position_sensitive_crop_regions(
+          location_feature_map_3d,
+          boxes=proposal_boxes,
+          crop_size=self._crop_size,
+          num_spatial_bins=self._num_spatial_bins,
+          global_pool=True)
       box_encodings = tf.squeeze(box_encodings, axis=[2, 3])
+      box_encodings_3d = tf.squeeze(box_encodings_3d, squeeze_dims=[2, 3])
       box_encodings = tf.reshape(box_encodings,
                                  [batch_size * num_boxes, 1, self.num_classes,
                                   self._box_code_size])
+      box_encodings_3d = tf.reshape(box_encodings_3d,
+                                 [batch_size * num_boxes, 1, self.num_classes,
+                                  6])
 
       # Class predictions.
       total_classes = self.num_classes + 1  # Account for background class.
@@ -155,5 +173,6 @@ class RfcnBoxPredictor(box_predictor.BoxPredictor):
           [batch_size * num_boxes, 1, total_classes])
 
     return {BOX_ENCODINGS: [box_encodings],
+            BOX_3D_ENCODINGS: [box_encodings_3d],
             CLASS_PREDICTIONS_WITH_BACKGROUND:
             [class_predictions_with_background]}

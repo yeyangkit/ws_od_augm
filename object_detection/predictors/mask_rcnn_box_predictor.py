@@ -21,6 +21,7 @@ from object_detection.core import box_predictor
 slim = tf.contrib.slim
 
 BOX_ENCODINGS = box_predictor.BOX_ENCODINGS
+BOX_3D_ENCODINGS = box_predictor.BOX_3D_ENCODINGS
 CLASS_PREDICTIONS_WITH_BACKGROUND = (
     box_predictor.CLASS_PREDICTIONS_WITH_BACKGROUND)
 MASK_PREDICTIONS = box_predictor.MASK_PREDICTIONS
@@ -125,7 +126,7 @@ class MaskRCNNBoxPredictor(box_predictor.BoxPredictor):
     predictions_dict = {}
 
     if prediction_stage == 2:
-      predictions_dict[BOX_ENCODINGS] = self._box_prediction_head.predict(
+      predictions_dict[BOX_ENCODINGS], predictions_dict[BOX_3D_ENCODINGS] = self._box_prediction_head.predict(
           features=image_feature,
           num_predictions_per_location=num_predictions_per_location[0])
       predictions_dict[CLASS_PREDICTIONS_WITH_BACKGROUND] = (
