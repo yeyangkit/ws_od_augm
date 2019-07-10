@@ -135,6 +135,8 @@ def transform_input_data(tensor_dict,
       preprocessed_resized_image, axis=0)
   tensor_dict[fields.InputDataFields.true_image_shape] = tf.squeeze(
       true_image_shape, axis=0)
+  tensor_dict[fields.InputDataFields.occupancy_mask], _ = image_resizer_fn(
+    tensor_dict[fields.InputDataFields.occupancy_mask])
   if fields.InputDataFields.groundtruth_instance_masks in tensor_dict:
     masks = tensor_dict[fields.InputDataFields.groundtruth_instance_masks]
     _, resized_masks, _ = image_resizer_fn(image, masks)
@@ -188,7 +190,7 @@ def transform_input_data(tensor_dict,
 
 
 def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
-                                    spatial_image_shape=None):
+                                    spatial_image_shape=None, num_channels=3):
   """Pads input tensors to static shapes.
 
   In case num_additional_channels > 0, we assume that the additional channels
@@ -217,43 +219,18 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
   else:
     height, width = spatial_image_shape  # pylint: disable=unpacking-non-sequence
 
-  num_additional_channels = 0
-  if fields.InputDataFields.image_additional_channels in tensor_dict:
-    num_additional_channels = shape_utils.get_dim_as_int(tensor_dict[
-        fields.InputDataFields.image_additional_channels].shape[2])
-
-  # We assume that if num_additional_channels > 0, then it has already been
-  # concatenated to the base image (but not the ground truth).
-  num_channels = 3
-  if fields.InputDataFields.image in tensor_dict:
-    num_channels = shape_utils.get_dim_as_int(
-        tensor_dict[fields.InputDataFields.image].shape[2])
-
-  if num_additional_channels:
-    if num_additional_channels >= num_channels:
-      raise ValueError(
-          'Image must be already concatenated with additional channels.')
-
-    if (fields.InputDataFields.original_image in tensor_dict and
-        shape_utils.get_dim_as_int(
-            tensor_dict[fields.InputDataFields.original_image].shape[2]) ==
-        num_channels):
-      raise ValueError(
-          'Image must be already concatenated with additional channels.')
-
   padding_shapes = {
       fields.InputDataFields.image: [
           height, width, num_channels
       ],
+      fields.InputDataFields.occupancy_mask: [height, width, 1],
       fields.InputDataFields.original_image_spatial_shape: [2],
-      fields.InputDataFields.image_additional_channels: [
-          height, width, num_additional_channels
-      ],
       fields.InputDataFields.source_id: [],
       fields.InputDataFields.filename: [],
       fields.InputDataFields.key: [],
       fields.InputDataFields.groundtruth_difficult: [max_num_boxes],
       fields.InputDataFields.groundtruth_boxes: [max_num_boxes, 4],
+      fields.InputDataFields.groundtruth_boxes_3d: [max_num_boxes, 6],
       fields.InputDataFields.groundtruth_classes: [max_num_boxes, num_classes],
       fields.InputDataFields.groundtruth_instance_masks: [
           max_num_boxes, height, width
@@ -275,9 +252,7 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
 
   if fields.InputDataFields.original_image in tensor_dict:
     padding_shapes[fields.InputDataFields.original_image] = [
-        height, width,
-        shape_utils.get_dim_as_int(tensor_dict[fields.InputDataFields.
-                                               original_image].shape[2])
+        height, width, num_channels
     ]
   if fields.InputDataFields.groundtruth_keypoints in tensor_dict:
     tensor_shape = (
@@ -323,6 +298,8 @@ def augment_input_data(tensor_dict, data_augmentation_options):
   """
   tensor_dict[fields.InputDataFields.image] = tf.expand_dims(
       tf.cast(tensor_dict[fields.InputDataFields.image], dtype=tf.float32), 0)
+  tensor_dict[fields.InputDataFields.occupancy_mask] = tf.expand_dims(tf.to_float(
+      tensor_dict[fields.InputDataFields.occupancy_mask]), 0)
 
   include_instance_masks = (fields.InputDataFields.groundtruth_instance_masks
                             in tensor_dict)
@@ -344,6 +321,8 @@ def augment_input_data(tensor_dict, data_augmentation_options):
           include_keypoints=include_keypoints))
   tensor_dict[fields.InputDataFields.image] = tf.squeeze(
       tensor_dict[fields.InputDataFields.image], axis=0)
+  tensor_dict[fields.InputDataFields.occupancy_mask] = tf.squeeze(
+      tensor_dict[fields.InputDataFields.occupancy_mask], axis=0)
   return tensor_dict
 
 
@@ -352,6 +331,7 @@ def _get_labels_dict(input_dict):
   required_label_keys = [
       fields.InputDataFields.num_groundtruth_boxes,
       fields.InputDataFields.groundtruth_boxes,
+      fields.InputDataFields.groundtruth_boxes_3d,
       fields.InputDataFields.groundtruth_classes,
       fields.InputDataFields.groundtruth_weights,
   ]
@@ -416,6 +396,8 @@ def _get_features_dict(input_dict):
   features = {
       fields.InputDataFields.image:
           input_dict[fields.InputDataFields.image],
+      fields.InputDataFields.occupancy_mask:
+          input_dict[fields.InputDataFields.occupancy_mask],
       HASH_KEY: tf.cast(hash_from_source_id, tf.int32),
       fields.InputDataFields.true_image_shape:
           input_dict[fields.InputDataFields.true_image_shape],
@@ -540,11 +522,14 @@ def train_input(train_config, train_input_config,
         max_num_boxes=train_input_config.max_number_of_boxes,
         num_classes=config_util.get_number_of_classes(model_config),
         spatial_image_shape=config_util.get_spatial_image_size(
-            image_resizer_config))
+            image_resizer_config),
+        num_channels=sum(model_config.input_channels))
     return (_get_features_dict(tensor_dict), _get_labels_dict(tensor_dict))
 
   dataset = INPUT_BUILDER_UTIL_MAP['dataset_build'](
       train_input_config,
+      input_features=model_config.input_features,
+      input_channels=model_config.input_channels,
       transform_input_data_fn=transform_and_pad_input_data_fn,
       batch_size=params['batch_size'] if params else train_config.batch_size)
   return dataset
@@ -649,10 +634,13 @@ def eval_input(eval_config, eval_input_config, model_config,
         max_num_boxes=eval_input_config.max_number_of_boxes,
         num_classes=config_util.get_number_of_classes(model_config),
         spatial_image_shape=config_util.get_spatial_image_size(
-            image_resizer_config))
+            image_resizer_config),
+        num_channels=sum(model_config.input_channels))
     return (_get_features_dict(tensor_dict), _get_labels_dict(tensor_dict))
   dataset = INPUT_BUILDER_UTIL_MAP['dataset_build'](
       eval_input_config,
+      input_features=model_config.input_features,
+      input_channels=model_config.input_channels,
       batch_size=params['batch_size'] if params else eval_config.batch_size,
       transform_input_data_fn=transform_and_pad_input_data_fn)
   return dataset
@@ -694,18 +682,24 @@ def create_predict_input_fn(model_config, predict_input_config):
         num_classes=num_classes,
         data_augmentation_fn=None)
 
-    decoder = tf_example_decoder.TfExampleDecoder(
+    decoder = tf_multi_layer_decoder.TfMultiLayerDecoder(
+        ['x_c', 'y_c', 'w', 'h', 'sin_angle', 'cos_angle'],
+        input_features=model_config.input_features,
+        input_channels=model_config.input_channels,
         load_instance_masks=False,
         num_additional_channels=predict_input_config.num_additional_channels)
     input_dict = transform_fn(decoder.decode(example))
     images = tf.cast(input_dict[fields.InputDataFields.image], dtype=tf.float32)
     images = tf.expand_dims(images, axis=0)
+    masks = tf.to_float(input_dict[fields.InputDataFields.occupancy_mask])
+    masks = tf.expand_dims(masks, axis=0)
     true_image_shape = tf.expand_dims(
         input_dict[fields.InputDataFields.true_image_shape], axis=0)
 
     return tf.estimator.export.ServingInputReceiver(
         features={
             fields.InputDataFields.image: images,
+            fields.InputDataFields.occupancy_mask: masks,
             fields.InputDataFields.true_image_shape: true_image_shape},
         receiver_tensors={SERVING_FED_EXAMPLE_KEY: example})
 

@@ -872,7 +872,6 @@ def visualize_boxes_and_labels_on_image_array(
   # Draw all boxes onto image.
   for box, color in box_to_color_map.items():
     ymin, xmin, ymax, xmax = box
-    if instance_masks is not None:
     if boxes_3d is not None:
       draw_3d_box_on_image_array(
           image,
@@ -880,6 +879,12 @@ def visualize_boxes_and_labels_on_image_array(
           color=color,
           thickness=line_thickness,
           use_normalized_coordinates=use_normalized_coordinates
+      )
+    if instance_masks is not None:
+      draw_mask_on_image_array(
+          image,
+          box_to_instance_masks_map[box],
+          color=color
       )
     if instance_boundaries is not None:
       draw_mask_on_image_array(

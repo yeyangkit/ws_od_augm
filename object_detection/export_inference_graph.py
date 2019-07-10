@@ -108,6 +108,8 @@ flags = tf.app.flags
 flags.DEFINE_string('input_type', 'image_tensor', 'Type of input node. Can be '
                     'one of [`image_tensor`, `encoded_image_string_tensor`, '
                     '`tf_example`]')
+flags.DEFINE_boolean('use_mask', None, 'If True, use occupancy mask to filter '
+                                      'prediction results.')
 flags.DEFINE_string('input_shape', None,
                     'If input_type is `image_tensor`, this can explicitly set '
                     'the shape of this input tensor to a fixed size. The '
@@ -131,6 +133,7 @@ flags.DEFINE_boolean('write_inference_graph', False,
 tf.app.flags.mark_flag_as_required('pipeline_config_path')
 tf.app.flags.mark_flag_as_required('trained_checkpoint_prefix')
 tf.app.flags.mark_flag_as_required('output_directory')
+tf.app.flags.mark_flag_as_required('use_mask')
 FLAGS = flags.FLAGS
 
 
@@ -147,7 +150,7 @@ def main(_):
   else:
     input_shape = None
   exporter.export_inference_graph(
-      FLAGS.input_type, pipeline_config, FLAGS.trained_checkpoint_prefix,
+      FLAGS.input_type, FLAGS.use_mask, pipeline_config, FLAGS.trained_checkpoint_prefix,
       FLAGS.output_directory, input_shape=input_shape,
       write_inference_graph=FLAGS.write_inference_graph)
 

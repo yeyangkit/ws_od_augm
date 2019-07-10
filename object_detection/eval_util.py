@@ -153,6 +153,7 @@ def visualize_detection_results(result_dict,
   if not set([
       input_fields.original_image,
       detection_fields.detection_boxes,
+      detection_fields.detection_boxes_3d,
       detection_fields.detection_scores,
       detection_fields.detection_classes,
   ]).issubset(set(result_dict.keys())):
@@ -166,7 +167,10 @@ def visualize_detection_results(result_dict,
   image = np.squeeze(result_dict[input_fields.original_image], axis=0)
   if image.shape[2] == 1:  # If one channel image, repeat in RGB.
     image = np.tile(image, [1, 1, 3])
+  elif image.shape[2] > 3:
+      image = image[:, :, :3]
   detection_boxes = result_dict[detection_fields.detection_boxes]
+  detection_boxes_3d = result_dict[detection_fields.detection_boxes_3d]
   detection_scores = result_dict[detection_fields.detection_scores]
   detection_classes = np.int32((result_dict[
       detection_fields.detection_classes]))
@@ -177,6 +181,7 @@ def visualize_detection_results(result_dict,
   # Plot groundtruth underneath detections
   if show_groundtruth:
     groundtruth_boxes = result_dict[input_fields.groundtruth_boxes]
+    groundtruth_boxes_3d = result_dict[input_fields.groundtruth_boxes_3d]
     groundtruth_keypoints = result_dict.get(input_fields.groundtruth_keypoints)
     vis_utils.visualize_boxes_and_labels_on_image_array(
         image=image,
@@ -184,6 +189,7 @@ def visualize_detection_results(result_dict,
         classes=None,
         scores=None,
         category_index=category_index,
+        boxes_3d=groundtruth_boxes_3d,
         keypoints=groundtruth_keypoints,
         use_normalized_coordinates=False,
         max_boxes_to_draw=None,
@@ -194,6 +200,7 @@ def visualize_detection_results(result_dict,
       detection_classes,
       detection_scores,
       category_index,
+      boxes_3d=groundtruth_boxes_3d,
       instance_masks=detection_masks,
       instance_boundaries=detection_boundaries,
       keypoints=detection_keypoints,
@@ -780,6 +787,7 @@ def result_dict_for_batched_example(images,
 
   detection_fields = fields.DetectionResultFields
   detection_boxes = detections[detection_fields.detection_boxes]
+  detection_boxes_3d = detections[detection_fields.detection_boxes_3d]
   detection_scores = detections[detection_fields.detection_scores]
   num_detections = tf.cast(detections[detection_fields.num_detections],
                            dtype=tf.int32)
@@ -797,8 +805,14 @@ def result_dict_for_batched_example(images,
             _scale_box_to_absolute,
             elems=[detection_boxes, original_image_spatial_shapes],
             dtype=tf.float32))
+    output_dict[detection_fields.detection_boxes_3d] = (
+        shape_utils.static_or_dynamic_map_fn(
+            _scale_box_to_absolute,
+            elems=[detection_boxes_3d, original_image_spatial_shapes],
+            dtype=tf.float32))
   else:
     output_dict[detection_fields.detection_boxes] = detection_boxes
+    output_dict[detection_fields.detection_boxes_3d] = detection_boxes_3d
   output_dict[detection_fields.detection_classes] = detection_classes
   output_dict[detection_fields.detection_scores] = detection_scores
   output_dict[detection_fields.num_detections] = num_detections
@@ -843,10 +857,16 @@ def result_dict_for_batched_example(images,
     output_dict.update(groundtruth)
     if scale_to_absolute:
       groundtruth_boxes = groundtruth[input_data_fields.groundtruth_boxes]
+      groundtruth_boxes_3d = groundtruth[input_data_fields.groundtruth_boxes_3d]
       output_dict[input_data_fields.groundtruth_boxes] = (
           shape_utils.static_or_dynamic_map_fn(
               _scale_box_to_absolute,
               elems=[groundtruth_boxes, original_image_spatial_shapes],
+              dtype=tf.float32))
+      output_dict[input_data_fields.groundtruth_boxes_3d] = (
+          shape_utils.static_or_dynamic_map_fn(
+              _scale_box_to_absolute,
+              elems=[groundtruth_boxes_3d, original_image_spatial_shapes],
               dtype=tf.float32))
 
     # For class-agnostic models, groundtruth classes all become 1.

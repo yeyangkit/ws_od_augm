@@ -84,6 +84,8 @@ def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
   input_data_fields = fields.InputDataFields()
   groundtruth_boxes = tf.stack(
       detection_model.groundtruth_lists(fields.BoxListFields.boxes))
+  groundtruth_boxes_3d = detection_model.groundtruth_lists(
+      fields.BoxListFields.boxes_3d)[0]
   groundtruth_boxes_shape = tf.shape(groundtruth_boxes)
   # For class-agnostic models, groundtruth one-hot encodings collapse to all
   # ones.
@@ -98,6 +100,7 @@ def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
       tf.argmax(groundtruth_classes_one_hot, axis=2) + label_id_offset)
   groundtruth = {
       input_data_fields.groundtruth_boxes: groundtruth_boxes,
+      input_data_fields.groundtruth_boxes_3d: groundtruth_boxes_3d,
       input_data_fields.groundtruth_classes: groundtruth_classes
   }
   if detection_model.groundtruth_has_field(fields.BoxListFields.masks):
@@ -161,6 +164,7 @@ def unstack_batch(tensor_dict, unpad_groundtruth_tensors=True):
         fields.InputDataFields.groundtruth_instance_masks,
         fields.InputDataFields.groundtruth_classes,
         fields.InputDataFields.groundtruth_boxes,
+        fields.InputDataFields.groundtruth_boxes_3d,
         fields.InputDataFields.groundtruth_keypoints,
         fields.InputDataFields.groundtruth_group_of,
         fields.InputDataFields.groundtruth_difficult,
@@ -199,6 +203,7 @@ def _provide_groundtruth(model, labels):
     labels: The labels for the training or evaluation inputs.
   """
   gt_boxes_list = labels[fields.InputDataFields.groundtruth_boxes]
+  gt_boxes_3d_list = labels[fields.InputDataFields.groundtruth_boxes_3d]
   gt_classes_list = labels[fields.InputDataFields.groundtruth_classes]
   gt_masks_list = None
   if fields.InputDataFields.groundtruth_instance_masks in labels:
@@ -219,6 +224,7 @@ def _provide_groundtruth(model, labels):
     gt_is_crowd_list = labels[fields.InputDataFields.groundtruth_is_crowd]
   model.provide_groundtruth(
       groundtruth_boxes_list=gt_boxes_list,
+      groundtruth_boxes_3d_list=gt_boxes_3d_list,
       groundtruth_classes_list=gt_classes_list,
       groundtruth_confidences_list=gt_confidences_list,
       groundtruth_masks_list=gt_masks_list,
@@ -290,6 +296,9 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
       _provide_groundtruth(detection_model, labels)
 
     preprocessed_images = features[fields.InputDataFields.image]
+    occupancy_masks = features[fields.InputDataFields.occupancy_mask]
+    tf.summary.image('Mask', occupancy_masks, 3, family='Prediction')
+
     if use_tpu and train_config.use_bfloat16:
       with tf.contrib.tpu.bfloat16_scope():
         prediction_dict = detection_model.predict(
@@ -299,6 +308,7 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
     else:
       prediction_dict = detection_model.predict(
           preprocessed_images,
+          occupancy_masks,
           features[fields.InputDataFields.true_image_shape])
 
     def postprocess_wrapper(args):

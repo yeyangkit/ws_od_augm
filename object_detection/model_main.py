@@ -25,6 +25,8 @@ import tensorflow as tf
 from object_detection import model_hparams
 from object_detection import model_lib
 
+tf.logging.set_verbosity(tf.logging.INFO)
+
 flags.DEFINE_string(
     'model_dir', None, 'Path to output model directory '
     'where event and checkpoint files will be written.')
@@ -53,13 +55,15 @@ flags.DEFINE_boolean(
     'run_once', False, 'If running in eval-only mode, whether to run just '
     'one round of eval vs running continuously (default).'
 )
+flags.DEFINE_integer('save_checkpoints_steps', 3000, 'Evaluation after saving checkpoint.')
+flags.DEFINE_integer('tf_random_seed', 1, 'Random seed for weight initialization.')
 FLAGS = flags.FLAGS
 
 
 def main(unused_argv):
   flags.mark_flag_as_required('model_dir')
   flags.mark_flag_as_required('pipeline_config_path')
-  config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir)
+  config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir, tf_random_seed=FLAGS.tf_random_seed, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
 
   train_and_eval_dict = model_lib.create_estimator_and_inputs(
       run_config=config,
