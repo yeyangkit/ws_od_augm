@@ -731,7 +731,7 @@ class SSDMetaArch(model.DetectionModel):
     with tf.name_scope('Postprocessor'):
       preprocessed_images = prediction_dict['preprocessed_inputs']
       box_3d_encodings = prediction_dict['box_3d_encodings']
-      box_3d_encodings = tf.identity(box_encodings, 'raw_box_3d_encodings')
+      box_3d_encodings = tf.identity(box_3d_encodings, 'raw_box_3d_encodings')
       class_predictions_with_background = (
           prediction_dict['class_predictions_with_background'])
       detection_boxes_3d = self._batch_decode_3d(box_3d_encodings)
@@ -765,10 +765,10 @@ class SSDMetaArch(model.DetectionModel):
       additional_fields = {
           'multiclass_scores': detection_scores_with_background
       }
-      if detection_keypoints is not None:
-        detection_keypoints = tf.identity(
-            detection_keypoints, 'raw_keypoint_locations')
-        additional_fields[fields.BoxListFields.keypoints] = detection_keypoints
+      # if detection_keypoints is not None:
+      #   detection_keypoints = tf.identity(
+      #       detection_keypoints, 'raw_keypoint_locations')
+      #   additional_fields[fields.BoxListFields.keypoints] = detection_keypoints
       (nmsed_boxes, nmsed_boxes_3d, nmsed_scores, nmsed_classes, nmsed_masks,
        nmsed_additional_fields, num_detections) = self._non_max_suppression_fn(
            detection_boxes,

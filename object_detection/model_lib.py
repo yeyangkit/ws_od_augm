@@ -84,8 +84,8 @@ def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
   input_data_fields = fields.InputDataFields()
   groundtruth_boxes = tf.stack(
       detection_model.groundtruth_lists(fields.BoxListFields.boxes))
-  groundtruth_boxes_3d = detection_model.groundtruth_lists(
-      fields.BoxListFields.boxes_3d)[0]
+  groundtruth_boxes_3d = tf.stack(detection_model.groundtruth_lists(
+      fields.BoxListFields.boxes_3d))
   groundtruth_boxes_shape = tf.shape(groundtruth_boxes)
   # For class-agnostic models, groundtruth one-hot encodings collapse to all
   # ones.

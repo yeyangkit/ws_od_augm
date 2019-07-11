@@ -542,6 +542,10 @@ def _scale_box_to_absolute(args):
   return box_list_ops.to_absolute_coordinates(
       box_list.BoxList(boxes), image_shape[0], image_shape[1]).get()
 
+def _scale_3d_box_to_absolute(args):
+  boxes, image_shape = args
+  return box_list_ops.to_absolute_coordinates_3d(
+      box_list.Box3dList(boxes), image_shape[0], image_shape[1]).get()
 
 def _resize_detection_masks(args):
   detection_boxes, detection_masks, image_shape = args
@@ -807,7 +811,7 @@ def result_dict_for_batched_example(images,
             dtype=tf.float32))
     output_dict[detection_fields.detection_boxes_3d] = (
         shape_utils.static_or_dynamic_map_fn(
-            _scale_box_to_absolute,
+            _scale_3d_box_to_absolute,
             elems=[detection_boxes_3d, original_image_spatial_shapes],
             dtype=tf.float32))
   else:
@@ -865,7 +869,7 @@ def result_dict_for_batched_example(images,
               dtype=tf.float32))
       output_dict[input_data_fields.groundtruth_boxes_3d] = (
           shape_utils.static_or_dynamic_map_fn(
-              _scale_box_to_absolute,
+              _scale_3d_box_to_absolute,
               elems=[groundtruth_boxes_3d, original_image_spatial_shapes],
               dtype=tf.float32))
 

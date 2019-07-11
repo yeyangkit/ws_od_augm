@@ -459,6 +459,7 @@ def class_agnostic_non_max_suppression(boxes,
 
 
 def batch_multiclass_non_max_suppression(boxes,
+                                         boxes_3d,
                                          scores,
                                          score_thresh,
                                          iou_thresh,

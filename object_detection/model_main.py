@@ -63,7 +63,12 @@ FLAGS = flags.FLAGS
 def main(unused_argv):
   flags.mark_flag_as_required('model_dir')
   flags.mark_flag_as_required('pipeline_config_path')
-  config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir, tf_random_seed=FLAGS.tf_random_seed, save_checkpoints_steps=FLAGS.save_checkpoints_steps)
+  sess_config = tf.ConfigProto()
+  sess_config.gpu_options.allow_growth = True
+  config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir,
+                                  session_config=sess_config,
+                                  tf_random_seed=FLAGS.tf_random_seed,
+                                  save_checkpoints_steps=FLAGS.save_checkpoints_steps)
 
   train_and_eval_dict = model_lib.create_estimator_and_inputs(
       run_config=config,
