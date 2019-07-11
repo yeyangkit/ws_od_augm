@@ -404,19 +404,19 @@ class WeightSharedConvolutionalBoxPredictor(box_predictor.BoxPredictor):
               features=box_tower_feature,
               num_predictions_per_location=num_predictions_per_location)
           predictions[BOX_3D_ENCODINGS].append(box_3d_encodings)
-            sorted_keys = sorted(self._other_heads.keys())
-            sorted_keys.append(CLASS_PREDICTIONS_WITH_BACKGROUND)
-            for head_name in sorted_keys:
-              if head_name == CLASS_PREDICTIONS_WITH_BACKGROUND:
-                head_obj = self._class_prediction_head
-              else:
-                head_obj = self._other_heads[head_name]
-              prediction = self._predict_head(
-                  head_name=head_name,
-                  head_obj=head_obj,
-                  image_feature=image_feature,
-                  box_tower_feature=box_tower_feature,
-                  feature_index=feature_index,
-                  num_predictions_per_location=num_predictions_per_location)
-              predictions[head_name].append(prediction)
+          sorted_keys = sorted(self._other_heads.keys())
+          sorted_keys.append(CLASS_PREDICTIONS_WITH_BACKGROUND)
+          for head_name in sorted_keys:
+            if head_name == CLASS_PREDICTIONS_WITH_BACKGROUND:
+              head_obj = self._class_prediction_head
+            else:
+              head_obj = self._other_heads[head_name]
+            prediction = self._predict_head(
+                head_name=head_name,
+                head_obj=head_obj,
+                image_feature=image_feature,
+                box_tower_feature=box_tower_feature,
+                feature_index=feature_index,
+                num_predictions_per_location=num_predictions_per_location)
+            predictions[head_name].append(prediction)
     return predictions

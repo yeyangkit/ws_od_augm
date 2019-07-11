@@ -306,7 +306,7 @@ def build_weight_shared_convolutional_box_predictor(
   return convolutional_box_predictor.WeightSharedConvolutionalBoxPredictor(
       is_training=is_training,
       num_classes=num_classes,
-      box_prediction_head=box_3d_prediction_head,
+      box_3d_prediction_head=box_3d_prediction_head,
       class_prediction_head=class_prediction_head,
       other_heads=other_heads,
       conv_hyperparams_fn=conv_hyperparams_fn,

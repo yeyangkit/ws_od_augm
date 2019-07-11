@@ -55,7 +55,6 @@ class TargetAssigner(object):
                matcher,
                box_coder,
                negative_class_weight=1.0,
-               weight_regression_loss_by_score=False,
                increse_small_object_size=False,
                specific_threshold=True,
                threshold_offset=0.2):
@@ -260,7 +259,6 @@ class TargetAssigner(object):
 
     # set scores on the gt boxes
     scores = 1 - groundtruth_labels[:, 0]
-
     groundtruth_boxes_3d.add_field(fields.BoxListFields.scores, scores)
 
     with tf.control_dependencies(
@@ -278,16 +276,6 @@ class TargetAssigner(object):
         match_quality_matrix = tf.where(small_objects_indices,
                                         match_quality_matrix_small_obj,
                                         match_quality_matrix_car)
-
-        # increased_groundtruth_boxes = box_list_ops.scale_box(groundtruth_boxes, 2.0, 2.0)
-        # groundtruth_boxes_coordinates = groundtruth_boxes.get()
-        # increased_groundtruth_boxes_coordinates = increased_groundtruth_boxes.get()
-        # filtered_boxes_coordinates = tf.where(small_objects_indices,
-        #                                       increased_groundtruth_boxes_coordinates,
-        #                                       groundtruth_boxes_coordinates)
-        # filtered_boxes = box_list.BoxList(filtered_boxes_coordinates)
-        # match_quality_matrix = self._similarity_calc.compare(filtered_boxes,
-        #                                                    anchors)
 
       else:
         match_quality_matrix = self._similarity_calc.compare(groundtruth_boxes,
@@ -309,15 +297,20 @@ class TargetAssigner(object):
       cls_targets = self._create_classification_targets(groundtruth_labels,
                                                         unmatched_class_label,
                                                         match)
-      if self._weight_regression_loss_by_score:
-        reg_weights = self._create_regression_weights(
-            match, groundtruth_weights * scores)
-      else:
-        reg_weights = self._create_regression_weights(match,
-                                                      groundtruth_weights)
+
+      reg_weights = self._create_regression_weights(match, groundtruth_weights)
 
       cls_weights = self._create_classification_weights(match,
                                                         groundtruth_weights)
+      # convert cls_weights from per-anchor to per-class.
+      class_label_shape = tf.shape(cls_targets)[1:]
+      weights_shape = tf.shape(cls_weights)
+      weights_multiple = tf.concat(
+          [tf.ones_like(weights_shape), class_label_shape],
+          axis=0)
+      for _ in range(len(cls_targets.get_shape()[1:])):
+        cls_weights = tf.expand_dims(cls_weights, -1)
+      cls_weights = tf.tile(cls_weights, weights_multiple)
 
     num_anchors = anchors.num_boxes_static()
     if num_anchors is not None:
@@ -326,7 +319,7 @@ class TargetAssigner(object):
       reg_weights = self._reset_target_shape(reg_weights, num_anchors)
       cls_weights = self._reset_target_shape(cls_weights, num_anchors)
 
-    return cls_targets, cls_weights, reg_targets_3d, reg_weights, match
+    return (cls_targets, cls_weights, reg_targets_3d, reg_weights, match.match_results)
 
   def _reset_target_shape(self, target, num_anchors):
     """Sets the static shape of the target.
@@ -666,9 +659,87 @@ def batch_assign(target_assigner,
   return (batch_cls_targets, batch_cls_weights, batch_reg_targets,
           batch_reg_weights, batch_match)
 
+def batch_assign_3d(target_assigner,
+                    anchors_batch,
+                    gt_box_batch,
+                    gt_box_3d_batch,
+                    gt_class_targets_batch,
+                    unmatched_class_label=None,
+                    gt_weights_batch=None):
+  """Batched assignment of classification and regression targets.
+
+  Args:
+    target_assigner: a target assigner.
+    anchors_batch: BoxList representing N box anchors or list of BoxList objects
+      with length batch_size representing anchor sets.
+    gt_box_batch: a list of BoxList objects with length batch_size
+      representing groundtruth boxes for each image in the batch
+    gt_class_targets_batch: a list of tensors with length batch_size, where
+      each tensor has shape [num_gt_boxes_i, classification_target_size] and
+      num_gt_boxes_i is the number of boxes in the ith boxlist of
+      gt_box_batch.
+    unmatched_class_label: a float32 tensor with shape [d_1, d_2, ..., d_k]
+      which is consistent with the classification target for each
+      anchor (and can be empty for scalar targets).  This shape must thus be
+      compatible with the groundtruth labels that are passed to the "assign"
+      function (which have shape [num_gt_boxes, d_1, d_2, ..., d_k]).
+    gt_weights_batch: A list of 1-D tf.float32 tensors of shape
+      [num_boxes] containing weights for groundtruth boxes.
+
+  Returns:
+    batch_cls_targets: a tensor with shape [batch_size, num_anchors,
+      num_classes],
+    batch_cls_weights: a tensor with shape [batch_size, num_anchors],
+    batch_reg_targets: a tensor with shape [batch_size, num_anchors,
+      box_code_dimension]
+    batch_reg_weights: a tensor with shape [batch_size, num_anchors],
+    match_list: a list of matcher.Match objects encoding the match between
+      anchors and groundtruth boxes for each image of the batch,
+      with rows of the Match objects corresponding to groundtruth boxes
+      and columns corresponding to anchors.
+  Raises:
+    ValueError: if input list lengths are inconsistent, i.e.,
+      batch_size == len(gt_box_batch) == len(gt_class_targets_batch)
+        and batch_size == len(anchors_batch) unless anchors_batch is a single
+        BoxList.
+  """
+  if not isinstance(anchors_batch, list):
+    anchors_batch = len(gt_box_batch) * [anchors_batch]
+  if not all(
+      isinstance(anchors, box_list.BoxList) for anchors in anchors_batch):
+    raise ValueError('anchors_batch must be a BoxList or list of BoxLists.')
+  if not (len(anchors_batch)
+          == len(gt_box_batch)
+          == len(gt_class_targets_batch)):
+    raise ValueError('batch size incompatible with lengths of anchors_batch, '
+                     'gt_box_batch and gt_class_targets_batch.')
+  cls_targets_list = []
+  cls_weights_list = []
+  reg_targets_3d_list = []
+  reg_weights_list = []
+  match_list = []
+  if gt_weights_batch is None:
+    gt_weights_batch = [None] * len(gt_class_targets_batch)
+  for anchors, gt_boxes, gt_3d_boxes, gt_class_targets, gt_weights in zip(
+      anchors_batch, gt_box_batch, gt_box_3d_batch, gt_class_targets_batch, gt_weights_batch):
+    (cls_targets, cls_weights,
+     reg_targets_3d, reg_weights, match) = target_assigner.assign_3d(
+         anchors, gt_boxes, gt_3d_boxes, gt_class_targets, unmatched_class_label, gt_weights)
+    cls_targets_list.append(cls_targets)
+    cls_weights_list.append(cls_weights)
+    reg_targets_3d_list.append(reg_targets_3d)
+    reg_weights_list.append(reg_weights)
+    match_list.append(match)
+  batch_cls_targets = tf.stack(cls_targets_list)
+  batch_cls_weights = tf.stack(cls_weights_list)
+  batch_reg_targets_3d = tf.stack(reg_targets_3d_list)
+  batch_reg_weights = tf.stack(reg_weights_list)
+  batch_match = tf.stack(match_list)
+  return (batch_cls_targets, batch_cls_weights, batch_reg_targets_3d,
+          batch_reg_weights, batch_match)
 
 # Assign an alias to avoid large refactor of existing users.
-batch_assign_targets = batch_assign
+batch_assign_targets = batch_assign_3d
 
 
 def batch_get_targets(batch_match, groundtruth_tensor_list,
@@ -858,83 +929,3 @@ def batch_assign_confidences(target_assigner,
   batch_match = tf.stack(match_list)
   return (batch_cls_targets, batch_cls_weights, batch_reg_targets,
           batch_reg_weights, batch_match)
-
-def batch_assign_targets_3d(target_assigner,
-                            anchors_batch,
-                            gt_box_batch,
-                            gt_box_3d_batch,
-                            gt_class_targets_batch,
-                            unmatched_class_label=None,
-                            gt_weights_batch=None):
-  """Batched assignment of classification and regression targets.
-
-  Args:
-    target_assigner: a target assigner.
-    anchors_batch: BoxList representing N box anchors or list of BoxList objects
-      with length batch_size representing anchor sets.
-    gt_box_batch: a list of BoxList objects with length batch_size
-      representing groundtruth boxes for each image in the batch
-    gt_class_targets_batch: a list of tensors with length batch_size, where
-      each tensor has shape [num_gt_boxes_i, classification_target_size] and
-      num_gt_boxes_i is the number of boxes in the ith boxlist of
-      gt_box_batch.
-    unmatched_class_label: a float32 tensor with shape [d_1, d_2, ..., d_k]
-      which is consistent with the classification target for each
-      anchor (and can be empty for scalar targets).  This shape must thus be
-      compatible with the groundtruth labels that are passed to the "assign"
-      function (which have shape [num_gt_boxes, d_1, d_2, ..., d_k]).
-    gt_weights_batch: A list of 1-D tf.float32 tensors of shape
-      [num_boxes] containing weights for groundtruth boxes.
-
-  Returns:
-    batch_cls_targets: a tensor with shape [batch_size, num_anchors,
-      num_classes],
-    batch_cls_weights: a tensor with shape [batch_size, num_anchors],
-    batch_reg_targets: a tensor with shape [batch_size, num_anchors,
-      box_code_dimension]
-    batch_reg_weights: a tensor with shape [batch_size, num_anchors],
-    match_list: a list of matcher.Match objects encoding the match between
-      anchors and groundtruth boxes for each image of the batch,
-      with rows of the Match objects corresponding to groundtruth boxes
-      and columns corresponding to anchors.
-  Raises:
-    ValueError: if input list lengths are inconsistent, i.e.,
-      batch_size == len(gt_box_batch) == len(gt_class_targets_batch)
-        and batch_size == len(anchors_batch) unless anchors_batch is a single
-        BoxList.
-  """
-  if not isinstance(anchors_batch, list):
-    anchors_batch = len(gt_box_batch) * [anchors_batch]
-  if not all(
-      isinstance(anchors, box_list.BoxList) for anchors in anchors_batch):
-    raise ValueError('anchors_batch must be a BoxList or list of BoxLists.')
-  if not (len(anchors_batch)
-          == len(gt_box_batch)
-          == len(gt_class_targets_batch)):
-    raise ValueError('batch size incompatible with lengths of anchors_batch, '
-                     'gt_box_batch and gt_class_targets_batch.')
-  cls_targets_list = []
-  cls_weights_list = []
-  reg_targets_3d_list = []
-  reg_weights_list = []
-  match_list = []
-  if gt_weights_batch is None:
-    gt_weights_batch = [None] * len(gt_class_targets_batch)
-
-
-  for anchors, gt_boxes, gt_3d_boxes, gt_class_targets, gt_weights in zip(
-      anchors_batch, gt_box_batch, gt_box_3d_batch, gt_class_targets_batch, gt_weights_batch):
-    (cls_targets, cls_weights,
-     reg_targets_3d, reg_weights, match) = target_assigner.assign_3d(
-         anchors, gt_boxes, gt_3d_boxes, gt_class_targets, unmatched_class_label, gt_weights)
-    cls_targets_list.append(cls_targets)
-    cls_weights_list.append(cls_weights)
-    reg_targets_3d_list.append(reg_targets_3d)
-    reg_weights_list.append(reg_weights)
-    match_list.append(match)
-  batch_cls_targets = tf.stack(cls_targets_list)
-  batch_cls_weights = tf.stack(cls_weights_list)
-  batch_reg_targets_3d = tf.stack(reg_targets_3d_list)
-  batch_reg_weights = tf.stack(reg_weights_list)
-  return (batch_cls_targets, batch_cls_weights, batch_reg_targets_3d,
-          batch_reg_weights, match_list)

@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='object_detection/protos/faster_rcnn_box_coder.proto',
   package='object_detection.protos',
   syntax='proto2',
-  serialized_pb=_b('\n3object_detection/protos/faster_rcnn_box_coder.proto\x12\x17object_detection.protos\"o\n\x12\x46\x61sterRcnnBoxCoder\x12\x13\n\x07y_scale\x18\x01 \x01(\x02:\x02\x31\x30\x12\x13\n\x07x_scale\x18\x02 \x01(\x02:\x02\x31\x30\x12\x17\n\x0cheight_scale\x18\x03 \x01(\x02:\x01\x35\x12\x16\n\x0bwidth_scale\x18\x04 \x01(\x02:\x01\x35')
+  serialized_pb=_b('\n3object_detection/protos/faster_rcnn_box_coder.proto\x12\x17object_detection.protos\"\x9b\x01\n\x12\x46\x61sterRcnnBoxCoder\x12\x13\n\x07y_scale\x18\x01 \x01(\x02:\x02\x31\x30\x12\x13\n\x07x_scale\x18\x02 \x01(\x02:\x02\x31\x30\x12\x17\n\x0cheight_scale\x18\x03 \x01(\x02:\x01\x35\x12\x16\n\x0bwidth_scale\x18\x04 \x01(\x02:\x01\x35\x12\x14\n\tsin_scale\x18\x05 \x01(\x02:\x01\x35\x12\x14\n\tcos_scale\x18\x06 \x01(\x02:\x01\x35')
 )
 
 
@@ -60,6 +60,20 @@ _FASTERRCNNBOXCODER = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='sin_scale', full_name='object_detection.protos.FasterRcnnBoxCoder.sin_scale', index=4,
+      number=5, type=2, cpp_type=6, label=1,
+      has_default_value=True, default_value=float(5),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='cos_scale', full_name='object_detection.protos.FasterRcnnBoxCoder.cos_scale', index=5,
+      number=6, type=2, cpp_type=6, label=1,
+      has_default_value=True, default_value=float(5),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -72,8 +86,8 @@ _FASTERRCNNBOXCODER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=80,
-  serialized_end=191,
+  serialized_start=81,
+  serialized_end=236,
 )
 
 DESCRIPTOR.message_types_by_name['FasterRcnnBoxCoder'] = _FASTERRCNNBOXCODER

@@ -526,6 +526,7 @@ def _rot90_masks(masks):
 def random_horizontal_flip(image,
                            occupancy_mask,
                            boxes=None,
+                           boxes_3d=None,
                            masks=None,
                            keypoints=None,
                            keypoint_flip_permutation=None,

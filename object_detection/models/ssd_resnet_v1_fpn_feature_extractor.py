@@ -233,7 +233,7 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
             feature_maps.append(last_feature_map)
     return feature_maps
 
-class SSDResnet18V1FpnFeatureExtractor(_SSDResnetV1FpnFeatureExtractor):
+class SSDResnet18V1FpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
   """SSD Resnet18 V1 FPN feature extractor."""
 
   def __init__(self,
@@ -306,7 +306,7 @@ class SSDResnet18V1FpnFeatureExtractor(_SSDResnetV1FpnFeatureExtractor):
         override_base_feature_extractor_hyperparams=
         override_base_feature_extractor_hyperparams)
 
-class SSDResnet34V1FpnFeatureExtractor(_SSDResnetV1FpnFeatureExtractor):
+class SSDResnet34V1FpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
   """SSD Resnet34 V1 FPN feature extractor."""
 
   def __init__(self,
@@ -455,7 +455,7 @@ class SSDResnet50V1FpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
         override_base_feature_extractor_hyperparams=
         override_base_feature_extractor_hyperparams)
 
-class SSDResnet50V1LightweightFpnFeatureExtractor(_SSDResnetV1FpnFeatureExtractor):
+class SSDResnet50V1LightweightFpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
   """SSD Resnet50 V1 FPN feature extractor."""
 
   def __init__(self,
@@ -534,7 +534,7 @@ class SSDResnet50V1LightweightFpnFeatureExtractor(_SSDResnetV1FpnFeatureExtracto
         override_base_feature_extractor_hyperparams=
         override_base_feature_extractor_hyperparams)
 
-class SSDResnet50V1LateDownsampleFpnFeatureExtractor(_SSDResnetV1FpnFeatureExtractor):
+class SSDResnet50V1LateDownsampleFpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
   """SSD Resnet50 V1 FPN feature extractor."""
 
   def __init__(self,

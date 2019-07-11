@@ -138,7 +138,7 @@ def build(model_config, is_training, add_summaries=True):
   input_features = model_config.input_features
   if meta_architecture == 'ssd':
     return _build_ssd_model(model_config.ssd, is_training, add_summaries, sum(model_config.input_channels),
-                            input_features, add_background_class)
+                            input_features)
   if meta_architecture == 'faster_rcnn':
     return _build_faster_rcnn_model(model_config.faster_rcnn, is_training,
                                     add_summaries, sum(model_config.input_channels))
@@ -344,7 +344,6 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
       matcher,
       box_coder,
       negative_class_weight=negative_class_weight,
-      weight_regression_loss_by_score=weight_regression_loss_by_score,
       increse_small_object_size=increse_small_object_size,
       specific_threshold=specific_threshold,
       threshold_offset=threshold_offset)

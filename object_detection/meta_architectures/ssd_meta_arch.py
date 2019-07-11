@@ -840,7 +840,7 @@ class SSDMetaArch(model.DetectionModel):
       confidences = None
       if self.groundtruth_has_field(fields.BoxListFields.confidences):
         confidences = self.groundtruth_lists(fields.BoxListFields.confidences)
-      (batch_cls_targets, batch_cls_weights, batch_reg_targets, batch_reg_targets_3d,
+      (batch_cls_targets, batch_cls_weights, batch_reg_targets_3d,
        batch_reg_weights, batch_match) = self._assign_targets(
            self.groundtruth_lists(fields.BoxListFields.boxes),
            self.groundtruth_lists(fields.BoxListFields.boxes_3d),

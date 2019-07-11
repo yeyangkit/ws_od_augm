@@ -127,6 +127,7 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                input_features,
                input_channels,
                load_instance_masks=False,
+               load_multiclass_scores=False,
                instance_mask_type=input_reader_pb2.NUMERICAL_MASKS,
                label_map_proto_file=None,
                use_display_name=False,
@@ -255,6 +256,11 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             slim_example_decoder.Tensor('image/object/weight')),
     }
     self._num_keypoints = num_keypoints
+    if load_multiclass_scores:
+      self.keys_to_features[
+          'image/object/class/multiclass_scores'] = tf.VarLenFeature(tf.float32)
+      self.items_to_handlers[fields.InputDataFields.multiclass_scores] = (
+          slim_example_decoder.Tensor('image/object/class/multiclass_scores'))
     if num_keypoints > 0:
       self.keys_to_features['image/object/keypoint/x'] = (
           tf.VarLenFeature(tf.float32))

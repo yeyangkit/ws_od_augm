@@ -25,6 +25,7 @@ import functools
 import tensorflow as tf
 
 from object_detection.data_decoders import tf_example_decoder
+from object_detection.data_decoders import tf_multi_layer_decoder
 from object_detection.protos import input_reader_pb2
 
 
