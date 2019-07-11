@@ -73,6 +73,22 @@ def subsample(inputs, factor, scope=None):
   else:
     return slim.max_pool2d(inputs, [1, 1], stride=factor, scope=scope)
 
+def max_pool_subsample_fn(inputs, factor, scope=None):
+  """Subsamples the input along the spatial dimensions.
+
+  Args:
+    inputs: A `Tensor` of size [batch, height_in, width_in, channels].
+    factor: The subsampling factor.
+    scope: Optional variable_scope.
+
+  Returns:
+    output: A `Tensor` of size [batch, height_out, width_out, channels] with the
+      input, either intact (if factor == 1) or subsampled (if factor > 1).
+  """
+  if factor == 1:
+    return inputs
+  else:
+    return slim.max_pool2d(inputs, [factor, factor], stride=factor, scope=scope)
 
 def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
   """Strided 2-D convolution with 'SAME' padding.
@@ -125,6 +141,7 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
 @slim.add_arg_scope
 def stack_blocks_dense(net, blocks, output_stride=None,
                        store_non_strided_activations=False,
+                       max_pool_subsample=False,
                        outputs_collections=None):
   """Stacks ResNet `Blocks` and controls output feature density.
 
@@ -208,7 +225,10 @@ def stack_blocks_dense(net, blocks, output_stride=None,
       if output_stride is not None and current_stride == output_stride:
         rate *= block_stride
       else:
-        net = subsample(net, block_stride)
+        if max_pool_subsample:
+          net = max_pool_subsample_fn(net, block_stride)
+        else:
+          net = subsample(net, block_stride)
         current_stride *= block_stride
         if output_stride is not None and current_stride > output_stride:
           raise ValueError('The target output_stride cannot be reached.')
