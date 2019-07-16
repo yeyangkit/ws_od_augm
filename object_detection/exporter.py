@@ -268,7 +268,7 @@ def write_saved_model(saved_model_path,
                       frozen_graph_def,
                       inputs,
                       outputs,
-                      mask):
+                      use_mask):
   """Writes SavedModel to disk.
 
   If checkpoint_path is not None bakes the weights into the graph thereby
