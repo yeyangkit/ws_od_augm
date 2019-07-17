@@ -347,7 +347,6 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
       increse_small_object_size=increse_small_object_size,
       specific_threshold=specific_threshold,
       threshold_offset=threshold_offset)
-  use_occupancy_mask = ssd_config.use_occupancy_mask
 
   ssd_meta_arch_fn = ssd_meta_arch.SSDMetaArch
   kwargs = {}
@@ -369,7 +368,6 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
       normalize_loss_by_num_matches=normalize_loss_by_num_matches,
       hard_example_miner=hard_example_miner,
       target_assigner_instance=target_assigner_instance,
-      use_occupancy_mask=use_occupancy_mask,
       add_summaries=add_summaries,
       normalize_loc_loss_by_codesize=normalize_loc_loss_by_codesize,
       freeze_batchnorm=ssd_config.freeze_batchnorm,

@@ -179,9 +179,7 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         'layers/zmin/encoded': tf.FixedLenFeature((), tf.string),
         'layers/zmax/encoded': tf.FixedLenFeature((), tf.string),
         'layers/occlusions/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/rgb/encoded': tf.FixedLenFeature((), tf.string),
-
-        'masks/occupancy_mask': tf.FixedLenFeature((), tf.string),
+        # 'layers/rgb/encoded': tf.FixedLenFeature((), tf.string),
 
         'boxes/aligned/x_min': tf.VarLenFeature(tf.float32),
         'boxes/aligned/x_max': tf.VarLenFeature(tf.float32),
@@ -225,13 +223,9 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
       image = MultilayerImages(
           image_keys=image_keys, layer_channels=input_channels, format_key='image/format', num_channels=self._num_input_channels)
 
-    occupancy_mask = slim_example_decoder.Image(image_key='masks/occupancy_mask', format_key='image/format', channels=1)
-
     self.items_to_handlers = {
         fields.InputDataFields.image:
             image,
-        fields.InputDataFields.occupancy_mask:
-            occupancy_mask,
         fields.InputDataFields.source_id: (
             slim_example_decoder.Tensor('id')),
         fields.InputDataFields.key: (
@@ -359,7 +353,6 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
     is_crowd = fields.InputDataFields.groundtruth_is_crowd
     tensor_dict[is_crowd] = tf.cast(tensor_dict[is_crowd], dtype=tf.bool)
     tensor_dict[fields.InputDataFields.image].set_shape([None, None, self._num_input_channels])
-    tensor_dict[fields.InputDataFields.occupancy_mask].set_shape([None, None, 1])
     tensor_dict[fields.InputDataFields.original_image_spatial_shape] = tf.shape(
         tensor_dict[fields.InputDataFields.image])[:2]
     tensor_dict[fields.InputDataFields.num_groundtruth_boxes] = tf.shape(

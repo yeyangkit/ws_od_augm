@@ -70,7 +70,6 @@ class InputDataFields(object):
     multiclass_scores: the label score per class for each box.
   """
   image = 'image'
-  occupancy_mask = 'occupancy_mask'
   image_additional_channels = 'image_additional_channels'
   original_image = 'original_image'
   original_image_spatial_shape = 'original_image_spatial_shape'

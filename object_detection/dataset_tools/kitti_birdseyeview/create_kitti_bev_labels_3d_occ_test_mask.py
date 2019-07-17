@@ -128,8 +128,6 @@ def create_kitti_labels(output_path, label_map_path, calib_dir, image_dir, image
                 image_name_ground = example + '_ground_surface_cartesian.png'
                 #image_path_ground = os.path.join(image_ground_dir, image_name_ground)
                 image_path_ground = os.path.join(image_dir, image_name_ground)
-                occ_mask_name = example + '_occupancy_mask.png'
-                occ_mask_path = os.path.join(mask_dir, occ_mask_name)
                 image_hits = cv2.imread(image_path_hits,0)
                 image_obs = cv2.imread(image_path_obs, 0)
                 image_int = cv2.imread(image_path_int, 0)

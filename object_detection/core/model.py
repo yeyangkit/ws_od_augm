@@ -167,7 +167,7 @@ class DetectionModel(_BaseClass):
     pass
 
   @abc.abstractmethod
-  def predict(self, preprocessed_inputs, occupancy_masks, true_image_shapes):
+  def predict(self, preprocessed_inputs, true_image_shapes):
     """Predict prediction tensors from inputs tensor.
 
     Outputs of this function can be passed to loss or postprocess functions.

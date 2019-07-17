@@ -524,7 +524,6 @@ def _rot90_masks(masks):
 
 
 def random_horizontal_flip(image,
-                           occupancy_mask,
                            boxes=None,
                            boxes_3d=None,
                            masks=None,
@@ -597,10 +596,6 @@ def random_horizontal_flip(image,
     # flip image
     image = tf.cond(do_a_flip_random, lambda: _flip_image(image), lambda: image)
     result.append(image)
-
-    # flip occupancy mask
-    occupancy_mask = tf.cond(do_a_flip_random, lambda: _flip_image(occupancy_mask), lambda: occupancy_mask)
-    result.append(occupancy_mask)
 
     # flip boxes
     if boxes is not None:
@@ -818,7 +813,6 @@ def random_rotation90(image,
     return tuple(result)
 
 def random_rotation(image,
-                    occupancy_mask,
                     boxes_aligned=None,
                     boxes_inclined=None,
                     masks=None,
@@ -844,8 +838,6 @@ def random_rotation(image,
       all_boxes_in_image = tf.reduce_all(mask)
       image = tf.cond(all_boxes_in_image, lambda: _rot_image(image), lambda: image)
       result.append(image)
-      occupancy_mask = tf.cond(all_boxes_in_image, lambda: _rot_image(occupancy_mask), lambda: occupancy_mask)
-      result.append(occupancy_mask)
       boxes_aligned = tf.cond(all_boxes_in_image, lambda: boxes_aligned_rot, lambda: boxes_aligned)
       result.append(boxes_aligned)
       boxes_inclined = tf.cond(all_boxes_in_image, lambda: boxes_inclined_rot, lambda: boxes_inclined)
@@ -904,7 +896,6 @@ def random_pixel_value_scale(image,
 
 
 def random_image_scale(image,
-                       occupancy_mask,
                        masks=None,
                        min_scale_ratio=0.5,
                        max_scale_ratio=2.0,
@@ -952,9 +943,6 @@ def random_image_scale(image,
     image = tf.image.resize_images(
         image, [image_newysize, image_newxsize], align_corners=True)
     result.append(image)
-    occupancy_mask = tf.image.resize_images(
-        occupancy_mask, [image_newysize, image_newxsize], align_corners=True)
-    result.append(occupancy_mask)
     if masks is not None:
       masks = tf.image.resize_images(
           masks, [image_newysize, image_newxsize],
@@ -3465,7 +3453,6 @@ def get_default_func_arg_map(include_label_weights=True,
       normalize_image: (fields.InputDataFields.image,),
       random_horizontal_flip: (
           fields.InputDataFields.image,
-          fields.InputDataFields.occupancy_mask,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
           groundtruth_instance_masks,
@@ -3485,7 +3472,6 @@ def get_default_func_arg_map(include_label_weights=True,
       ),
       random_rotation: (
           fields.InputDataFields.image,
-          fields.InputDataFields.occupancy_mask,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
           groundtruth_instance_masks,
@@ -3494,7 +3480,6 @@ def get_default_func_arg_map(include_label_weights=True,
       random_pixel_value_scale: (fields.InputDataFields.image,),
       random_image_scale: (
           fields.InputDataFields.image,
-          fields.InputDataFields.occupancy_mask,
           groundtruth_instance_masks,
       ),
       random_rgb_to_gray: (fields.InputDataFields.image,),
@@ -3670,12 +3655,6 @@ def preprocess(tensor_dict,
       raise ValueError('images in tensor_dict should be rank 4')
     image = tf.squeeze(images, axis=0)
     tensor_dict[fields.InputDataFields.image] = image
-  if fields.InputDataFields.occupancy_mask in tensor_dict:
-    occ_mask = tensor_dict[fields.InputDataFields.occupancy_mask]
-    if len(occ_mask.get_shape()) != 4:
-      raise ValueError('images in tensor_dict should be rank 4')
-    occ_mask = tf.squeeze(occ_mask, axis=0)
-    tensor_dict[fields.InputDataFields.occupancy_mask] = occ_mask
 
   # Preprocess inputs based on preprocess_options
   for option in preprocess_options:
@@ -3711,9 +3690,5 @@ def preprocess(tensor_dict,
     image = tensor_dict[fields.InputDataFields.image]
     images = tf.expand_dims(image, 0)
     tensor_dict[fields.InputDataFields.image] = images
-  if fields.InputDataFields.occupancy_mask in tensor_dict:
-    occ_mask = tensor_dict[fields.InputDataFields.occupancy_mask]
-    occ_mask = tf.expand_dims(occ_mask, 0)
-    tensor_dict[fields.InputDataFields.occupancy_mask] = occ_mask
 
   return tensor_dict

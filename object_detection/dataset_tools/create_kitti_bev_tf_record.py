@@ -197,8 +197,6 @@ def dict_to_tf_example(labels_image,
     'layers/occlusions/encoded': dataset_util.bytes_feature(_readImage(image_dir, image_prefix, 'z_max_occlusions_cartesian')),
     'layers/rgb/encoded': dataset_util.bytes_feature(_readImage(image_dir, image_prefix, 'rgb_cartesian')),
 
-    'masks/occupancy_mask': dataset_util.bytes_feature(_readImage(mask_dir, image_prefix, 'occupancy_mask')),
-
     'boxes/aligned/x_min': dataset_util.float_list_feature(xmin),
     'boxes/aligned/x_max': dataset_util.float_list_feature(xmax),
     'boxes/aligned/y_min': dataset_util.float_list_feature(ymin),

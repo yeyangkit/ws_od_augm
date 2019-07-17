@@ -296,8 +296,6 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
       _provide_groundtruth(detection_model, labels)
 
     preprocessed_images = features[fields.InputDataFields.image]
-    occupancy_masks = features[fields.InputDataFields.occupancy_mask]
-    tf.summary.image('Mask', occupancy_masks, 3, family='Prediction')
 
     if use_tpu and train_config.use_bfloat16:
       with tf.contrib.tpu.bfloat16_scope():
@@ -308,7 +306,6 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
     else:
       prediction_dict = detection_model.predict(
           preprocessed_images,
-          occupancy_masks,
           features[fields.InputDataFields.true_image_shape])
 
     def postprocess_wrapper(args):

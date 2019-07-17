@@ -276,7 +276,6 @@ class SSDMetaArch(model.DetectionModel):
                normalize_loss_by_num_matches,
                hard_example_miner,
                target_assigner_instance,
-               use_occupancy_mask=False,
                add_summaries=True,
                normalize_loc_loss_by_codesize=False,
                freeze_batchnorm=False,
@@ -423,7 +422,6 @@ class SSDMetaArch(model.DetectionModel):
 
     self._anchors = None
     self._indicators = None
-    self._use_occupancy_mask = use_occupancy_mask
     self._add_summaries = add_summaries
     self._batched_prediction_tensor_names = []
     self._expected_loss_weights_fn = expected_loss_weights_fn
@@ -530,7 +528,7 @@ class SSDMetaArch(model.DetectionModel):
         ],
         axis=1)
 
-  def predict(self, preprocessed_inputs, occupancy_masks, true_image_shapes):
+  def predict(self, preprocessed_inputs, true_image_shapes):
     """Predicts unpostprocessed tensors from input tensor.
 
     This function takes an input batch of images and runs it through the forward
@@ -609,45 +607,6 @@ class SSDMetaArch(model.DetectionModel):
       predictions_dict[prediction_key] = prediction
     self._batched_prediction_tensor_names = [x for x in predictions_dict
                                              if x != 'anchors']
-    if self._use_occupancy_mask:
-
-      def filter_fn(mask):
-        return box_list_ops.filtering_using_binary_mask(box_list_ops.to_absolute_coordinates(self._anchors, image_shape[1], image_shape[2], maximum_normalized_coordinate=1.2), mask)
-
-      batch_indicator = shape_utils.static_or_dynamic_map_fn(filter_fn, occupancy_masks, dtype=tf.bool)
-      batch_num_anchors = tf.reduce_sum(tf.cast(batch_indicator, dtype=tf.int32), axis=1)
-      max_num_anchors = tf.reduce_max(batch_num_anchors)
-      tf.summary.scalar('Max_num_anchors', max_num_anchors, family='filtering_with_mask')
-
-      def assign_indicator_fn(inputs):
-        indicator, num_anchors = inputs
-        num_random_sample = tf.subtract(max_num_anchors, num_anchors)
-        indices = tf.where(tf.logical_not(indicator))
-        indices = tf.random_shuffle(indices)
-        indices = tf.reshape(indices, [-1])
-        num_random_sample = tf.minimum(tf.size(indices), num_random_sample)
-        selected_indices = tf.slice(indices, [0], tf.reshape(num_random_sample, [1]))
-        selected_indicator = ops.indices_to_dense_vector(selected_indices, tf.shape(indicator)[0])
-        selected_indicator = tf.equal(selected_indicator, 1)
-        final_indicator = tf.logical_or(indicator, selected_indicator)
-        return final_indicator
-
-      batch_final_indicator = shape_utils.static_or_dynamic_map_fn(assign_indicator_fn, [batch_indicator, batch_num_anchors], dtype=tf.bool)
-
-      def filter_result_fn(inputs):
-        final_indicator, box_3d_encodings, class_predictions_with_background = inputs
-        filtered_box_3d_encodings = tf.boolean_mask(box_3d_encodings, final_indicator)
-        filtered_class_predictions_with_background = tf.boolean_mask(class_predictions_with_background, final_indicator)
-        return [filtered_box_3d_encodings, filtered_class_predictions_with_background]
-
-      batch_box_3d_encodings = predictions_dict['box_3d_encodings']
-      batch_class_predictions_with_background = predictions_dict['class_predictions_with_background']
-      result = shape_utils.static_or_dynamic_map_fn(
-        filter_result_fn, [batch_final_indicator, batch_box_3d_encodings, batch_class_predictions_with_background], dtype=[tf.float32, tf.float32])
-      batch_filtered_box_3d_encodings, batch_filtered_class_predictions_with_background = result
-      predictions_dict['box_3d_encodings'] = batch_filtered_box_3d_encodings
-      predictions_dict['class_predictions_with_background'] = batch_filtered_class_predictions_with_background
-      self._indicators = batch_final_indicator
 
     return predictions_dict
 
@@ -1046,12 +1005,6 @@ class SSDMetaArch(model.DetectionModel):
         box_list.Box3dList(boxes) for boxes in groundtruth_boxes_3d_list
     ]
     anchors = self.anchors
-    if self._use_occupancy_mask:
-      indicator_list = tf.unstack(self._indicators)
-      filtered_anchors = [
-          box_list_ops.boolean_mask(anchors, indicator) for indicator in indicator_list
-      ]
-      anchors = filtered_anchors
 
     train_using_confidences = (self._is_training and
                                self._use_confidences_as_targets)
@@ -1300,17 +1253,9 @@ class SSDMetaArch(model.DetectionModel):
     combined_shape = shape_utils.combined_static_and_dynamic_shape(
         box_encodings)
     batch_size = combined_shape[0]
-    if self._use_occupancy_mask:
-      anchors = self.anchors.get()
-      def filter_anchor_fn(inputs):
-        return tf.boolean_mask(anchors, inputs)
-      filtered_anchors = shape_utils.static_or_dynamic_map_fn(filter_anchor_fn, self._indicators, dtype=tf.float32)
-      filtered_anchors = tf.reshape(filtered_anchors, [-1, 4])
-      tiled_anchors_boxlist = box_list.BoxList(filtered_anchors)
-    else:
-      tiled_anchor_boxes = tf.tile(tf.expand_dims(anchors, 0), [batch_size, 1, 1])
-      tiled_anchors_boxlist = box_list.BoxList(
-          tf.reshape(tiled_anchor_boxes, [-1, 4]))
+    tiled_anchor_boxes = tf.tile(tf.expand_dims(anchors, 0), [batch_size, 1, 1])
+    tiled_anchors_boxlist = box_list.BoxList(
+        tf.reshape(tiled_anchor_boxes, [-1, 4]))
     decoded_boxes = self._box_coder.decode(
         tf.reshape(box_encodings, [-1, self._box_coder.code_size]),
         tiled_anchors_boxlist)
@@ -1343,18 +1288,10 @@ class SSDMetaArch(model.DetectionModel):
     combined_shape = shape_utils.combined_static_and_dynamic_shape(
         box_encodings)
     batch_size = combined_shape[0]
-    if self._use_occupancy_mask:
-      anchors = self.anchors.get()
-      def filter_anchor_fn(inputs):
-        return tf.boolean_mask(anchors, inputs)
-      filtered_anchors = shape_utils.static_or_dynamic_map_fn(filter_anchor_fn, self._indicators, dtype=tf.float32)
-      filtered_anchors = tf.reshape(filtered_anchors, [-1, 4])
-      tiled_anchors_boxlist = box_list.BoxList(filtered_anchors)
-    else:
-      tiled_anchor_boxes = tf.tile(
-          tf.expand_dims(self.anchors.get(), 0), [batch_size, 1, 1])
-      tiled_anchors_boxlist = box_list.BoxList(
-          tf.reshape(tiled_anchor_boxes, [-1, 4]))
+    tiled_anchor_boxes = tf.tile(
+        tf.expand_dims(self.anchors.get(), 0), [batch_size, 1, 1])
+    tiled_anchors_boxlist = box_list.BoxList(
+        tf.reshape(tiled_anchor_boxes, [-1, 4]))
     decoded_boxes = self._box_coder.decode_3d(
         tf.reshape(box_encodings, [-1, self._box_coder.code_size_3d]),
         tiled_anchors_boxlist)

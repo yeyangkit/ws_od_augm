@@ -142,8 +142,6 @@ message Ssd {
   // Configs for mask head.
   optional MaskHead mask_head_config = 25;
 
-  optional bool use_occupancy_mask = 26 [default=false];
-
   optional bool increse_small_object_size = 27 [default=false];
 
   optional bool specific_threshold = 28 [default=false];

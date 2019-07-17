@@ -300,7 +300,6 @@ def filtering_using_binary_mask(boxlist, mask, scope=None):
 
   Args:
     boxlist: a BoxList holding M_in boxes.
-    occupancy_mask: a [height, width, 1] image tensor with value 0 or 1.
 
   Returns:
     indicator: A [M] boolean tensor.

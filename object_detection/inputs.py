@@ -136,8 +136,6 @@ def transform_input_data(tensor_dict,
       preprocessed_resized_image, axis=0)
   tensor_dict[fields.InputDataFields.true_image_shape] = tf.squeeze(
       true_image_shape, axis=0)
-  tensor_dict[fields.InputDataFields.occupancy_mask], _ = image_resizer_fn(
-    tensor_dict[fields.InputDataFields.occupancy_mask])
   if fields.InputDataFields.groundtruth_instance_masks in tensor_dict:
     masks = tensor_dict[fields.InputDataFields.groundtruth_instance_masks]
     _, resized_masks, _ = image_resizer_fn(image, masks)
@@ -224,7 +222,6 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.image: [
           height, width, num_channels
       ],
-      fields.InputDataFields.occupancy_mask: [height, width, 1],
       fields.InputDataFields.original_image_spatial_shape: [2],
       fields.InputDataFields.source_id: [],
       fields.InputDataFields.filename: [],
@@ -299,8 +296,6 @@ def augment_input_data(tensor_dict, data_augmentation_options):
   """
   tensor_dict[fields.InputDataFields.image] = tf.expand_dims(
       tf.cast(tensor_dict[fields.InputDataFields.image], dtype=tf.float32), 0)
-  tensor_dict[fields.InputDataFields.occupancy_mask] = tf.expand_dims(tf.to_float(
-      tensor_dict[fields.InputDataFields.occupancy_mask]), 0)
 
   include_instance_masks = (fields.InputDataFields.groundtruth_instance_masks
                             in tensor_dict)
@@ -322,8 +317,6 @@ def augment_input_data(tensor_dict, data_augmentation_options):
           include_keypoints=include_keypoints))
   tensor_dict[fields.InputDataFields.image] = tf.squeeze(
       tensor_dict[fields.InputDataFields.image], axis=0)
-  tensor_dict[fields.InputDataFields.occupancy_mask] = tf.squeeze(
-      tensor_dict[fields.InputDataFields.occupancy_mask], axis=0)
   return tensor_dict
 
 
@@ -397,8 +390,6 @@ def _get_features_dict(input_dict):
   features = {
       fields.InputDataFields.image:
           input_dict[fields.InputDataFields.image],
-      fields.InputDataFields.occupancy_mask:
-          input_dict[fields.InputDataFields.occupancy_mask],
       HASH_KEY: tf.cast(hash_from_source_id, tf.int32),
       fields.InputDataFields.true_image_shape:
           input_dict[fields.InputDataFields.true_image_shape],
@@ -692,15 +683,12 @@ def create_predict_input_fn(model_config, predict_input_config):
     input_dict = transform_fn(decoder.decode(example))
     images = tf.cast(input_dict[fields.InputDataFields.image], dtype=tf.float32)
     images = tf.expand_dims(images, axis=0)
-    masks = tf.to_float(input_dict[fields.InputDataFields.occupancy_mask])
-    masks = tf.expand_dims(masks, axis=0)
     true_image_shape = tf.expand_dims(
         input_dict[fields.InputDataFields.true_image_shape], axis=0)
 
     return tf.estimator.export.ServingInputReceiver(
         features={
             fields.InputDataFields.image: images,
-            fields.InputDataFields.occupancy_mask: masks,
             fields.InputDataFields.true_image_shape: true_image_shape},
         receiver_tensors={SERVING_FED_EXAMPLE_KEY: example})
 
