@@ -94,21 +94,20 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     return tf.transpose(tf.stack([ty, tx, th, tw]))
 
   def _encode_3d(self, boxes, anchors):
-    EPSILON = 1e-8
     ycenter_a, xcenter_a, ha, wa = anchors.get_center_coordinates_and_sizes()
     x_c, y_c, w, h, sin_angle, cos_angle = boxes.get_center_coordinates_and_sizes()
-    angle = 0.5 * tf.atan2(sin_angle, cos_angle)
+    # angle = 0.5 * tf.atan2(sin_angle, cos_angle)
 
     cond = tf.greater(wa, ha)
     angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
-    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 90.0)
+    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), -90.0)
     ref_angle = tf.where(cond , angle_a_1, angle_a_2)
     #ref_angle = tf.ones(tf.shape(ycenter_a)) * -90
 
-    w_rotated = tf.where(cond, h, w)
-    h_rotated = tf.where(cond, w, h)
-    w = w_rotated
-    h = h_rotated
+    # w_rotated = tf.where(cond, h, w)
+    # h_rotated = tf.where(cond, w, h)
+    # w = w_rotated
+    # h = h_rotated
 
     # Avoid NaN in division and log below.
     wa += EPSILON
@@ -116,10 +115,10 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     ha += EPSILON
     h += EPSILON
 
-    da = tf.sqrt(tf.square(wa) + tf.square(ha))
+    # da = tf.sqrt(tf.square(wa) + tf.square(ha))
 
-    tx = (x_c - xcenter_a) / da
-    ty = (y_c - ycenter_a) / da
+    tx = (x_c - xcenter_a) / wa
+    ty = (y_c - ycenter_a) / ha
     tw = tf.log(w / wa)
     th = tf.log(h / ha)
 
@@ -169,14 +168,14 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
   def _decode_3d(self, rel_codes, anchors):
     ycenter_a, xcenter_a, ha, wa = anchors.get_center_coordinates_and_sizes()
     tx, ty, tw, th, t_sin_angle, t_cos_angle = tf.unstack(tf.transpose(rel_codes))
-    tangle = 0.5 * tf.atan2(t_sin_angle, t_cos_angle)
+    # tangle = 0.5 * tf.atan2(t_sin_angle, t_cos_angle)
 
     cond = tf.greater(wa, ha)
     angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
-    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 90.0)
+    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), -90.0)
     ref_angle = tf.where(cond, angle_a_1, angle_a_2)
 
-    da = tf.sqrt(tf.square(wa) + tf.square(ha))
+    # da = tf.sqrt(tf.square(wa) + tf.square(ha))
 
     tx /= self._scale_factors[0]
     ty /= self._scale_factors[1]
@@ -186,13 +185,13 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     t_cos_angle /= self._scale_factors[5]
     w = tf.exp(tw) * wa
     h = tf.exp(th) * ha
-    y_c = ty * da + ycenter_a
-    x_c = tx * da + xcenter_a
+    y_c = ty * ha + ycenter_a
+    x_c = tx * wa + xcenter_a
 
-    w_rotated = tf.where(cond, h, w)
-    h_rotated = tf.where(cond, w, h)
-    w = w_rotated
-    h = h_rotated
+    # w_rotated = tf.where(cond, h, w)
+    # h_rotated = tf.where(cond, w, h)
+    # w = w_rotated
+    # h = h_rotated
 
     # angle = (tangle + ref_angle) * 3.141 / 180
     # sin_angle = tf.sin(2 * angle)
