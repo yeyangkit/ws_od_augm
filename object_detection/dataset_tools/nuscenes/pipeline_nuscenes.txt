@@ -1,0 +1,84 @@
+
+
+Training:
+CUDA_VISIBLE_DEVICES="0" \
+krenew python3 /home/ding/tensorflow_grid_map/tensorflow_grid_map/object_detection/model_main.py \
+-- \
+--logtostderr \
+--pipeline_config_path /home/ding/object_detection/configs/pipeline_mask.config \
+--model_dir ~/object_detection/checkpoint/train3 \
+--save_checkpoints_steps 5000
+
+
+Erzeugen von tf records:
+CUDA_VISIBLE_DEVICES="0" \
+python3 /home/ding/tensorflow_grid_map/tensorflow_grid_map/object_detection/dataset_tools/nuscenes/create_nuscenes_tf_records_detection_only.py \
+--data /mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1.0-trainval_meta \
+--label_map /mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt \
+--param /mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml \
+--output /mrtstorage/projects/grid_map_object_detection/nuscene_tfrecord/test \
+--nuscenes /mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta \
+--vis_result T
+
+
+Neue Protobuf Message bauen:
+/home/ding/models/research/bin/protoc /home/ding/models/research/object_detection/protos/*.proto --python_out=.
+
+
+Erzeugen Inferenz Graph:
+
+export MODEL_DIR=/home/ding/object_detection/checkpoint/train2
+
+CUDA_VISIBLE_DEVICES="0" python3 /home/ding/models/research/object_detection/export_inference_graph.py --input_type image_tensor --pipeline_config_path $MODEL_DIR/pipeline.config --trained_checkpoint_prefix $MODEL_DIR/model.ckpt-90000 --output_directory $MODEL_DIR --use_mask (True)
+
+
+Erzeugen Labels zum Evaluieren:
+
+mkdir $MODEL_DIR/evaluation_0.3/
+
+(mit Bodensegmentierung)
+CUDA_VISIBLE_DEVICES="0" python3 /home/ding/models/research/object_detection/dataset_tools/kitti_birdseyeview/create_kitti_bev_labels_3d.py --data /mrtstorage/datasets/kitti/object_detection/grid_map/updated/15cm_plane/training/ --graph $MODEL_DIR/frozen_inference_graph.pb --output $MODEL_DIR/evaluation_0.3/ --label_map /mrtstorage/datasets/kitti/object_detection/kitti_object_label_map.pbtxt --calib /mrtstorage/datasets/kitti/object_detection/training/calib/ --labels /mrtstorage/datasets/kitti/object_detection/training/label_2/
+
+(Bodensegmentierung + Maske)
+CUDA_VISIBLE_DEVICES="2" python3 /home/ding/models/research/object_detection/dataset_tools/kitti_birdseyeview/create_kitti_bev_labels_3d_mask.py --data /mrtstorage/datasets/kitti/object_detection/grid_map/updated/15cm_plane/training/ --data_mask /home/ding/object_detection/occupancy_mask/25/training --graph $MODEL_DIR/frozen_inference_graph.pb --output $MODEL_DIR/evaluation_0.3/ --label_map /mrtstorage/datasets/kitti/object_detection/kitti_object_label_map.pbtxt --calib /mrtstorage/datasets/kitti/object_detection/training/calib/ --labels /mrtstorage/datasets/kitti/object_detection/training/label_2/
+
+(ohne Bodensegmentierung)
+CUDA_VISIBLE_DEVICES="0" python3 /home/ding/models/research/object_detection/dataset_tools/kitti_birdseyeview/create_kitti_bev_labels_3d_without_plane.py --data /mrtstorage/datasets/kitti/object_detection/grid_map/updated/10cm/training/ --graph $MODEL_DIR/frozen_inference_graph.pb --output $MODEL_DIR/evaluation_0.3/ --label_map /mrtstorage/datasets/kitti/object_detection/kitti_object_label_map.pbtxt --calib /mrtstorage/datasets/kitti/object_detection/training/calib/ --labels /mrtstorage/datasets/kitti/object_detection/training/label_2/
+
+Quantitative Evaluierung:
+
+mkdir -p $MODEL_DIR/evaluation_0.3/val/label/result/1/data/ $MODEL_DIR/evaluation_0.3/val/label/result/1/plot/
+
+mv $MODEL_DIR/evaluation_0.3/val/label/*.txt $MODEL_DIR/evaluation_0.3/val/label/result/1/data/
+
+gedit $MODEL_DIR/evaluation_0.3/result.txt
+
+eval_kitti.cpp modifizieren
+
+./object_detection/kitti_eval/eval_kitti 1
+
+Erzeugen Labels zum Test: 
+
+mkdir $MODEL_DIR/test/
+
+CUDA_VISIBLE_DEVICES="0" python3 models/research/object_detection/dataset_tools/kitti_birdseyeview/create_kitti_bev_labels_3d_occ_test.py --data /mrtstorage/datasets/kitti/object_detection/grid_map/updated/15cm_plane/testing --date_gr /mrtstorage/datasets/kitti/object_detection/grid_map/updated/15cm_plane/testing --calib /mrtstorage/datasets/kitti/object_detection/testing/calib/ --graph $MODEL_DIR/frozen_inference_graph.pb --output $MODEL_DIR/test/ --label_map /home/ding/object_detection/kitti_object_label_map.pbtxt
+
+(mit Maske)
+CUDA_VISIBLE_DEVICES="0" python3 models/research/object_detection/dataset_tools/kitti_birdseyeview/create_kitti_bev_labels_3d_occ_test_mask.py --data /mrtstorage/datasets/kitti/object_detection/grid_map/updated/15cm_plane/testing --data_mask /home/ding/object_detection/occupancy_mask/25/testing --date_gr /mrtstorage/datasets/kitti/object_detection/grid_map/updated/15cm_plane/testing --calib /mrtstorage/datasets/kitti/object_detection/testing/calib/ --graph $MODEL_DIR/frozen_inference_graph.pb --output $MODEL_DIR/test/ --label_map /home/ding/object_detection/kitti_object_label_map.pbtxt
+
+
+Skript zum bearbeiten von Checkpoints (z.B. Feature Extractor von 5 zu 3 Channels): Faster RCNN!
+
+python3 ~/PycharmProjects/tensorflow_grid_map/edit_checkpoint.py 
+--input_path /mrtstorage/projects/grid_map_object_detection/checkpoints/baseline_15cm_resnet101_ch5/graph/model.ckpt 
+--output_path /mrtstorage/projects/grid_map_object_detection/checkpoints/baseline_15cm_resnet101_ch5/graph_3_channels/model.ckpt 
+--feature_extractor resnet_v1_101 
+--num_input_channels 3 
+--edit_method add
+
+Odometrie Detetktion:
+CUDA_VISIBLE_DEVICES="0" python3 models/research/object_detection/dataset_tools/kitti_birdseyeview/create_odometry_seq.py --data_dir /mrtstorage/datasets/kitti/object_detection/grid_map/updated/odometry/grid_maps_60m --graph_path /home/ding/object_detection/checkpoint/rotation360/frozen_inference_graph.pb --output_dir /home/ding/object_detection/odometry/1/ --label_map_path /home/ding/object_detection/kitti_object_label_map.pbtxt 
+
+
+Skript zum Visualisieren von Labels:
+CUDA_VISIBLE_DEVICES="0" python3 models/research/object_detection/dataset_tools/kitti_birdseyeview/display_results.py --labels /home/ding/object_detection/checkpoint/root_variant/depthwise_conv/test/val/label --calib /mrtstorage/datasets/kitti/object_detection/testing/calib/ --images /mrtstorage/datasets/kitti/object_detection/testing/image_2 --output /home/ding/object_detection/display/test
