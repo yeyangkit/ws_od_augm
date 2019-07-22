@@ -1127,14 +1127,26 @@ class SSDMetaArch(model.DetectionModel):
         with rows of the Match objects corresponding to groundtruth boxes
         and columns corresponding to anchors.
     """
-    num_boxes_per_image = tf.stack(
-        [tf.shape(x)[0] for x in groundtruth_boxes_list])
-    pos_anchors_per_image = tf.stack(
-        [match.num_matched_columns() for match in match_list])
-    neg_anchors_per_image = tf.stack(
-        [match.num_unmatched_columns() for match in match_list])
-    ignored_anchors_per_image = tf.stack(
-        [match.num_ignored_columns() for match in match_list])
+    avg_num_gt_boxes = tf.reduce_mean(
+        tf.cast(
+            tf.stack([tf.shape(x)[0] for x in groundtruth_boxes_list]),
+            dtype=tf.float32))
+    avg_num_matched_gt_boxes = tf.reduce_mean(
+        tf.cast(
+            tf.stack([match.num_matched_rows() for match in match_list]),
+            dtype=tf.float32))
+    avg_pos_anchors = tf.reduce_mean(
+        tf.cast(
+            tf.stack([match.num_matched_columns() for match in match_list]),
+            dtype=tf.float32))
+    avg_neg_anchors = tf.reduce_mean(
+        tf.cast(
+            tf.stack([match.num_unmatched_columns() for match in match_list]),
+            dtype=tf.float32))
+    avg_ignored_anchors = tf.reduce_mean(
+        tf.cast(
+            tf.stack([match.num_ignored_columns() for match in match_list]),
+            dtype=tf.float32))
 
     summary_number_dict = dict()
     for key, value in categroy_index.items():
@@ -1155,16 +1167,19 @@ class SSDMetaArch(model.DetectionModel):
       summary_dict[key] = tf.stack(value)
 
     tf.summary.scalar('AvgNumGroundtruthBoxesPerImage',
-                      tf.reduce_mean(tf.to_float(num_boxes_per_image)),
+                      avg_num_gt_boxes,
+                      family='TargetAssignment')
+    tf.summary.scalar('AvgNumGroundtruthBoxesMatchedPerImage',
+                      avg_num_matched_gt_boxes,
                       family='TargetAssignment')
     tf.summary.scalar('AvgNumPositiveAnchorsPerImage',
-                      tf.reduce_mean(tf.to_float(pos_anchors_per_image)),
+                      avg_pos_anchors,
                       family='TargetAssignment')
     tf.summary.scalar('AvgNumNegativeAnchorsPerImage',
-                      tf.reduce_mean(tf.to_float(neg_anchors_per_image)),
+                      avg_neg_anchors,
                       family='TargetAssignment')
     tf.summary.scalar('AvgNumIgnoredAnchorsPerImage',
-                      tf.reduce_mean(tf.to_float(ignored_anchors_per_image)),
+                      avg_ignored_anchors,
                       family='TargetAssignment')
 
     for key, value in summary_dict.items():
