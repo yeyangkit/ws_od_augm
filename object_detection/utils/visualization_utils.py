@@ -274,14 +274,15 @@ def draw_3d_box_on_image(image,
     #y3 = y_c + vec_w_y + vec_h_y
     #y4 = y_c + vec_w_y - vec_h_y
 
-    x_c *= cols
-    y_c *= rows
+    if use_normalized_coordinates:
+      x_c *= cols
+      y_c *= rows
 
-    vec_s_x = math.cos(angle)
-    vec_s_y = math.sin(angle)
+      vec_s_x = math.cos(angle)
+      vec_s_y = math.sin(angle)
 
-    w /= math.sqrt(vec_s_x * vec_s_x / (rows * rows) + vec_s_y * vec_s_y / (cols * cols))
-    h /= math.sqrt(vec_s_x * vec_s_x / (cols * cols) + vec_s_y * vec_s_y / (rows * rows))
+      w /= math.sqrt(vec_s_x * vec_s_x / (rows * rows) + vec_s_y * vec_s_y / (cols * cols))
+      h /= math.sqrt(vec_s_x * vec_s_x / (cols * cols) + vec_s_y * vec_s_y / (rows * rows))
 
     x1, y1 = _calculate_box_corner(x_c, y_c, w / 2, h / 2, angle)
     x2, y2 = _calculate_box_corner(x_c, y_c, - w / 2, h / 2, angle)
@@ -361,7 +362,7 @@ def draw_bounding_boxes_on_image(image,
                                boxes[i, 3], color, thickness, display_str_list)
 
 
-def create_visualization_fn(category_index, include_masks=False,
+def create_visualization_fn(category_index, include_3d_boxes=False, include_masks=False,
                             include_keypoints=False, include_track_ids=False,
                             **kwargs):
   """Constructs a visualization function that can be wrapped in a py_func.
@@ -431,8 +432,11 @@ def create_visualization_fn(category_index, include_masks=False,
     boxes = args[1]
     classes = args[2]
     scores = args[3]
-    masks = keypoints = track_ids = None
+    boxes_3d = masks = keypoints = track_ids = None
     pos_arg_ptr = 4  # Positional argument for first optional tensor (masks).
+    if include_3d_boxes:
+      boxes_3d = args[pos_arg_ptr]
+      pos_arg_ptr += 1
     if include_masks:
       masks = args[pos_arg_ptr]
       pos_arg_ptr += 1
@@ -448,6 +452,7 @@ def create_visualization_fn(category_index, include_masks=False,
         classes,
         scores,
         category_index=category_index,
+        boxes_3d=boxes_3d,
         instance_masks=masks,
         keypoints=keypoints,
         track_ids=track_ids,
@@ -472,6 +477,7 @@ def draw_bounding_boxes_on_image_tensors(images,
                                          category_index,
                                          original_image_spatial_shape=None,
                                          true_image_shape=None,
+                                         boxes_3d=None,
                                          instance_masks=None,
                                          keypoints=None,
                                          track_ids=None,
@@ -520,7 +526,7 @@ def draw_bounding_boxes_on_image_tensors(images,
       'max_boxes_to_draw': max_boxes_to_draw,
       'min_score_thresh': min_score_thresh,
       'agnostic_mode': False,
-      'line_thickness': 4
+      'line_thickness': 2
   }
   if true_image_shape is None:
     true_shapes = tf.constant(-1, shape=[images.shape.as_list()[0], 3])
@@ -533,12 +539,15 @@ def draw_bounding_boxes_on_image_tensors(images,
 
   visualize_boxes_fn = create_visualization_fn(
       category_index,
+      include_3d_boxes=boxes_3d is not None,
       include_masks=instance_masks is not None,
       include_keypoints=keypoints is not None,
       include_track_ids=track_ids is not None,
       **visualization_keyword_args)
 
   elems = [true_shapes, original_shapes, images, boxes, classes, scores]
+  if boxes_3d is not None:
+    elems.append(boxes_3d)
   if instance_masks is not None:
     elems.append(instance_masks)
   if keypoints is not None:
@@ -602,6 +611,10 @@ def draw_side_by_side_evaluation_image(eval_dict,
         eval_dict[key] = tf.expand_dims(eval_dict[key], 0)
 
   for indx in range(eval_dict[input_data_fields.original_image].shape[0]):
+    detection_boxes_3d = None
+    if detection_fields.detection_boxes_3d in eval_dict:
+      detection_boxes_3d = tf.expand_dims(
+        eval_dict[detection_fields.detection_boxes_3d][indx], axis=0)
     instance_masks = None
     if detection_fields.detection_masks in eval_dict:
       instance_masks = tf.cast(
@@ -634,6 +647,7 @@ def draw_side_by_side_evaluation_image(eval_dict,
             axis=0),
         true_image_shape=tf.expand_dims(
             eval_dict[input_data_fields.true_image_shape][indx], axis=0),
+        boxes_3d=detection_boxes_3d,
         instance_masks=instance_masks,
         keypoints=keypoints,
         max_boxes_to_draw=max_boxes_to_draw,
@@ -657,6 +671,8 @@ def draw_side_by_side_evaluation_image(eval_dict,
             axis=0),
         true_image_shape=tf.expand_dims(
             eval_dict[input_data_fields.true_image_shape][indx], axis=0),
+        boxes_3d=tf.expand_dims(
+            eval_dict[input_data_fields.groundtruth_boxes_3d][indx], axis=0),
         instance_masks=groundtruth_instance_masks,
         keypoints=None,
         max_boxes_to_draw=None,
