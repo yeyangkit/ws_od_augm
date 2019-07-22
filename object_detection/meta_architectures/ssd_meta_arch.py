@@ -764,7 +764,7 @@ class SSDMetaArch(model.DetectionModel):
             fields.DetectionResultFields.detection_masks] = nmsed_masks
       return detection_dict
 
-  def loss(self, prediction_dict, true_image_shapes, scope=None):
+  def loss(self, prediction_dict, true_image_shapes, category_index, scope=None):
     """Compute scalar loss tensors with respect to provided groundtruth.
 
     Calling this function requires that groundtruth tensors have been
@@ -810,7 +810,7 @@ class SSDMetaArch(model.DetectionModel):
         self._summarize_classwise_target_assignment(
             self.groundtruth_lists(fields.BoxListFields.boxes),
             self.groundtruth_lists(fields.BoxListFields.classes),
-            match_list)
+            match_list, category_index)
 
       if self._random_example_sampler:
         batch_cls_per_anchor_weights = tf.reduce_mean(
@@ -1108,7 +1108,7 @@ class SSDMetaArch(model.DetectionModel):
                       family='TargetAssignment')
 
   def _summarize_classwise_target_assignment(self, groundtruth_boxes_list, groundtruth_classes_list,
-                                             match_list):
+                                             match_list, categroy_index):
     """Creates tensorflow summaries for the input boxes and anchors.
 
     This function creates four summaries corresponding to the average
@@ -1136,9 +1136,10 @@ class SSDMetaArch(model.DetectionModel):
     ignored_anchors_per_image = tf.stack(
         [match.num_ignored_columns() for match in match_list])
 
-    num_cars_list = []
-    num_pedestrians_list = []
-    num_cyclists_list = []
+    summary_number_dict = dict()
+    for key, value in categroy_index.items():
+      summary_number_dict[value['name']] = []
+    summary_dict = dict()
 
     for match, groundtruth_classes in zip(match_list,
                                           groundtruth_classes_list):
@@ -1146,16 +1147,12 @@ class SSDMetaArch(model.DetectionModel):
       result = tf.gather(groundtruth_classes, matched_row_indices, axis=0)
       result = tf.argmax(result, axis=1)
 
-      num_cars = tf.reduce_sum(tf.cast(tf.equal(result, 0), tf.int32))
-      num_pedestrians = tf.reduce_sum(tf.cast(tf.equal(result, 1), tf.int32))
-      num_cyclists = tf.reduce_sum(tf.cast(tf.equal(result, 2), tf.int32))
-      num_cars_list.append(num_cars)
-      num_pedestrians_list.append(num_pedestrians)
-      num_cyclists_list.append(num_cyclists)
+      for key, value in categroy_index.items():
+        number = tf.reduce_sum(tf.cast(tf.equal(result, key - 1), tf.int32))
+        summary_number_dict[value['name']].append(number)
 
-    pos_car_anchors_per_image = tf.stack(num_cars_list)
-    pos_pedestrian_anchors_per_image = tf.stack(num_pedestrians_list)
-    pos_cyclist_anchors_per_image = tf.stack(num_cyclists_list)
+    for key, value in summary_number_dict.items():
+      summary_dict[key] = tf.stack(value)
 
     tf.summary.scalar('AvgNumGroundtruthBoxesPerImage',
                       tf.reduce_mean(tf.to_float(num_boxes_per_image)),
@@ -1170,15 +1167,10 @@ class SSDMetaArch(model.DetectionModel):
                       tf.reduce_mean(tf.to_float(ignored_anchors_per_image)),
                       family='TargetAssignment')
 
-    tf.summary.scalar('AvgNumPositiveCarAnchorsPerImage',
-                      tf.reduce_mean(tf.to_float(pos_car_anchors_per_image)),
-                      family='TargetAssignment')
-    tf.summary.scalar('AvgNumPositivePedestrianAnchorsPerImage',
-                      tf.reduce_mean(tf.to_float(pos_pedestrian_anchors_per_image)),
-                      family='TargetAssignment')
-    tf.summary.scalar('AvgNumPositiveCyclistAnchorsPerImage',
-                      tf.reduce_mean(tf.to_float(pos_cyclist_anchors_per_image)),
-                      family='TargetAssignment')
+    for key, value in summary_dict.items():
+      tf.summary.scalar('AvgNumPositive_' + key + '_AnchorsPerImage',
+                        tf.reduce_mean(tf.to_float(value)),
+                        family='TargetAssignmentPerClass')
 
   def _add_histogram_summaries(self):
     histogram = set(tf.get_collection(tf.GraphKeys.SUMMARIES))

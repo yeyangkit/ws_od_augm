@@ -241,7 +241,7 @@ class DetectionModel(_BaseClass):
     pass
 
   @abc.abstractmethod
-  def loss(self, prediction_dict, true_image_shapes):
+  def loss(self, prediction_dict, true_image_shapes, category_index):
     """Compute scalar loss tensors with respect to provided groundtruth.
 
     Calling this function requires that groundtruth tensors have been

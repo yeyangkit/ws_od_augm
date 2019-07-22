@@ -354,8 +354,10 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
                                         available_var_map)
 
     if mode in (tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL):
+      category_index_train = label_map_util.create_category_index_from_labelmap(
+            eval_input_config.label_map_path)
       losses_dict = detection_model.loss(
-          prediction_dict, features[fields.InputDataFields.true_image_shape])
+          prediction_dict, features[fields.InputDataFields.true_image_shape], category_index_train)
       losses = [loss_tensor for loss_tensor in losses_dict.values()]
       if train_config.add_regularization_loss:
         regularization_losses = detection_model.regularization_losses()
