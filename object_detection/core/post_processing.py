@@ -374,11 +374,13 @@ def class_agnostic_non_max_suppression(boxes,
     class_ids = tf.expand_dims(
         tf.argmax(scores, axis=1, output_type=tf.int32), axis=1)
     boxes = tf.batch_gather(boxes, class_ids)
+    boxes_3d = tf.batch_gather(boxes_3d, class_ids)
     if masks is not None:
       masks = tf.batch_gather(masks, class_ids)
     if boundaries is not None:
       boundaries = tf.batch_gather(boundaries, class_ids)
   boxes = tf.squeeze(boxes, axis=[1])
+  boxes_3d = tf.squeeze(boxes_3d, axis=[1])
   if masks is not None:
     masks = tf.squeeze(masks, axis=[1])
   if boundaries is not None:
@@ -389,6 +391,7 @@ def class_agnostic_non_max_suppression(boxes,
     max_scores = tf.reduce_max(scores, axis=-1)
     classes_with_max_scores = tf.argmax(scores, axis=-1)
     boxlist_and_class_scores.add_field(fields.BoxListFields.scores, max_scores)
+    boxlist_and_class_scores.add_field(fields.BoxListFields.boxes_3d, boxes_3d)
     if masks is not None:
       boxlist_and_class_scores.add_field(fields.BoxListFields.masks, masks)
     if boundaries is not None:
@@ -691,6 +694,7 @@ def batch_multiclass_non_max_suppression(boxes,
       if use_class_agnostic_nms:
         nmsed_boxlist, num_valid_nms_boxes = class_agnostic_non_max_suppression(
             per_image_boxes,
+            per_image_boxes_3d,
             per_image_scores,
             score_thresh,
             iou_thresh,
