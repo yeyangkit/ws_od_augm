@@ -100,4 +100,4 @@ tutorials/embedding/questions-words.txt
 
 samples/outreach/blogs/segmentation_blogpost/carvana-image-masking-challenge/
 
-*pb2.py
+object_detection/protos/*_pb2.py
