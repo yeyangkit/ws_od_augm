@@ -27,6 +27,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   serialized_pb=_b('\n.object_detection/protos/anchor_generator.proto\x12\x17object_detection.protos\x1a<object_detection/protos/flexible_grid_anchor_generator.proto\x1a\x33object_detection/protos/grid_anchor_generator.proto\x1a\x39object_detection/protos/multiscale_anchor_generator.proto\x1a\x32object_detection/protos/ssd_anchor_generator.proto\x1aGobject_detection/protos/multiscale_class_related_anchor_generator.proto\"\xf7\x03\n\x0f\x41nchorGenerator\x12M\n\x15grid_anchor_generator\x18\x01 \x01(\x0b\x32,.object_detection.protos.GridAnchorGeneratorH\x00\x12K\n\x14ssd_anchor_generator\x18\x02 \x01(\x0b\x32+.object_detection.protos.SsdAnchorGeneratorH\x00\x12Y\n\x1bmultiscale_anchor_generator\x18\x03 \x01(\x0b\x32\x32.object_detection.protos.MultiscaleAnchorGeneratorH\x00\x12^\n\x1e\x66lexible_grid_anchor_generator\x18\x04 \x01(\x0b\x32\x34.object_detection.protos.FlexibleGridAnchorGeneratorH\x00\x12s\n)multiscale_class_related_anchor_generator\x18\x05 \x01(\x0b\x32>.object_detection.protos.MultiscaleClassRelatedAnchorGeneratorH\x00\x42\x18\n\x16\x61nchor_generator_oneof')
   ,
   dependencies=[object__detection_dot_protos_dot_flexible__grid__anchor__generator__pb2.DESCRIPTOR,object__detection_dot_protos_dot_grid__anchor__generator__pb2.DESCRIPTOR,object__detection_dot_protos_dot_multiscale__anchor__generator__pb2.DESCRIPTOR,object__detection_dot_protos_dot_ssd__anchor__generator__pb2.DESCRIPTOR,object__detection_dot_protos_dot_multiscale__class__related__anchor__generator__pb2.DESCRIPTOR,])
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
@@ -44,35 +45,35 @@ _ANCHORGENERATOR = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='ssd_anchor_generator', full_name='object_detection.protos.AnchorGenerator.ssd_anchor_generator', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='multiscale_anchor_generator', full_name='object_detection.protos.AnchorGenerator.multiscale_anchor_generator', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='flexible_grid_anchor_generator', full_name='object_detection.protos.AnchorGenerator.flexible_grid_anchor_generator', index=3,
       number=4, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='multiscale_class_related_anchor_generator', full_name='object_detection.protos.AnchorGenerator.multiscale_class_related_anchor_generator', index=4,
       number=5, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -113,7 +114,6 @@ _ANCHORGENERATOR.oneofs_by_name['anchor_generator_oneof'].fields.append(
   _ANCHORGENERATOR.fields_by_name['multiscale_class_related_anchor_generator'])
 _ANCHORGENERATOR.fields_by_name['multiscale_class_related_anchor_generator'].containing_oneof = _ANCHORGENERATOR.oneofs_by_name['anchor_generator_oneof']
 DESCRIPTOR.message_types_by_name['AnchorGenerator'] = _ANCHORGENERATOR
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 AnchorGenerator = _reflection.GeneratedProtocolMessageType('AnchorGenerator', (_message.Message,), dict(
   DESCRIPTOR = _ANCHORGENERATOR,

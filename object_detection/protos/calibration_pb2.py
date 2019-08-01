@@ -21,6 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto2',
   serialized_pb=_b('\n)object_detection/protos/calibration.proto\x12\x17object_detection.protos\"\xf7\x02\n\x11\x43\x61librationConfig\x12P\n\x16\x66unction_approximation\x18\x01 \x01(\x0b\x32..object_detection.protos.FunctionApproximationH\x00\x12]\n\x1dlabel_function_approximations\x18\x02 \x01(\x0b\x32\x34.object_detection.protos.LabelFunctionApproximationsH\x00\x12J\n\x13sigmoid_calibration\x18\x03 \x01(\x0b\x32+.object_detection.protos.SigmoidCalibrationH\x00\x12W\n\x1alabel_sigmoid_calibrations\x18\x04 \x01(\x0b\x32\x31.object_detection.protos.LabelSigmoidCalibrationsH\x00\x42\x0c\n\ncalibrator\"L\n\x15\x46unctionApproximation\x12\x33\n\tx_y_pairs\x18\x01 \x01(\x0b\x32 .object_detection.protos.XYPairs\"\xf6\x01\n\x1bLabelFunctionApproximations\x12\x65\n\x12label_xy_pairs_map\x18\x01 \x03(\x0b\x32I.object_detection.protos.LabelFunctionApproximations.LabelXyPairsMapEntry\x12\x16\n\x0elabel_map_path\x18\x02 \x01(\t\x1aX\n\x14LabelXyPairsMapEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12/\n\x05value\x18\x02 \x01(\x0b\x32 .object_detection.protos.XYPairs:\x02\x38\x01\"\\\n\x12SigmoidCalibration\x12\x46\n\x12sigmoid_parameters\x18\x01 \x01(\x0b\x32*.object_detection.protos.SigmoidParameters\"\x98\x02\n\x18LabelSigmoidCalibrations\x12v\n\x1clabel_sigmoid_parameters_map\x18\x01 \x03(\x0b\x32P.object_detection.protos.LabelSigmoidCalibrations.LabelSigmoidParametersMapEntry\x12\x16\n\x0elabel_map_path\x18\x02 \x01(\t\x1al\n\x1eLabelSigmoidParametersMapEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\x39\n\x05value\x18\x02 \x01(\x0b\x32*.object_detection.protos.SigmoidParameters:\x02\x38\x01\"d\n\x07XYPairs\x12\x39\n\x08x_y_pair\x18\x01 \x03(\x0b\x32\'.object_detection.protos.XYPairs.XYPair\x1a\x1e\n\x06XYPair\x12\t\n\x01x\x18\x01 \x01(\x02\x12\t\n\x01y\x18\x02 \x01(\x02\"0\n\x11SigmoidParameters\x12\r\n\x01\x61\x18\x01 \x01(\x02:\x02-1\x12\x0c\n\x01\x62\x18\x02 \x01(\x02:\x01\x30')
 )
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
@@ -38,28 +39,28 @@ _CALIBRATIONCONFIG = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='label_function_approximations', full_name='object_detection.protos.CalibrationConfig.label_function_approximations', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='sigmoid_calibration', full_name='object_detection.protos.CalibrationConfig.sigmoid_calibration', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='label_sigmoid_calibrations', full_name='object_detection.protos.CalibrationConfig.label_sigmoid_calibrations', index=3,
       number=4, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -93,7 +94,7 @@ _FUNCTIONAPPROXIMATION = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -124,14 +125,14 @@ _LABELFUNCTIONAPPROXIMATIONS_LABELXYPAIRSMAPENTRY = _descriptor.Descriptor(
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='value', full_name='object_detection.protos.LabelFunctionApproximations.LabelXyPairsMapEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -161,14 +162,14 @@ _LABELFUNCTIONAPPROXIMATIONS = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='label_map_path', full_name='object_detection.protos.LabelFunctionApproximations.label_map_path', index=1,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -199,7 +200,7 @@ _SIGMOIDCALIBRATION = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -230,14 +231,14 @@ _LABELSIGMOIDCALIBRATIONS_LABELSIGMOIDPARAMETERSMAPENTRY = _descriptor.Descripto
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='value', full_name='object_detection.protos.LabelSigmoidCalibrations.LabelSigmoidParametersMapEntry.value', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -267,14 +268,14 @@ _LABELSIGMOIDCALIBRATIONS = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='label_map_path', full_name='object_detection.protos.LabelSigmoidCalibrations.label_map_path', index=1,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -305,14 +306,14 @@ _XYPAIRS_XYPAIR = _descriptor.Descriptor(
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='y', full_name='object_detection.protos.XYPairs.XYPair.y', index=1,
       number=2, type=2, cpp_type=6, label=1,
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -342,7 +343,7 @@ _XYPAIRS = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -373,14 +374,14 @@ _SIGMOIDPARAMETERS = _descriptor.Descriptor(
       has_default_value=True, default_value=float(-1),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='b', full_name='object_detection.protos.SigmoidParameters.b', index=1,
       number=2, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -430,7 +431,6 @@ DESCRIPTOR.message_types_by_name['SigmoidCalibration'] = _SIGMOIDCALIBRATION
 DESCRIPTOR.message_types_by_name['LabelSigmoidCalibrations'] = _LABELSIGMOIDCALIBRATIONS
 DESCRIPTOR.message_types_by_name['XYPairs'] = _XYPAIRS
 DESCRIPTOR.message_types_by_name['SigmoidParameters'] = _SIGMOIDPARAMETERS
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 CalibrationConfig = _reflection.GeneratedProtocolMessageType('CalibrationConfig', (_message.Message,), dict(
   DESCRIPTOR = _CALIBRATIONCONFIG,

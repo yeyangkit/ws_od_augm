@@ -131,49 +131,6 @@ def build_hard_example_miner(config,
   return hard_example_miner
 
 
-def build_faster_rcnn_classification_loss(loss_config):
-  """Builds a classification loss for Faster RCNN based on the loss config.
-
-  Args:
-    loss_config: A losses_pb2.ClassificationLoss object.
-
-  Returns:
-    Loss based on the config.
-
-  Raises:
-    ValueError: On invalid loss_config.
-  """
-  if not isinstance(loss_config, losses_pb2.ClassificationLoss):
-    raise ValueError('loss_config not of type losses_pb2.ClassificationLoss.')
-
-  loss_type = loss_config.WhichOneof('classification_loss')
-
-  if loss_type == 'weighted_sigmoid':
-    return losses.WeightedSigmoidClassificationLoss()
-  if loss_type == 'weighted_softmax':
-    config = loss_config.weighted_softmax
-    return losses.WeightedSoftmaxClassificationLoss(
-        logit_scale=config.logit_scale)
-  if loss_type == 'weighted_logits_softmax':
-    config = loss_config.weighted_logits_softmax
-    return losses.WeightedSoftmaxClassificationAgainstLogitsLoss(
-        logit_scale=config.logit_scale)
-  if loss_type == 'weighted_sigmoid_focal':
-    config = loss_config.weighted_sigmoid_focal
-    alpha = None
-    if config.HasField('alpha'):
-      alpha = config.alpha
-    return losses.SigmoidFocalClassificationLoss(
-        gamma=config.gamma,
-        alpha=alpha)
-
-  # By default, Faster RCNN second stage classifier uses Softmax loss
-  # with anchor-wise outputs.
-  config = loss_config.weighted_softmax
-  return losses.WeightedSoftmaxClassificationLoss(
-      logit_scale=config.logit_scale)
-
-
 def _build_localization_loss(loss_config):
   """Builds a localization loss based on the loss config.
 

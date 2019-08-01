@@ -33,16 +33,12 @@ images must be handled externally.
 """
 import tensorflow as tf
 
-from object_detection.box_coders import faster_rcnn_box_coder
-from object_detection.box_coders import mean_stddev_box_coder
 from object_detection.core import box_coder as bcoder
 from object_detection.core import box_list
 from object_detection.core import box_list_ops
 from object_detection.core import matcher as mat
 from object_detection.core import region_similarity_calculator as sim_calc
 from object_detection.core import standard_fields as fields
-from object_detection.matchers import argmax_matcher
-from object_detection.matchers import bipartite_matcher
 from object_detection.utils import shape_utils
 from object_detection.core import region_similarity_calculator
 
@@ -515,149 +511,6 @@ class TargetAssigner(object):
       BoxCoder object.
     """
     return self._box_coder
-
-
-# TODO(rathodv): This method pulls in all the implementation dependencies into
-# core. Therefore its best to have this factory method outside of core.
-def create_target_assigner(reference, stage=None,
-                           negative_class_weight=1.0, use_matmul_gather=False):
-  """Factory function for creating standard target assigners.
-
-  Args:
-    reference: string referencing the type of TargetAssigner.
-    stage: string denoting stage: {proposal, detection}.
-    negative_class_weight: classification weight to be associated to negative
-      anchors (default: 1.0)
-    use_matmul_gather: whether to use matrix multiplication based gather which
-      are better suited for TPUs.
-
-  Returns:
-    TargetAssigner: desired target assigner.
-
-  Raises:
-    ValueError: if combination reference+stage is invalid.
-  """
-  if reference == 'Multibox' and stage == 'proposal':
-    similarity_calc = sim_calc.NegSqDistSimilarity()
-    matcher = bipartite_matcher.GreedyBipartiteMatcher()
-    box_coder = mean_stddev_box_coder.MeanStddevBoxCoder()
-
-  elif reference == 'FasterRCNN' and stage == 'proposal':
-    similarity_calc = sim_calc.IouSimilarity()
-    matcher = argmax_matcher.ArgMaxMatcher(matched_threshold=0.7,
-                                           unmatched_threshold=0.3,
-                                           force_match_for_each_row=True,
-                                           use_matmul_gather=use_matmul_gather)
-    box_coder = faster_rcnn_box_coder.FasterRcnnBoxCoder(
-        scale_factors=[10.0, 10.0, 5.0, 5.0])
-
-  elif reference == 'FasterRCNN' and stage == 'detection':
-    similarity_calc = sim_calc.IouSimilarity()
-    # Uses all proposals with IOU < 0.5 as candidate negatives.
-    matcher = argmax_matcher.ArgMaxMatcher(matched_threshold=0.5,
-                                           negatives_lower_than_unmatched=True,
-                                           use_matmul_gather=use_matmul_gather)
-    box_coder = faster_rcnn_box_coder.FasterRcnnBoxCoder(
-        scale_factors=[10.0, 10.0, 5.0, 5.0])
-
-  elif reference == 'FastRCNN':
-    similarity_calc = sim_calc.IouSimilarity()
-    matcher = argmax_matcher.ArgMaxMatcher(matched_threshold=0.5,
-                                           unmatched_threshold=0.1,
-                                           force_match_for_each_row=False,
-                                           negatives_lower_than_unmatched=False,
-                                           use_matmul_gather=use_matmul_gather)
-    box_coder = faster_rcnn_box_coder.FasterRcnnBoxCoder()
-
-  else:
-    raise ValueError('No valid combination of reference and stage.')
-
-  return TargetAssigner(similarity_calc, matcher, box_coder,
-                        negative_class_weight=negative_class_weight)
-
-
-def batch_assign(target_assigner,
-                 anchors_batch,
-                 gt_box_batch,
-                 gt_class_targets_batch,
-                 unmatched_class_label=None,
-                 gt_weights_batch=None):
-  """Batched assignment of classification and regression targets.
-
-  Args:
-    target_assigner: a target assigner.
-    anchors_batch: BoxList representing N box anchors or list of BoxList objects
-      with length batch_size representing anchor sets.
-    gt_box_batch: a list of BoxList objects with length batch_size
-      representing groundtruth boxes for each image in the batch
-    gt_class_targets_batch: a list of tensors with length batch_size, where
-      each tensor has shape [num_gt_boxes_i, classification_target_size] and
-      num_gt_boxes_i is the number of boxes in the ith boxlist of
-      gt_box_batch.
-    unmatched_class_label: a float32 tensor with shape [d_1, d_2, ..., d_k]
-      which is consistent with the classification target for each
-      anchor (and can be empty for scalar targets).  This shape must thus be
-      compatible with the groundtruth labels that are passed to the "assign"
-      function (which have shape [num_gt_boxes, d_1, d_2, ..., d_k]).
-    gt_weights_batch: A list of 1-D tf.float32 tensors of shape
-      [num_boxes] containing weights for groundtruth boxes.
-
-  Returns:
-    batch_cls_targets: a tensor with shape [batch_size, num_anchors,
-      num_classes],
-    batch_cls_weights: a tensor with shape [batch_size, num_anchors,
-      num_classes],
-    batch_reg_targets: a tensor with shape [batch_size, num_anchors,
-      box_code_dimension]
-    batch_reg_weights: a tensor with shape [batch_size, num_anchors],
-    match: an int32 tensor of shape [batch_size, num_anchors] containing result
-      of anchor groundtruth matching. Each position in the tensor indicates an
-      anchor and holds the following meaning:
-      (1) if match[x, i] >= 0, anchor i is matched with groundtruth match[x, i].
-      (2) if match[x, i]=-1, anchor i is marked to be background .
-      (3) if match[x, i]=-2, anchor i is ignored since it is not background and
-          does not have sufficient overlap to call it a foreground.
-
-  Raises:
-    ValueError: if input list lengths are inconsistent, i.e.,
-      batch_size == len(gt_box_batch) == len(gt_class_targets_batch)
-        and batch_size == len(anchors_batch) unless anchors_batch is a single
-        BoxList.
-  """
-  if not isinstance(anchors_batch, list):
-    anchors_batch = len(gt_box_batch) * [anchors_batch]
-  if not all(
-      isinstance(anchors, box_list.BoxList) for anchors in anchors_batch):
-    raise ValueError('anchors_batch must be a BoxList or list of BoxLists.')
-  if not (len(anchors_batch)
-          == len(gt_box_batch)
-          == len(gt_class_targets_batch)):
-    raise ValueError('batch size incompatible with lengths of anchors_batch, '
-                     'gt_box_batch and gt_class_targets_batch.')
-  cls_targets_list = []
-  cls_weights_list = []
-  reg_targets_list = []
-  reg_weights_list = []
-  match_list = []
-  if gt_weights_batch is None:
-    gt_weights_batch = [None] * len(gt_class_targets_batch)
-  for anchors, gt_boxes, gt_class_targets, gt_weights in zip(
-      anchors_batch, gt_box_batch, gt_class_targets_batch, gt_weights_batch):
-    (cls_targets, cls_weights,
-     reg_targets, reg_weights, match) = target_assigner.assign(
-         anchors, gt_boxes, gt_class_targets, unmatched_class_label, gt_weights)
-    cls_targets_list.append(cls_targets)
-    cls_weights_list.append(cls_weights)
-    reg_targets_list.append(reg_targets)
-    reg_weights_list.append(reg_weights)
-    match_list.append(match)
-  batch_cls_targets = tf.stack(cls_targets_list)
-  batch_cls_weights = tf.stack(cls_weights_list)
-  batch_reg_targets = tf.stack(reg_targets_list)
-  batch_reg_weights = tf.stack(reg_weights_list)
-  batch_match = tf.stack(match_list)
-  return (batch_cls_targets, batch_cls_weights, batch_reg_targets,
-          batch_reg_weights, batch_match)
 
 def batch_assign_3d(target_assigner,
                     anchors_batch,

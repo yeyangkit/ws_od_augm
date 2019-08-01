@@ -21,6 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto2',
   serialized_pb=_b('\n.object_detection/protos/square_box_coder.proto\x12\x17object_detection.protos\"S\n\x0eSquareBoxCoder\x12\x13\n\x07y_scale\x18\x01 \x01(\x02:\x02\x31\x30\x12\x13\n\x07x_scale\x18\x02 \x01(\x02:\x02\x31\x30\x12\x17\n\x0clength_scale\x18\x03 \x01(\x02:\x01\x35')
 )
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
@@ -38,21 +39,21 @@ _SQUAREBOXCODER = _descriptor.Descriptor(
       has_default_value=True, default_value=float(10),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='x_scale', full_name='object_detection.protos.SquareBoxCoder.x_scale', index=1,
       number=2, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(10),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='length_scale', full_name='object_detection.protos.SquareBoxCoder.length_scale', index=2,
       number=3, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(5),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -70,7 +71,6 @@ _SQUAREBOXCODER = _descriptor.Descriptor(
 )
 
 DESCRIPTOR.message_types_by_name['SquareBoxCoder'] = _SQUAREBOXCODER
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 SquareBoxCoder = _reflection.GeneratedProtocolMessageType('SquareBoxCoder', (_message.Message,), dict(
   DESCRIPTOR = _SQUAREBOXCODER,

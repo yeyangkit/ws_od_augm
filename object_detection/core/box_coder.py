@@ -37,8 +37,6 @@ from object_detection.utils import shape_utils
 
 # Box coder types.
 FASTER_RCNN = 'faster_rcnn'
-KEYPOINT = 'keypoint'
-MEAN_STDDEV = 'mean_stddev'
 SQUARE = 'square'
 
 

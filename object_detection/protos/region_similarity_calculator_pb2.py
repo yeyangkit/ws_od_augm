@@ -21,6 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto2',
   serialized_pb=_b('\n:object_detection/protos/region_similarity_calculator.proto\x12\x17object_detection.protos\"\xbe\x06\n\x1aRegionSimilarityCalculator\x12N\n\x16neg_sq_dist_similarity\x18\x01 \x01(\x0b\x32,.object_detection.protos.NegSqDistSimilarityH\x00\x12@\n\x0eiou_similarity\x18\x02 \x01(\x0b\x32&.object_detection.protos.IouSimilarityH\x00\x12@\n\x0eioa_similarity\x18\x03 \x01(\x0b\x32&.object_detection.protos.IoaSimilarityH\x00\x12W\n\x1athresholded_iou_similarity\x18\x04 \x01(\x0b\x32\x31.object_detection.protos.ThresholdedIouSimilarityH\x00\x12Q\n\x17ioa_similarity_inversed\x18\x05 \x01(\x0b\x32..object_detection.protos.IoaSimilarityInversedH\x00\x12Q\n\x17ioa_similarity_combined\x18\x06 \x01(\x0b\x32..object_detection.protos.IoaSimilarityCombinedH\x00\x12\x66\n#ioa_weighted_neg_sq_dist_similarity\x18\x07 \x01(\x0b\x32\x37.object_detection.protos.IoaWeightedNegSqDistSimilarityH\x00\x12s\n*ioa_weighted_neg_sq_center_dist_similarity\x18\x08 \x01(\x0b\x32=.object_detection.protos.IoaWeightedNegSqCenterDistSimilarityH\x00\x12[\n\x1crelative_distance_similarity\x18\t \x01(\x0b\x32\x33.object_detection.protos.RelativeDistanceSimilarityH\x00\x42\x13\n\x11region_similarity\"\x15\n\x13NegSqDistSimilarity\"\x0f\n\rIouSimilarity\"\x0f\n\rIoaSimilarity\"\x17\n\x15IoaSimilarityInversed\" \n\x1eIoaWeightedNegSqDistSimilarity\"&\n$IoaWeightedNegSqCenterDistSimilarity\";\n\x15IoaSimilarityCombined\x12\"\n\x15\x61nchor_related_weight\x18\x01 \x01(\x02:\x03\x30.5\"6\n\x18ThresholdedIouSimilarity\x12\x1a\n\riou_threshold\x18\x01 \x01(\x02:\x03\x30.5\"\\\n\x1aRelativeDistanceSimilarity\x12\x1f\n\x12positive_threshold\x18\x01 \x01(\x02:\x03\x30.5\x12\x1d\n\x12negative_threshold\x18\x02 \x01(\x02:\x01\x31')
 )
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
@@ -38,63 +39,63 @@ _REGIONSIMILARITYCALCULATOR = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='iou_similarity', full_name='object_detection.protos.RegionSimilarityCalculator.iou_similarity', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='ioa_similarity', full_name='object_detection.protos.RegionSimilarityCalculator.ioa_similarity', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='thresholded_iou_similarity', full_name='object_detection.protos.RegionSimilarityCalculator.thresholded_iou_similarity', index=3,
       number=4, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='ioa_similarity_inversed', full_name='object_detection.protos.RegionSimilarityCalculator.ioa_similarity_inversed', index=4,
       number=5, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='ioa_similarity_combined', full_name='object_detection.protos.RegionSimilarityCalculator.ioa_similarity_combined', index=5,
       number=6, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='ioa_weighted_neg_sq_dist_similarity', full_name='object_detection.protos.RegionSimilarityCalculator.ioa_weighted_neg_sq_dist_similarity', index=6,
       number=7, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='ioa_weighted_neg_sq_center_dist_similarity', full_name='object_detection.protos.RegionSimilarityCalculator.ioa_weighted_neg_sq_center_dist_similarity', index=7,
       number=8, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='relative_distance_similarity', full_name='object_detection.protos.RegionSimilarityCalculator.relative_distance_similarity', index=8,
       number=9, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -272,7 +273,7 @@ _IOASIMILARITYCOMBINED = _descriptor.Descriptor(
       has_default_value=True, default_value=float(0.5),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -303,7 +304,7 @@ _THRESHOLDEDIOUSIMILARITY = _descriptor.Descriptor(
       has_default_value=True, default_value=float(0.5),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -334,14 +335,14 @@ _RELATIVEDISTANCESIMILARITY = _descriptor.Descriptor(
       has_default_value=True, default_value=float(0.5),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='negative_threshold', full_name='object_detection.protos.RelativeDistanceSimilarity.negative_threshold', index=1,
       number=2, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(1),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -404,7 +405,6 @@ DESCRIPTOR.message_types_by_name['IoaWeightedNegSqCenterDistSimilarity'] = _IOAW
 DESCRIPTOR.message_types_by_name['IoaSimilarityCombined'] = _IOASIMILARITYCOMBINED
 DESCRIPTOR.message_types_by_name['ThresholdedIouSimilarity'] = _THRESHOLDEDIOUSIMILARITY
 DESCRIPTOR.message_types_by_name['RelativeDistanceSimilarity'] = _RELATIVEDISTANCESIMILARITY
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 RegionSimilarityCalculator = _reflection.GeneratedProtocolMessageType('RegionSimilarityCalculator', (_message.Message,), dict(
   DESCRIPTOR = _REGIONSIMILARITYCALCULATOR,

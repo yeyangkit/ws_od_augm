@@ -92,7 +92,7 @@ ENV/
 .idea/
 
 # ignore pb2.py files
-*pb2.py
+*_pb2.py
 
 # For mac
 .DS_Store

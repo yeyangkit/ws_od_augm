@@ -15,8 +15,6 @@
 
 """A function to build an object detection box coder from configuration."""
 from object_detection.box_coders import faster_rcnn_box_coder
-from object_detection.box_coders import keypoint_box_coder
-from object_detection.box_coders import mean_stddev_box_coder
 from object_detection.box_coders import square_box_coder
 from object_detection.protos import box_coder_pb2
 
@@ -46,19 +44,6 @@ def build(box_coder_config):
         box_coder_config.faster_rcnn_box_coder.sin_scale,
         box_coder_config.faster_rcnn_box_coder.cos_scale
     ])
-  if box_coder_config.WhichOneof('box_coder_oneof') == 'keypoint_box_coder':
-    return keypoint_box_coder.KeypointBoxCoder(
-        box_coder_config.keypoint_box_coder.num_keypoints,
-        scale_factors=[
-            box_coder_config.keypoint_box_coder.y_scale,
-            box_coder_config.keypoint_box_coder.x_scale,
-            box_coder_config.keypoint_box_coder.height_scale,
-            box_coder_config.keypoint_box_coder.width_scale
-        ])
-  if (box_coder_config.WhichOneof('box_coder_oneof') ==
-      'mean_stddev_box_coder'):
-    return mean_stddev_box_coder.MeanStddevBoxCoder(
-        stddev=box_coder_config.mean_stddev_box_coder.stddev)
   if box_coder_config.WhichOneof('box_coder_oneof') == 'square_box_coder':
     return square_box_coder.SquareBoxCoder(scale_factors=[
         box_coder_config.square_box_coder.y_scale,

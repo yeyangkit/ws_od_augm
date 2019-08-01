@@ -21,6 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto2',
   serialized_pb=_b('\n)object_detection/protos/hyperparams.proto\x12\x17object_detection.protos\"\xfc\x03\n\x0bHyperparams\x12\x39\n\x02op\x18\x01 \x01(\x0e\x32\'.object_detection.protos.Hyperparams.Op:\x04\x43ONV\x12\x39\n\x0bregularizer\x18\x02 \x01(\x0b\x32$.object_detection.protos.Regularizer\x12\x39\n\x0binitializer\x18\x03 \x01(\x0b\x32$.object_detection.protos.Initializer\x12I\n\nactivation\x18\x04 \x01(\x0e\x32/.object_detection.protos.Hyperparams.Activation:\x04RELU\x12\x38\n\nbatch_norm\x18\x05 \x01(\x0b\x32\".object_detection.protos.BatchNormH\x00\x12\x38\n\ngroup_norm\x18\x07 \x01(\x0b\x32\".object_detection.protos.GroupNormH\x00\x12#\n\x14regularize_depthwise\x18\x06 \x01(\x08:\x05\x66\x61lse\"\x16\n\x02Op\x12\x08\n\x04\x43ONV\x10\x01\x12\x06\n\x02\x46\x43\x10\x02\",\n\nActivation\x12\x08\n\x04NONE\x10\x00\x12\x08\n\x04RELU\x10\x01\x12\n\n\x06RELU_6\x10\x02\x42\x12\n\x10normalizer_oneof\"\xa6\x01\n\x0bRegularizer\x12@\n\x0el1_regularizer\x18\x01 \x01(\x0b\x32&.object_detection.protos.L1RegularizerH\x00\x12@\n\x0el2_regularizer\x18\x02 \x01(\x0b\x32&.object_detection.protos.L2RegularizerH\x00\x42\x13\n\x11regularizer_oneof\"\"\n\rL1Regularizer\x12\x11\n\x06weight\x18\x01 \x01(\x02:\x01\x31\"\"\n\rL2Regularizer\x12\x11\n\x06weight\x18\x01 \x01(\x02:\x01\x31\"\xb3\x02\n\x0bInitializer\x12[\n\x1ctruncated_normal_initializer\x18\x01 \x01(\x0b\x32\x33.object_detection.protos.TruncatedNormalInitializerH\x00\x12[\n\x1cvariance_scaling_initializer\x18\x02 \x01(\x0b\x32\x33.object_detection.protos.VarianceScalingInitializerH\x00\x12U\n\x19random_normal_initializer\x18\x03 \x01(\x0b\x32\x30.object_detection.protos.RandomNormalInitializerH\x00\x42\x13\n\x11initializer_oneof\"@\n\x1aTruncatedNormalInitializer\x12\x0f\n\x04mean\x18\x01 \x01(\x02:\x01\x30\x12\x11\n\x06stddev\x18\x02 \x01(\x02:\x01\x31\"\xc5\x01\n\x1aVarianceScalingInitializer\x12\x11\n\x06\x66\x61\x63tor\x18\x01 \x01(\x02:\x01\x32\x12\x16\n\x07uniform\x18\x02 \x01(\x08:\x05\x66\x61lse\x12N\n\x04mode\x18\x03 \x01(\x0e\x32\x38.object_detection.protos.VarianceScalingInitializer.Mode:\x06\x46\x41N_IN\",\n\x04Mode\x12\n\n\x06\x46\x41N_IN\x10\x00\x12\x0b\n\x07\x46\x41N_OUT\x10\x01\x12\x0b\n\x07\x46\x41N_AVG\x10\x02\"=\n\x17RandomNormalInitializer\x12\x0f\n\x04mean\x18\x01 \x01(\x02:\x01\x30\x12\x11\n\x06stddev\x18\x02 \x01(\x02:\x01\x31\"z\n\tBatchNorm\x12\x14\n\x05\x64\x65\x63\x61y\x18\x01 \x01(\x02:\x05\x30.999\x12\x14\n\x06\x63\x65nter\x18\x02 \x01(\x08:\x04true\x12\x14\n\x05scale\x18\x03 \x01(\x08:\x05\x66\x61lse\x12\x16\n\x07\x65psilon\x18\x04 \x01(\x02:\x05\x30.001\x12\x13\n\x05train\x18\x05 \x01(\x08:\x04true\"\x0b\n\tGroupNorm')
 )
+_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 
 
@@ -112,49 +113,49 @@ _HYPERPARAMS = _descriptor.Descriptor(
       has_default_value=True, default_value=1,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='regularizer', full_name='object_detection.protos.Hyperparams.regularizer', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='initializer', full_name='object_detection.protos.Hyperparams.initializer', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='activation', full_name='object_detection.protos.Hyperparams.activation', index=3,
       number=4, type=14, cpp_type=8, label=1,
       has_default_value=True, default_value=1,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='batch_norm', full_name='object_detection.protos.Hyperparams.batch_norm', index=4,
       number=5, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='group_norm', full_name='object_detection.protos.Hyperparams.group_norm', index=5,
       number=7, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='regularize_depthwise', full_name='object_detection.protos.Hyperparams.regularize_depthwise', index=6,
       number=6, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -190,14 +191,14 @@ _REGULARIZER = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='l2_regularizer', full_name='object_detection.protos.Regularizer.l2_regularizer', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -231,7 +232,7 @@ _L1REGULARIZER = _descriptor.Descriptor(
       has_default_value=True, default_value=float(1),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -262,7 +263,7 @@ _L2REGULARIZER = _descriptor.Descriptor(
       has_default_value=True, default_value=float(1),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -293,21 +294,21 @@ _INITIALIZER = _descriptor.Descriptor(
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='variance_scaling_initializer', full_name='object_detection.protos.Initializer.variance_scaling_initializer', index=1,
       number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='random_normal_initializer', full_name='object_detection.protos.Initializer.random_normal_initializer', index=2,
       number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -341,14 +342,14 @@ _TRUNCATEDNORMALINITIALIZER = _descriptor.Descriptor(
       has_default_value=True, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='stddev', full_name='object_detection.protos.TruncatedNormalInitializer.stddev', index=1,
       number=2, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(1),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -379,21 +380,21 @@ _VARIANCESCALINGINITIALIZER = _descriptor.Descriptor(
       has_default_value=True, default_value=float(2),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='uniform', full_name='object_detection.protos.VarianceScalingInitializer.uniform', index=1,
       number=2, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='mode', full_name='object_detection.protos.VarianceScalingInitializer.mode', index=2,
       number=3, type=14, cpp_type=8, label=1,
       has_default_value=True, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -425,14 +426,14 @@ _RANDOMNORMALINITIALIZER = _descriptor.Descriptor(
       has_default_value=True, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='stddev', full_name='object_detection.protos.RandomNormalInitializer.stddev', index=1,
       number=2, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(1),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -463,35 +464,35 @@ _BATCHNORM = _descriptor.Descriptor(
       has_default_value=True, default_value=float(0.999),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='center', full_name='object_detection.protos.BatchNorm.center', index=1,
       number=2, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=True,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='scale', full_name='object_detection.protos.BatchNorm.scale', index=2,
       number=3, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=False,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='epsilon', full_name='object_detection.protos.BatchNorm.epsilon', index=3,
       number=4, type=2, cpp_type=6, label=1,
       has_default_value=True, default_value=float(0.001),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
     _descriptor.FieldDescriptor(
       name='train', full_name='object_detection.protos.BatchNorm.train', index=4,
       number=5, type=8, cpp_type=7, label=1,
       has_default_value=True, default_value=True,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      options=None, file=DESCRIPTOR),
+      options=None),
   ],
   extensions=[
   ],
@@ -578,7 +579,6 @@ DESCRIPTOR.message_types_by_name['VarianceScalingInitializer'] = _VARIANCESCALIN
 DESCRIPTOR.message_types_by_name['RandomNormalInitializer'] = _RANDOMNORMALINITIALIZER
 DESCRIPTOR.message_types_by_name['BatchNorm'] = _BATCHNORM
 DESCRIPTOR.message_types_by_name['GroupNorm'] = _GROUPNORM
-_sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Hyperparams = _reflection.GeneratedProtocolMessageType('Hyperparams', (_message.Message,), dict(
   DESCRIPTOR = _HYPERPARAMS,
