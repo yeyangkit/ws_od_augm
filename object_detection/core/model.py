@@ -264,8 +264,6 @@ class DetectionModel(_BaseClass):
                           groundtruth_boxes_list,
                           groundtruth_boxes_3d_list,
                           groundtruth_classes_list,
-                          groundtruth_masks_list=None,
-                          groundtruth_keypoints_list=None,
                           groundtruth_weights_list=None,
                           groundtruth_confidences_list=None,
                           groundtruth_is_crowd_list=None,
@@ -310,12 +308,6 @@ class DetectionModel(_BaseClass):
     if groundtruth_confidences_list:
       self._groundtruth_lists[fields.BoxListFields.
                               confidences] = groundtruth_confidences_list
-    if groundtruth_masks_list:
-      self._groundtruth_lists[
-          fields.BoxListFields.masks] = groundtruth_masks_list
-    if groundtruth_keypoints_list:
-      self._groundtruth_lists[
-          fields.BoxListFields.keypoints] = groundtruth_keypoints_list
     if groundtruth_is_crowd_list:
       self._groundtruth_lists[
           fields.BoxListFields.is_crowd] = groundtruth_is_crowd_list

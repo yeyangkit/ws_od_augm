@@ -126,13 +126,10 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                box_params,
                input_features,
                input_channels,
-               load_instance_masks=False,
                load_multiclass_scores=False,
-               instance_mask_type=input_reader_pb2.NUMERICAL_MASKS,
                label_map_proto_file=None,
                use_display_name=False,
-               dct_method='',
-               num_additional_channels=0):
+               dct_method=''):
     """Constructor sets keys_to_features and items_to_handlers.
 
     Args:
@@ -253,25 +250,6 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
           'image/object/class/multiclass_scores'] = tf.VarLenFeature(tf.float32)
       self.items_to_handlers[fields.InputDataFields.multiclass_scores] = (
           slim_example_decoder.Tensor('image/object/class/multiclass_scores'))
-    if load_instance_masks:
-      if instance_mask_type in (input_reader_pb2.DEFAULT,
-                                input_reader_pb2.NUMERICAL_MASKS):
-        self.keys_to_features['image/object/mask'] = (
-            tf.VarLenFeature(tf.float32))
-        self.items_to_handlers[
-            fields.InputDataFields.groundtruth_instance_masks] = (
-                slim_example_decoder.ItemHandlerCallback(
-                    ['image/object/mask', 'layers/height', 'layers/width'],
-                    self._reshape_instance_masks))
-      elif instance_mask_type == input_reader_pb2.PNG_MASKS:
-        self.keys_to_features['image/object/mask'] = tf.VarLenFeature(tf.string)
-        self.items_to_handlers[
-            fields.InputDataFields.groundtruth_instance_masks] = (
-                slim_example_decoder.ItemHandlerCallback(
-                    ['image/object/mask', 'layers/height', 'layers/width'],
-                    self._decode_png_instance_masks))
-      else:
-        raise ValueError('Did not recognize the `instance_mask_type` option.')
     if label_map_proto_file:
       # If the label_map_proto is provided, try to use it in conjunction with
       # the class text, and fall back to a materialized ID.
@@ -359,56 +337,3 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             0), lambda: tensor_dict[fields.InputDataFields.groundtruth_weights],
         default_groundtruth_weights)
     return tensor_dict
-
-  def _reshape_instance_masks(self, keys_to_tensors):
-    """Reshape instance segmentation masks.
-
-    The instance segmentation masks are reshaped to [num_instances, height,
-    width].
-
-    Args:
-      keys_to_tensors: a dictionary from keys to tensors.
-
-    Returns:
-      A 3-D float tensor of shape [num_instances, height, width] with values
-        in {0, 1}.
-    """
-    height = keys_to_tensors['layers/height']
-    width = keys_to_tensors['layers/width']
-    to_shape = tf.cast(tf.stack([-1, height, width]), tf.int32)
-    masks = keys_to_tensors['image/object/mask']
-    if isinstance(masks, tf.SparseTensor):
-      masks = tf.sparse_tensor_to_dense(masks)
-    masks = tf.reshape(tf.to_float(tf.greater(masks, 0.0)), to_shape)
-    return tf.cast(masks, tf.float32)
-
-  def _decode_png_instance_masks(self, keys_to_tensors):
-    """Decode PNG instance segmentation masks and stack into dense tensor.
-
-    The instance segmentation masks are reshaped to [num_instances, height,
-    width].
-
-    Args:
-      keys_to_tensors: a dictionary from keys to tensors.
-
-    Returns:
-      A 3-D float tensor of shape [num_instances, height, width] with values
-        in {0, 1}.
-    """
-
-    def decode_png_mask(image_buffer):
-      image = tf.squeeze(
-          tf.image.decode_image(image_buffer, channels=1), axis=2)
-      image.set_shape([None, None])
-      image = tf.to_float(tf.greater(image, 0))
-      return image
-
-    png_masks = keys_to_tensors['image/object/mask']
-    height = keys_to_tensors['layers/height']
-    width = keys_to_tensors['layers/width']
-    if isinstance(png_masks, tf.SparseTensor):
-      png_masks = tf.sparse_tensor_to_dense(png_masks, default_value='')
-    return tf.cond(
-        tf.greater(tf.size(png_masks), 0),
-        lambda: tf.map_fn(decode_png_mask, png_masks, dtype=tf.float32),
-        lambda: tf.zeros(tf.to_int32(tf.stack([0, height, width]))))

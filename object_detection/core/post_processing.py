@@ -121,7 +121,6 @@ def multiclass_non_max_suppression(boxes,
                                    max_total_size=0,
                                    clip_window=None,
                                    change_coordinate_frame=False,
-                                   masks=None,
                                    boundaries=None,
                                    pad_to_max_output_size=False,
                                    additional_fields=None,
@@ -197,8 +196,6 @@ def multiclass_non_max_suppression(boxes,
     num_valid_nms_boxes_cumulative = tf.constant(0)
     per_class_boxes_list = tf.unstack(boxes, axis=1)
     per_class_boxes_3d_list = tf.unstack(boxes_3d, axis=1)
-    if masks is not None:
-      per_class_masks_list = tf.unstack(masks, axis=1)
     if boundaries is not None:
       per_class_boundaries_list = tf.unstack(boundaries, axis=1)
     boxes_ids = (range(num_classes) if len(per_class_boxes_list) > 1
@@ -214,10 +211,6 @@ def multiclass_non_max_suppression(boxes,
 
       boxlist_and_class_scores.add_field(fields.BoxListFields.scores,
                                          class_scores)
-      if masks is not None:
-        per_class_masks = per_class_masks_list[boxes_idx]
-        boxlist_and_class_scores.add_field(fields.BoxListFields.masks,
-                                           per_class_masks)
       if boundaries is not None:
         per_class_boundaries = per_class_boundaries_list[boxes_idx]
         boxlist_and_class_scores.add_field(fields.BoxListFields.boundaries,
@@ -297,7 +290,6 @@ def class_agnostic_non_max_suppression(boxes,
                                        max_total_size=0,
                                        clip_window=None,
                                        change_coordinate_frame=False,
-                                       masks=None,
                                        boundaries=None,
                                        pad_to_max_output_size=False,
                                        additional_fields=None,
@@ -375,14 +367,10 @@ def class_agnostic_non_max_suppression(boxes,
         tf.argmax(scores, axis=1, output_type=tf.int32), axis=1)
     boxes = tf.batch_gather(boxes, class_ids)
     boxes_3d = tf.batch_gather(boxes_3d, class_ids)
-    if masks is not None:
-      masks = tf.batch_gather(masks, class_ids)
     if boundaries is not None:
       boundaries = tf.batch_gather(boundaries, class_ids)
   boxes = tf.squeeze(boxes, axis=[1])
   boxes_3d = tf.squeeze(boxes_3d, axis=[1])
-  if masks is not None:
-    masks = tf.squeeze(masks, axis=[1])
   if boundaries is not None:
     boundaries = tf.squeeze(boundaries, axis=[1])
 
@@ -392,8 +380,6 @@ def class_agnostic_non_max_suppression(boxes,
     classes_with_max_scores = tf.argmax(scores, axis=-1)
     boxlist_and_class_scores.add_field(fields.BoxListFields.scores, max_scores)
     boxlist_and_class_scores.add_field(fields.BoxListFields.boxes_3d, boxes_3d)
-    if masks is not None:
-      boxlist_and_class_scores.add_field(fields.BoxListFields.masks, masks)
     if boundaries is not None:
       boxlist_and_class_scores.add_field(fields.BoxListFields.boundaries,
                                          boundaries)
@@ -471,7 +457,6 @@ def batch_multiclass_non_max_suppression(boxes,
                                          clip_window=None,
                                          change_coordinate_frame=False,
                                          num_valid_boxes=None,
-                                         masks=None,
                                          additional_fields=None,
                                          scope=None,
                                          use_static_shapes=False,
@@ -559,7 +544,6 @@ def batch_multiclass_non_max_suppression(boxes,
   if change_coordinate_frame and clip_window is None:
     raise ValueError('if change_coordinate_frame is True, then a clip_window'
                      'must be specified.')
-  original_masks = masks
 
   # Create ordered dictionary using the sorted keys from
   # additional fields to ensure getting the same key value assignment
@@ -585,12 +569,6 @@ def batch_multiclass_non_max_suppression(boxes,
     # valid.
     if num_valid_boxes is None:
       num_valid_boxes = tf.ones([batch_size], dtype=tf.int32) * num_anchors
-
-    # If masks aren't provided, create dummy masks so we can only have one copy
-    # of _single_image_nms_fn and discard the dummy masks after map_fn.
-    if masks is None:
-      masks_shape = tf.stack([batch_size, num_anchors, q, 1, 1])
-      masks = tf.zeros(masks_shape)
 
     if clip_window is None:
       clip_window = tf.stack([
@@ -647,8 +625,7 @@ def batch_multiclass_non_max_suppression(boxes,
       per_image_boxes = args[0]
       per_image_boxes_3d = args[1]
       per_image_scores = args[2]
-      per_image_masks = args[3]
-      per_image_clip_window = args[4]
+      per_image_clip_window = args[3]
       # Make sure that the order of elements passed in args is aligned with
       # the iteration order of ordered_additional_fields
       per_image_additional_fields = {
@@ -673,11 +650,6 @@ def batch_multiclass_non_max_suppression(boxes,
             tf.slice(per_image_scores, [0, 0],
                      tf.stack([per_image_num_valid_boxes, -1])),
             [-1, num_classes])
-        per_image_masks = tf.reshape(
-            tf.slice(per_image_masks, 4 * [0],
-                     tf.stack([per_image_num_valid_boxes, -1, -1, -1])),
-            [-1, q, shape_utils.get_dim_as_int(per_image_masks.shape[2]),
-             shape_utils.get_dim_as_int(per_image_masks.shape[3])])
         if per_image_additional_fields is not None:
           for key, tensor in per_image_additional_fields.items():
             additional_field_shape = tensor.get_shape()
@@ -702,7 +674,6 @@ def batch_multiclass_non_max_suppression(boxes,
             max_total_size,
             clip_window=per_image_clip_window,
             change_coordinate_frame=change_coordinate_frame,
-            masks=per_image_masks,
             pad_to_max_output_size=use_static_shapes,
             additional_fields=per_image_additional_fields)
       else:
@@ -716,7 +687,6 @@ def batch_multiclass_non_max_suppression(boxes,
             max_total_size,
             clip_window=per_image_clip_window,
             change_coordinate_frame=change_coordinate_frame,
-            masks=per_image_masks,
             pad_to_max_output_size=use_static_shapes,
             additional_fields=per_image_additional_fields)
 
@@ -728,24 +698,23 @@ def batch_multiclass_non_max_suppression(boxes,
       nmsed_boxes_3d = nmsed_boxlist.get_field(fields.BoxListFields.boxes_3d)
       nmsed_scores = nmsed_boxlist.get_field(fields.BoxListFields.scores)
       nmsed_classes = nmsed_boxlist.get_field(fields.BoxListFields.classes)
-      nmsed_masks = nmsed_boxlist.get_field(fields.BoxListFields.masks)
       nmsed_additional_fields = []
       # Sorting is needed here to ensure that the values stored in
       # nmsed_additional_fields are always kept in the same order
       # across different execution runs.
       for key in sorted(per_image_additional_fields.keys()):
         nmsed_additional_fields.append(nmsed_boxlist.get_field(key))
-      return ([nmsed_boxes, nmsed_boxes_3d, nmsed_scores, nmsed_classes, nmsed_masks] +
+      return ([nmsed_boxes, nmsed_boxes_3d, nmsed_scores, nmsed_classes] +
               nmsed_additional_fields + [num_detections])
 
     num_additional_fields = 0
     if ordered_additional_fields:
       num_additional_fields = len(ordered_additional_fields)
-    num_nmsed_outputs = 5 + num_additional_fields
+    num_nmsed_outputs = 4 + num_additional_fields
 
     batch_outputs = shape_utils.static_or_dynamic_map_fn(
         _single_image_nms_fn,
-        elems=([boxes, boxes_3d, scores, masks, clip_window] +
+        elems=([boxes, boxes_3d, scores, clip_window] +
                list(ordered_additional_fields.values()) + [num_valid_boxes]),
         dtype=(num_nmsed_outputs * [tf.float32] + [tf.int32]),
         parallel_iterations=parallel_iterations)
@@ -754,8 +723,7 @@ def batch_multiclass_non_max_suppression(boxes,
     batch_nmsed_boxes_3d = batch_outputs[1]
     batch_nmsed_scores = batch_outputs[2]
     batch_nmsed_classes = batch_outputs[3]
-    batch_nmsed_masks = batch_outputs[4]
-    batch_nmsed_values = batch_outputs[5:-1]
+    batch_nmsed_values = batch_outputs[4:-1]
 
     batch_nmsed_additional_fields = {}
     if num_additional_fields > 0:
@@ -768,12 +736,9 @@ def batch_multiclass_non_max_suppression(boxes,
 
     batch_num_detections = batch_outputs[-1]
 
-    if original_masks is None:
-      batch_nmsed_masks = None
-
     if not ordered_additional_fields:
       batch_nmsed_additional_fields = None
 
     return (batch_nmsed_boxes, batch_nmsed_boxes_3d, batch_nmsed_scores, batch_nmsed_classes,
-            batch_nmsed_masks, batch_nmsed_additional_fields,
+            batch_nmsed_additional_fields,
             batch_num_detections)

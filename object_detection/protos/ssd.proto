@@ -96,52 +96,6 @@ message Ssd {
 
   optional float implicit_example_weight = 23 [default = 1.0];
 
-  // Configuration proto for MaskHead.
-  // Next id: 11
-  message MaskHead {
-    // The height and the width of the predicted mask. Only used when
-    // predict_instance_masks is true.
-    optional int32 mask_height = 1 [default = 15];
-    optional int32 mask_width = 2 [default = 15];
-
-    // Whether to predict class agnostic masks. Only used when
-    // predict_instance_masks is true.
-    optional bool masks_are_class_agnostic = 3 [default = true];
-
-    // The depth for the first conv2d_transpose op applied to the
-    // image_features in the mask prediction branch. If set to 0, the value
-    // will be set automatically based on the number of channels in the image
-    // features and the number of classes.
-    optional int32 mask_prediction_conv_depth = 4 [default = 256];
-
-    // The number of convolutions applied to image_features in the mask
-    // prediction branch.
-    optional int32 mask_prediction_num_conv_layers = 5 [default = 2];
-
-    // Whether to apply convolutions on mask features before upsampling using
-    // nearest neighbor resizing.
-    // By default, mask features are resized to [`mask_height`, `mask_width`]
-    // before applying convolutions and predicting masks.
-    optional bool convolve_then_upsample_masks = 6 [default = false];
-
-    // Mask loss weight.
-    optional float mask_loss_weight = 7 [default = 5.0];
-
-    // Number of boxes to be generated at training time for computing mask loss.
-    optional int32 mask_loss_sample_size = 8 [default = 16];
-
-    // Hyperparameters for convolution ops used in the box predictor.
-    optional Hyperparams conv_hyperparams = 9;
-
-    // Output size (width and height are set to be the same) of the initial
-    // bilinear interpolation based cropping during ROI pooling. Only used when
-    // we have second stage prediction head enabled (e.g. mask head).
-    optional int32 initial_crop_size = 10 [default = 15];
-  }
-
-  // Configs for mask head.
-  optional MaskHead mask_head_config = 25;
-
   optional bool increse_small_object_size = 27 [default=false];
 
   optional bool specific_threshold = 28 [default=false];

@@ -728,15 +728,14 @@ class SSDMetaArch(model.DetectionModel):
       #   detection_keypoints = tf.identity(
       #       detection_keypoints, 'raw_keypoint_locations')
       #   additional_fields[fields.BoxListFields.keypoints] = detection_keypoints
-      (nmsed_boxes, nmsed_boxes_3d, nmsed_scores, nmsed_classes, nmsed_masks,
+      (nmsed_boxes, nmsed_boxes_3d, nmsed_scores, nmsed_classes,
        nmsed_additional_fields, num_detections) = self._non_max_suppression_fn(
            detection_boxes,
            detection_boxes_3d,
            detection_scores,
            clip_window=self._compute_clip_window(preprocessed_images,
                                                  true_image_shapes),
-           additional_fields=additional_fields,
-           masks=prediction_dict.get('mask_predictions'))
+           additional_fields=additional_fields)
       detection_dict = {
           fields.DetectionResultFields.detection_boxes:
               nmsed_boxes,
@@ -755,9 +754,6 @@ class SSDMetaArch(model.DetectionModel):
           fields.DetectionResultFields.raw_detection_scores:
               detection_scores_with_background
       }
-      if nmsed_masks is not None:
-        detection_dict[
-            fields.DetectionResultFields.detection_masks] = nmsed_masks
       return detection_dict
 
   def loss(self, prediction_dict, true_image_shapes, category_index, scope=None):

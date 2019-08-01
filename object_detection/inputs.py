@@ -136,13 +136,6 @@ def transform_input_data(tensor_dict,
       preprocessed_resized_image, axis=0)
   tensor_dict[fields.InputDataFields.true_image_shape] = tf.squeeze(
       true_image_shape, axis=0)
-  if fields.InputDataFields.groundtruth_instance_masks in tensor_dict:
-    masks = tensor_dict[fields.InputDataFields.groundtruth_instance_masks]
-    _, resized_masks, _ = image_resizer_fn(image, masks)
-    if use_bfloat16:
-      resized_masks = tf.cast(resized_masks, tf.bfloat16)
-    tensor_dict[fields.InputDataFields.
-                groundtruth_instance_masks] = resized_masks
 
   # Transform groundtruth classes to one hot encodings.
   label_offset = 1
@@ -230,9 +223,6 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.groundtruth_boxes: [max_num_boxes, 4],
       fields.InputDataFields.groundtruth_boxes_3d: [max_num_boxes, 6],
       fields.InputDataFields.groundtruth_classes: [max_num_boxes, num_classes],
-      fields.InputDataFields.groundtruth_instance_masks: [
-          max_num_boxes, height, width
-      ],
       fields.InputDataFields.groundtruth_is_crowd: [max_num_boxes],
       fields.InputDataFields.groundtruth_group_of: [max_num_boxes],
       fields.InputDataFields.groundtruth_area: [max_num_boxes],
@@ -284,8 +274,6 @@ def augment_input_data(tensor_dict, data_augmentation_options):
   tensor_dict[fields.InputDataFields.image] = tf.expand_dims(
       tf.cast(tensor_dict[fields.InputDataFields.image], dtype=tf.float32), 0)
 
-  include_instance_masks = (fields.InputDataFields.groundtruth_instance_masks
-                            in tensor_dict)
   include_label_weights = (fields.InputDataFields.groundtruth_weights
                            in tensor_dict)
   include_label_confidences = (fields.InputDataFields.groundtruth_confidences
@@ -297,8 +285,7 @@ def augment_input_data(tensor_dict, data_augmentation_options):
       func_arg_map=preprocessor.get_default_func_arg_map(
           include_label_weights=include_label_weights,
           include_label_confidences=include_label_confidences,
-          include_multiclass_scores=include_multiclass_scores,
-          include_instance_masks=include_instance_masks))
+          include_multiclass_scores=include_multiclass_scores))
   tensor_dict[fields.InputDataFields.image] = tf.squeeze(
       tensor_dict[fields.InputDataFields.image], axis=0)
   return tensor_dict
@@ -319,7 +306,6 @@ def _get_labels_dict(input_dict):
 
   optional_label_keys = [
       fields.InputDataFields.groundtruth_confidences,
-      fields.InputDataFields.groundtruth_instance_masks,
       fields.InputDataFields.groundtruth_area,
       fields.InputDataFields.groundtruth_is_crowd,
       fields.InputDataFields.groundtruth_difficult
@@ -661,7 +647,6 @@ def create_predict_input_fn(model_config, predict_input_config):
         ['x_c', 'y_c', 'w', 'h', 'sin_angle', 'cos_angle'],
         input_features=model_config.input_features,
         input_channels=model_config.input_channels,
-        load_instance_masks=False,
         num_additional_channels=predict_input_config.num_additional_channels)
     input_dict = transform_fn(decoder.decode(example))
     images = tf.cast(input_dict[fields.InputDataFields.image], dtype=tf.float32)

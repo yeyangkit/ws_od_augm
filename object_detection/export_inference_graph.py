@@ -133,7 +133,6 @@ flags.DEFINE_boolean('write_inference_graph', False,
 tf.app.flags.mark_flag_as_required('pipeline_config_path')
 tf.app.flags.mark_flag_as_required('trained_checkpoint_prefix')
 tf.app.flags.mark_flag_as_required('output_directory')
-tf.app.flags.mark_flag_as_required('use_mask')
 FLAGS = flags.FLAGS
 
 
@@ -150,7 +149,7 @@ def main(_):
   else:
     input_shape = None
   exporter.export_inference_graph(
-      FLAGS.input_type, FLAGS.use_mask, pipeline_config, FLAGS.trained_checkpoint_prefix,
+      FLAGS.input_type, pipeline_config, FLAGS.trained_checkpoint_prefix,
       FLAGS.output_directory, input_shape=input_shape,
       write_inference_graph=FLAGS.write_inference_graph)
 

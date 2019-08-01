@@ -103,9 +103,6 @@ def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
       input_data_fields.groundtruth_boxes_3d: groundtruth_boxes_3d,
       input_data_fields.groundtruth_classes: groundtruth_classes
   }
-  if detection_model.groundtruth_has_field(fields.BoxListFields.masks):
-    groundtruth[input_data_fields.groundtruth_instance_masks] = tf.stack(
-        detection_model.groundtruth_lists(fields.BoxListFields.masks))
 
   if detection_model.groundtruth_has_field(fields.BoxListFields.is_crowd):
     groundtruth[input_data_fields.groundtruth_is_crowd] = tf.stack(
@@ -161,7 +158,6 @@ def unstack_batch(tensor_dict, unpad_groundtruth_tensors=True):
         # List of input data fields that are padded along the num_boxes
         # dimension. This list has to be kept in sync with InputDataFields in
         # standard_fields.py.
-        fields.InputDataFields.groundtruth_instance_masks,
         fields.InputDataFields.groundtruth_classes,
         fields.InputDataFields.groundtruth_boxes,
         fields.InputDataFields.groundtruth_boxes_3d,
@@ -204,10 +200,6 @@ def _provide_groundtruth(model, labels):
   gt_boxes_list = labels[fields.InputDataFields.groundtruth_boxes]
   gt_boxes_3d_list = labels[fields.InputDataFields.groundtruth_boxes_3d]
   gt_classes_list = labels[fields.InputDataFields.groundtruth_classes]
-  gt_masks_list = None
-  if fields.InputDataFields.groundtruth_instance_masks in labels:
-    gt_masks_list = labels[
-        fields.InputDataFields.groundtruth_instance_masks]
   gt_weights_list = None
   if fields.InputDataFields.groundtruth_weights in labels:
     gt_weights_list = labels[fields.InputDataFields.groundtruth_weights]
@@ -223,7 +215,6 @@ def _provide_groundtruth(model, labels):
       groundtruth_boxes_3d_list=gt_boxes_3d_list,
       groundtruth_classes_list=gt_classes_list,
       groundtruth_confidences_list=gt_confidences_list,
-      groundtruth_masks_list=gt_masks_list,
       groundtruth_weights_list=gt_weights_list,
       groundtruth_is_crowd_list=gt_is_crowd_list)
 

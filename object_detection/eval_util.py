@@ -173,7 +173,6 @@ def visualize_detection_results(result_dict,
   detection_scores = result_dict[detection_fields.detection_scores]
   detection_classes = np.int32((result_dict[
       detection_fields.detection_classes]))
-  detection_masks = result_dict.get(detection_fields.detection_masks)
   detection_boundaries = result_dict.get(detection_fields.detection_boundaries)
 
   # Plot groundtruth underneath detections
@@ -197,7 +196,6 @@ def visualize_detection_results(result_dict,
       detection_scores,
       category_index,
       boxes_3d=detection_boxes_3d,
-      instance_masks=detection_masks,
       instance_boundaries=detection_boundaries,
       use_normalized_coordinates=False,
       max_boxes_to_draw=max_num_predictions,
@@ -542,23 +540,6 @@ def _scale_3d_box_to_absolute(args):
   return box_list_ops.to_absolute_coordinates_3d(
       box_list.Box3dList(boxes), image_shape[0], image_shape[1]).get()
 
-def _resize_detection_masks(args):
-  detection_boxes, detection_masks, image_shape = args
-  detection_masks_reframed = ops.reframe_box_masks_to_image_masks(
-      detection_masks, detection_boxes, image_shape[0], image_shape[1])
-  return tf.cast(tf.greater(detection_masks_reframed, 0.5), tf.uint8)
-
-
-def _resize_groundtruth_masks(args):
-  mask, image_shape = args
-  mask = tf.expand_dims(mask, 3)
-  mask = tf.image.resize_images(
-      mask,
-      image_shape,
-      method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-      align_corners=True)
-  return tf.cast(tf.squeeze(mask, 3), tf.uint8)
-
 def result_dict_for_single_example(image,
                                    key,
                                    detections,
@@ -810,17 +791,6 @@ def result_dict_for_batched_example(images,
   output_dict[detection_fields.detection_scores] = detection_scores
   output_dict[detection_fields.num_detections] = num_detections
 
-  if detection_fields.detection_masks in detections:
-    detection_masks = detections[detection_fields.detection_masks]
-    # TODO(rathodv): This should be done in model's postprocess
-    # function ideally.
-    output_dict[detection_fields.detection_masks] = (
-        shape_utils.static_or_dynamic_map_fn(
-            _resize_detection_masks,
-            elems=[detection_boxes, detection_masks,
-                   original_image_spatial_shapes],
-            dtype=tf.uint8))
-
   if groundtruth:
     if max_gt_boxes is None:
       if input_data_fields.num_groundtruth_boxes in groundtruth:
@@ -828,14 +798,6 @@ def result_dict_for_batched_example(images,
       else:
         raise ValueError(
             'max_gt_boxes must be provided when processing batched examples.')
-
-    if input_data_fields.groundtruth_instance_masks in groundtruth:
-      masks = groundtruth[input_data_fields.groundtruth_instance_masks]
-      groundtruth[input_data_fields.groundtruth_instance_masks] = (
-          shape_utils.static_or_dynamic_map_fn(
-              _resize_groundtruth_masks,
-              elems=[masks, original_image_spatial_shapes],
-              dtype=tf.uint8))
 
     output_dict.update(groundtruth)
     if scale_to_absolute:

@@ -273,7 +273,6 @@ def retain_boxes_above_threshold(boxes,
                                  label_weights,
                                  label_confidences=None,
                                  multiclass_scores=None,
-                                 masks=None,
                                  threshold=0.0):
   """Retains boxes whose label weight is above a given threshold.
 
@@ -330,10 +329,6 @@ def retain_boxes_above_threshold(boxes,
     if multiclass_scores is not None:
       retained_multiclass_scores = tf.gather(multiclass_scores, indices)
       result.append(retained_multiclass_scores)
-
-    if masks is not None:
-      retained_masks = tf.gather(masks, indices)
-      result.append(retained_masks)
 
     return result
 
@@ -415,9 +410,6 @@ def _point_inside(x, y):
   return tf.logical_and(tf.logical_and(tf.greater(x, 0), tf.less(x, 1)),
                         tf.logical_and(tf.greater(y, 0), tf.less(y, 1)))
 
-def _mask_point(x, y, mask):
-  return tf.expand_dims(tf.boolean_mask(x, mask), 1), tf.expand_dims(tf.boolean_mask(y, mask), 1)
-
 def _rot_boxes(box_inclined, angle_rot, rows, cols):
 
   def _box_inside(xmin, ymin, xmax, ymax):
@@ -474,53 +466,9 @@ def _rot_boxes(box_inclined, angle_rot, rows, cols):
 
   return box_aligned, box_inclined, mask
 
-def _flip_masks_left_right(masks):
-  """Left-right flip masks.
-
-  Args:
-    masks: rank 3 float32 tensor with shape
-      [num_instances, height, width] representing instance masks.
-
-  Returns:
-    flipped masks: rank 3 float32 tensor with shape
-      [num_instances, height, width] representing instance masks.
-  """
-  return masks[:, :, ::-1]
-
-
-def _flip_masks_up_down(masks):
-  """Up-down flip masks.
-
-  Args:
-    masks: rank 3 float32 tensor with shape
-      [num_instances, height, width] representing instance masks.
-
-  Returns:
-    flipped masks: rank 3 float32 tensor with shape
-      [num_instances, height, width] representing instance masks.
-  """
-  return masks[:, ::-1, :]
-
-
-def _rot90_masks(masks):
-  """Rotate masks counter-clockwise by 90 degrees.
-
-  Args:
-    masks: rank 3 float32 tensor with shape
-      [num_instances, height, width] representing instance masks.
-
-  Returns:
-    rotated masks: rank 3 float32 tensor with shape
-      [num_instances, height, width] representing instance masks.
-  """
-  masks = tf.transpose(masks, [0, 2, 1])
-  return masks[:, ::-1, :]
-
-
 def random_horizontal_flip(image,
                            boxes=None,
                            boxes_3d=None,
-                           masks=None,
                            seed=None,
                            preprocess_vars_cache=None):
   """Randomly flips the image and detections horizontally.
@@ -597,18 +545,11 @@ def random_horizontal_flip(image,
                            lambda: boxes_3d)
         result.append(boxes_3d)
 
-    # flip masks
-    if masks is not None:
-      masks = tf.cond(do_a_flip_random, lambda: _flip_masks_left_right(masks),
-                      lambda: masks)
-      result.append(masks)
-
     return tuple(result)
 
 
 def random_vertical_flip(image,
                          boxes=None,
-                         masks=None,
                          seed=None,
                          preprocess_vars_cache=None):
   """Randomly flips the image and detections vertically.
@@ -678,18 +619,11 @@ def random_vertical_flip(image,
                       lambda: boxes)
       result.append(boxes)
 
-    # flip masks
-    if masks is not None:
-      masks = tf.cond(do_a_flip_random, lambda: _flip_masks_up_down(masks),
-                      lambda: masks)
-      result.append(masks)
-
     return tuple(result)
 
 
 def random_rotation90(image,
                       boxes=None,
-                      masks=None,
                       seed=None,
                       preprocess_vars_cache=None):
   """Randomly rotates the image and detections 90 degrees counter-clockwise.
@@ -759,18 +693,11 @@ def random_rotation90(image,
                       lambda: boxes)
       result.append(boxes)
 
-    # flip masks
-    if masks is not None:
-      masks = tf.cond(do_a_rot90_random, lambda: _rot90_masks(masks),
-                      lambda: masks)
-      result.append(masks)
-
     return tuple(result)
 
 def random_rotation(image,
                     boxes_aligned=None,
                     boxes_inclined=None,
-                    masks=None,
                     seed=None):
 
   def _rot_image(image):
@@ -796,10 +723,6 @@ def random_rotation(image,
       result.append(boxes_aligned)
       boxes_inclined = tf.cond(all_boxes_in_image, lambda: boxes_inclined_rot, lambda: boxes_inclined)
       result.append(boxes_inclined)
-
-    # flip masks
-    if masks is not None:
-      result.append(masks)
 
     return tuple(result)
 
@@ -846,7 +769,6 @@ def random_pixel_value_scale(image,
 
 
 def random_image_scale(image,
-                       masks=None,
                        min_scale_ratio=0.5,
                        max_scale_ratio=2.0,
                        seed=None,
@@ -893,12 +815,6 @@ def random_image_scale(image,
     image = tf.image.resize_images(
         image, [image_newysize, image_newxsize], align_corners=True)
     result.append(image)
-    if masks is not None:
-      masks = tf.image.resize_images(
-          masks, [image_newysize, image_newxsize],
-          method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-          align_corners=True)
-      result.append(masks)
     return tuple(result)
 
 
@@ -1216,7 +1132,6 @@ def _strict_random_crop_image(image,
                               label_weights,
                               label_confidences=None,
                               multiclass_scores=None,
-                              masks=None,
                               min_object_covered=1.0,
                               aspect_ratio_range=(0.75, 1.33),
                               area_range=(0.1, 1.0),
@@ -1361,17 +1276,6 @@ def _strict_random_crop_image(image,
       new_multiclass_scores = overlapping_boxlist.get_field('multiclass_scores')
       result.append(new_multiclass_scores)
 
-    if masks is not None:
-      masks_of_boxes_inside_window = tf.gather(masks, inside_window_ids)
-      masks_of_boxes_completely_inside_window = tf.gather(
-          masks_of_boxes_inside_window, keep_ids)
-      masks_box_begin = [0, im_box_begin[0], im_box_begin[1]]
-      masks_box_size = [-1, im_box_size[0], im_box_size[1]]
-      new_masks = tf.slice(
-          masks_of_boxes_completely_inside_window,
-          masks_box_begin, masks_box_size)
-      result.append(new_masks)
-
     return tuple(result)
 
 
@@ -1381,7 +1285,6 @@ def random_crop_image(image,
                       label_weights,
                       label_confidences=None,
                       multiclass_scores=None,
-                      masks=None,
                       min_object_covered=1.0,
                       aspect_ratio_range=(0.75, 1.33),
                       area_range=(0.1, 1.0),
@@ -1469,7 +1372,6 @@ def random_crop_image(image,
         label_weights,
         label_confidences=label_confidences,
         multiclass_scores=multiclass_scores,
-        masks=masks,
         min_object_covered=min_object_covered,
         aspect_ratio_range=aspect_ratio_range,
         area_range=area_range,
@@ -1495,8 +1397,6 @@ def random_crop_image(image,
       outputs.append(label_confidences)
     if multiclass_scores is not None:
       outputs.append(multiclass_scores)
-    if masks is not None:
-      outputs.append(masks)
 
     result = tf.cond(do_a_crop_random, strict_random_crop_image_fn,
                      lambda: tuple(outputs))
@@ -1824,7 +1724,6 @@ def random_crop_to_aspect_ratio(image,
                                 label_weights,
                                 label_confidences=None,
                                 multiclass_scores=None,
-                                masks=None,
                                 aspect_ratio=1.0,
                                 overlap_thresh=0.3,
                                 clip_boxes=True,
@@ -1985,19 +1884,11 @@ def random_crop_to_aspect_ratio(image,
       new_multiclass_scores = overlapping_boxlist.get_field('multiclass_scores')
       result.append(new_multiclass_scores)
 
-    if masks is not None:
-      masks_inside_window = tf.gather(masks, keep_ids)
-      masks_box_begin = tf.stack([0, offset_height, offset_width])
-      masks_box_size = tf.stack([-1, target_height, target_width])
-      new_masks = tf.slice(masks_inside_window, masks_box_begin, masks_box_size)
-      result.append(new_masks)
-
     return tuple(result)
 
 
 def random_pad_to_aspect_ratio(image,
                                boxes,
-                               masks=None,
                                aspect_ratio=1.0,
                                min_padded_size_ratio=(1.0, 1.0),
                                max_padded_size_ratio=(2.0, 2.0),
@@ -2107,14 +1998,6 @@ def random_pad_to_aspect_ratio(image,
     new_boxes = new_boxlist.get()
 
     result = [new_image, new_boxes]
-
-    if masks is not None:
-      new_masks = tf.expand_dims(masks, -1)
-      new_masks = tf.image.pad_to_bounding_box(
-          new_masks, 0, 0, tf.cast(target_height, dtype=tf.int32),
-          tf.cast(target_width, dtype=tf.int32))
-      new_masks = tf.squeeze(new_masks, [-1])
-      result.append(new_masks)
 
     return tuple(result)
 
@@ -2248,7 +2131,6 @@ def random_resize_method(image, target_size, preprocess_vars_cache=None):
 
 
 def resize_to_range(image,
-                    masks=None,
                     min_dimension=None,
                     max_dimension=None,
                     method=tf.image.ResizeMethod.BILINEAR,
@@ -2343,18 +2225,6 @@ def resize_to_range(image,
       new_image.set_shape([max_dimension, max_dimension, 3])
 
     result = [new_image]
-    if masks is not None:
-      new_masks = tf.expand_dims(masks, 3)
-      new_masks = tf.image.resize_images(
-          new_masks,
-          new_size[:-1],
-          method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-          align_corners=align_corners)
-      if pad_to_max_dimension:
-        new_masks = tf.image.pad_to_bounding_box(
-            new_masks, 0, 0, max_dimension, max_dimension)
-      new_masks = tf.squeeze(new_masks, 3)
-      result.append(new_masks)
 
     result.append(new_size)
     return result
@@ -2369,7 +2239,7 @@ def _get_image_info(image):
 
 
 # TODO(alirezafathi): Make sure the static shapes are preserved.
-def resize_to_min_dimension(image, masks=None, min_dimension=600,
+def resize_to_min_dimension(image, min_dimension=600,
                             method=tf.image.ResizeMethod.BILINEAR):
   """Resizes image and masks given the min size maintaining the aspect ratio.
 
@@ -2416,18 +2286,11 @@ def resize_to_min_dimension(image, masks=None, min_dimension=600,
         align_corners=True)
     result = [tf.squeeze(image, axis=0)]
 
-    if masks is not None:
-      masks = tf.image.resize_nearest_neighbor(
-          tf.expand_dims(masks, axis=3),
-          size=[target_height, target_width],
-          align_corners=True)
-      result.append(tf.squeeze(masks, axis=3))
-
     result.append(tf.stack([target_height, target_width, num_channels]))
     return result
 
 
-def resize_to_max_dimension(image, masks=None, max_dimension=600,
+def resize_to_max_dimension(image, max_dimension=600,
                             method=tf.image.ResizeMethod.BILINEAR):
   """Resizes image and masks given the max size maintaining the aspect ratio.
 
@@ -2473,13 +2336,6 @@ def resize_to_max_dimension(image, masks=None, max_dimension=600,
         method=method,
         align_corners=True)
     result = [tf.squeeze(image, axis=0)]
-
-    if masks is not None:
-      masks = tf.image.resize_nearest_neighbor(
-          tf.expand_dims(masks, axis=3),
-          size=[target_height, target_width],
-          align_corners=True)
-      result.append(tf.squeeze(masks, axis=3))
 
     result.append(tf.stack([target_height, target_width, num_channels]))
     return result
@@ -2553,27 +2409,6 @@ def resize_image(image,
         align_corners=align_corners)
     image_shape = shape_utils.combined_static_and_dynamic_shape(image)
     result = [new_image]
-    if masks is not None:
-      num_instances = tf.shape(masks)[0]
-      new_size = tf.stack([new_height, new_width])
-      def resize_masks_branch():
-        new_masks = tf.expand_dims(masks, 3)
-        new_masks = tf.image.resize_nearest_neighbor(
-            new_masks, new_size, align_corners=align_corners)
-        new_masks = tf.squeeze(new_masks, axis=3)
-        return new_masks
-
-      def reshape_masks_branch():
-        # The shape function will be computed for both branches of the
-        # condition, regardless of which branch is actually taken. Make sure
-        # that we don't trigger an assertion in the shape function when trying
-        # to reshape a non empty tensor into an empty one.
-        new_masks = tf.reshape(masks, [-1, new_size[0], new_size[1]])
-        return new_masks
-
-      masks = tf.cond(num_instances > 0, resize_masks_branch,
-                      reshape_masks_branch)
-      result.append(masks)
 
     result.append(tf.stack([new_height, new_width, image_shape[2]]))
     return result
@@ -2752,7 +2587,6 @@ def ssd_random_crop(image,
                     label_weights,
                     label_confidences=None,
                     multiclass_scores=None,
-                    masks=None,
                     min_object_covered=(0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0),
                     aspect_ratio_range=((0.5, 2.0),) * 7,
                     area_range=((0.1, 1.0),) * 7,
@@ -2838,7 +2672,6 @@ def ssd_random_crop(image,
     selected_label_weights = None
     selected_label_confidences = None
     selected_multiclass_scores = None
-    selected_masks = None
     if label_weights is not None:
       selected_label_weights = selected_result[i]
       i += 1
@@ -2848,9 +2681,6 @@ def ssd_random_crop(image,
     if multiclass_scores is not None:
       selected_multiclass_scores = selected_result[i]
       i += 1
-    if masks is not None:
-      selected_masks = selected_result[i]
-      i += 1
 
     return random_crop_image(
         image=image,
@@ -2859,7 +2689,6 @@ def ssd_random_crop(image,
         label_weights=selected_label_weights,
         label_confidences=selected_label_confidences,
         multiclass_scores=selected_multiclass_scores,
-        masks=selected_masks,
         min_object_covered=min_object_covered[index],
         aspect_ratio_range=aspect_ratio_range[index],
         area_range=area_range[index],
@@ -2872,7 +2701,7 @@ def ssd_random_crop(image,
   result = _apply_with_random_selector_tuples(
       tuple(
           t for t in (image, boxes, labels, label_weights, label_confidences,
-                      multiclass_scores, masks) if t is not None),
+                      multiclass_scores) if t is not None),
       random_crop_selector,
       num_cases=len(min_object_covered),
       preprocess_vars_cache=preprocess_vars_cache,
@@ -3002,7 +2831,6 @@ def ssd_random_crop_fixed_aspect_ratio(
     label_weights,
     label_confidences=None,
     multiclass_scores=None,
-    masks=None,
     min_object_covered=(0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0),
     aspect_ratio=1.0,
     area_range=((0.1, 1.0),) * 7,
@@ -3083,7 +2911,6 @@ def ssd_random_crop_fixed_aspect_ratio(
       label_weights=label_weights,
       label_confidences=label_confidences,
       multiclass_scores=multiclass_scores,
-      masks=masks,
       min_object_covered=min_object_covered,
       aspect_ratio_range=aspect_ratio_range,
       area_range=area_range,
@@ -3097,7 +2924,6 @@ def ssd_random_crop_fixed_aspect_ratio(
   new_label_weights = None
   new_label_confidences = None
   new_multiclass_scores = None
-  new_masks = None
   if label_weights is not None:
     new_label_weights = crop_result[i]
     i += 1
@@ -3107,9 +2933,6 @@ def ssd_random_crop_fixed_aspect_ratio(
   if multiclass_scores is not None:
     new_multiclass_scores = crop_result[i]
     i += 1
-  if masks is not None:
-    new_masks = crop_result[i]
-    i += 1
 
   result = random_crop_to_aspect_ratio(
       new_image,
@@ -3118,7 +2941,6 @@ def ssd_random_crop_fixed_aspect_ratio(
       label_weights=new_label_weights,
       label_confidences=new_label_confidences,
       multiclass_scores=new_multiclass_scores,
-      masks=new_masks,
       aspect_ratio=aspect_ratio,
       clip_boxes=clip_boxes,
       seed=seed,
@@ -3134,7 +2956,6 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
     label_weights,
     label_confidences=None,
     multiclass_scores=None,
-    masks=None,
     min_object_covered=(0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0),
     aspect_ratio=1.0,
     aspect_ratio_range=((0.5, 2.0),) * 7,
@@ -3221,7 +3042,6 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
       label_weights=label_weights,
       label_confidences=label_confidences,
       multiclass_scores=multiclass_scores,
-      masks=masks,
       min_object_covered=min_object_covered,
       aspect_ratio_range=aspect_ratio_range,
       area_range=area_range,
@@ -3235,7 +3055,6 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
   new_label_weights = None
   new_label_confidences = None
   new_multiclass_scores = None
-  new_masks = None
   if label_weights is not None:
     new_label_weights = crop_result[i]
     i += 1
@@ -3245,14 +3064,10 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
   if multiclass_scores is not None:
     new_multiclass_scores = crop_result[i]
     i += 1
-  if masks is not None:
-    new_masks = crop_result[i]
-    i += 1
 
   result = random_pad_to_aspect_ratio(
       new_image,
       new_boxes,
-      masks=new_masks,
       aspect_ratio=aspect_ratio,
       min_padded_size_ratio=min_padded_size_ratio,
       max_padded_size_ratio=max_padded_size_ratio,
@@ -3300,8 +3115,7 @@ def convert_class_logits_to_softmax(multiclass_scores, temperature=1.0):
 
 def get_default_func_arg_map(include_label_weights=True,
                              include_label_confidences=False,
-                             include_multiclass_scores=False,
-                             include_instance_masks=False):
+                             include_multiclass_scores=False):
   """Returns the default mapping from a preprocessor function to its args.
 
   Args:
@@ -3333,39 +3147,29 @@ def get_default_func_arg_map(include_label_weights=True,
   if include_multiclass_scores:
     multiclass_scores = (fields.InputDataFields.multiclass_scores)
 
-  groundtruth_instance_masks = None
-  if include_instance_masks:
-    groundtruth_instance_masks = (
-        fields.InputDataFields.groundtruth_instance_masks)
-
   prep_func_arg_map = {
       normalize_image: (fields.InputDataFields.image,),
       random_horizontal_flip: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
-          groundtruth_instance_masks,
       ),
       random_vertical_flip: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
-          groundtruth_instance_masks,
       ),
       random_rotation90: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
-          groundtruth_instance_masks,
       ),
       random_rotation: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
-          groundtruth_instance_masks,
       ),
       random_pixel_value_scale: (fields.InputDataFields.image,),
       random_image_scale: (
           fields.InputDataFields.image,
-          groundtruth_instance_masks,
       ),
       random_rgb_to_gray: (fields.InputDataFields.image,),
       random_adjust_brightness: (fields.InputDataFields.image,),
@@ -3379,8 +3183,7 @@ def get_default_func_arg_map(include_label_weights=True,
                           fields.InputDataFields.groundtruth_classes,
                           groundtruth_label_weights,
                           groundtruth_label_confidences,
-                          multiclass_scores,
-                          groundtruth_instance_masks),
+                          multiclass_scores),
       random_pad_image: (fields.InputDataFields.image,
                          fields.InputDataFields.groundtruth_boxes),
       random_absolute_pad_image: (fields.InputDataFields.image,
@@ -3398,12 +3201,10 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_weights,
           groundtruth_label_confidences,
           multiclass_scores,
-          groundtruth_instance_masks,
       ),
       random_pad_to_aspect_ratio: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
-          groundtruth_instance_masks,
       ),
       random_black_patches: (fields.InputDataFields.image,),
       retain_boxes_above_threshold: (
@@ -3412,17 +3213,14 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_weights,
           groundtruth_label_confidences,
           multiclass_scores,
-          groundtruth_instance_masks,
       ),
       image_to_float: (fields.InputDataFields.image,),
       random_resize_method: (fields.InputDataFields.image,),
       resize_to_range: (
           fields.InputDataFields.image,
-          groundtruth_instance_masks,
       ),
       resize_to_min_dimension: (
           fields.InputDataFields.image,
-          groundtruth_instance_masks,
       ),
       scale_boxes_to_pixel_coordinates: (
           fields.InputDataFields.image,
@@ -3430,7 +3228,6 @@ def get_default_func_arg_map(include_label_weights=True,
       ),
       resize_image: (
           fields.InputDataFields.image,
-          groundtruth_instance_masks,
       ),
       subtract_channel_mean: (fields.InputDataFields.image,),
       one_hot_encoding: (fields.InputDataFields.groundtruth_image_classes,),
@@ -3446,8 +3243,7 @@ def get_default_func_arg_map(include_label_weights=True,
                         fields.InputDataFields.groundtruth_classes,
                         groundtruth_label_weights,
                         groundtruth_label_confidences,
-                        multiclass_scores,
-                        groundtruth_instance_masks),
+                        multiclass_scores),
       ssd_random_crop_pad: (fields.InputDataFields.image,
                             fields.InputDataFields.groundtruth_boxes,
                             fields.InputDataFields.groundtruth_classes,
@@ -3460,8 +3256,7 @@ def get_default_func_arg_map(include_label_weights=True,
           fields.InputDataFields.groundtruth_classes,
           groundtruth_label_weights,
           groundtruth_label_confidences,
-          multiclass_scores,
-          groundtruth_instance_masks),
+          multiclass_scores),
       ssd_random_crop_pad_fixed_aspect_ratio: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
@@ -3469,7 +3264,6 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_weights,
           groundtruth_label_confidences,
           multiclass_scores,
-          groundtruth_instance_masks,
       ),
       convert_class_logits_to_softmax: (multiclass_scores,),
   }

@@ -24,7 +24,6 @@ that wraps the build function.
 import functools
 import tensorflow as tf
 
-from object_detection.data_decoders import tf_example_decoder
 from object_detection.data_decoders import tf_multi_layer_decoder
 from object_detection.protos import input_reader_pb2
 
@@ -126,13 +125,9 @@ def build(input_reader_config, input_features=None, input_channels=None, batch_s
         ['x_c', 'y_c', 'w', 'h', 'sin_angle', 'cos_angle'],
         input_features,
         input_channels,
-        load_instance_masks=input_reader_config.load_instance_masks,
         load_multiclass_scores=input_reader_config.load_multiclass_scores,
-        instance_mask_type=input_reader_config.mask_type,
         label_map_proto_file=label_map_proto_file,
-        use_display_name=input_reader_config.use_display_name,
-        num_additional_channels=input_reader_config.num_additional_channels)
-
+        use_display_name=input_reader_config.use_display_name)
     def process_fn(value):
       """Sets up tf graph that decodes, transforms and pads input data."""
       processed_tensors = decoder.decode(value)

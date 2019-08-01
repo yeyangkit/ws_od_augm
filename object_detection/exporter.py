@@ -111,19 +111,6 @@ def _image_tensor_input_placeholder(input_shape=None):
       dtype=tf.uint8, shape=input_shape, name='image_tensor')
   return input_tensor, input_tensor
 
-def _image_tensor_with_mask_input_placeholder(input_shape=None):
-  """Returns input placeholder and a 4-D uint8 image tensor."""
-  if input_shape is None:
-    input_shape = (None, None, None, None) # set to None instead of hardcoded num channels
-    mask_shape = (None, None, None, 1)
-  input_tensor = tf.placeholder(
-      dtype=tf.uint8, shape=input_shape, name='image_tensor')
-  mask_tensor = tf.placeholder(
-      dtype=tf.uint8, shape=mask_shape, name='mask_tensor')
-  inputs = {'image_tensor': input_tensor,
-            'mask_tensor': mask_tensor}
-  return inputs, inputs
-
 def _tf_example_input_placeholder():
   """Returns input that accepts a batch of strings with tf examples.
 
@@ -175,7 +162,6 @@ input_placeholder_fn_map = {
     'encoded_image_string_tensor':
     _encoded_image_string_tensor_input_placeholder,
     'tf_example': _tf_example_input_placeholder,
-    'image_tensor_with_mask': _image_tensor_with_mask_input_placeholder,
 }
 
 
@@ -229,7 +215,6 @@ def add_output_tensor_nodes(postprocessed_tensors,
   raw_scores = postprocessed_tensors.get(detection_fields.raw_detection_scores)
   classes = postprocessed_tensors.get(
       detection_fields.detection_classes) + label_id_offset
-  masks = postprocessed_tensors.get(detection_fields.detection_masks)
   num_detections = postprocessed_tensors.get(detection_fields.num_detections)
   outputs = {}
   outputs[detection_fields.detection_boxes] = tf.identity(
@@ -251,9 +236,6 @@ def add_output_tensor_nodes(postprocessed_tensors,
   if raw_scores is not None:
     outputs[detection_fields.raw_detection_scores] = tf.identity(
         raw_scores, name=detection_fields.raw_detection_scores)
-  if masks is not None:
-    outputs[detection_fields.detection_masks] = tf.identity(
-        masks, name=detection_fields.detection_masks)
   for output_key in outputs:
     tf.add_to_collection(output_collection_name, outputs[output_key])
 
@@ -263,8 +245,7 @@ def add_output_tensor_nodes(postprocessed_tensors,
 def write_saved_model(saved_model_path,
                       frozen_graph_def,
                       inputs,
-                      outputs,
-                      use_mask):
+                      outputs):
   """Writes SavedModel to disk.
 
   If checkpoint_path is not None bakes the weights into the graph thereby
@@ -285,14 +266,8 @@ def write_saved_model(saved_model_path,
       tf.import_graph_def(frozen_graph_def, name='')
 
       builder = tf.saved_model.builder.SavedModelBuilder(saved_model_path)
-      if use_mask:
-        tensor_info_inputs = {
-            'image_tensor': tf.saved_model.utils.build_tensor_info(inputs['image_tensor']),
-            'mask_tensor': tf.saved_model.utils.build_tensor_info(inputs['mask_tensor']),
-        }
-      else:
-        tensor_info_inputs = {
-            'inputs': tf.saved_model.utils.build_tensor_info(inputs)}
+      tensor_info_inputs = {
+          'inputs': tf.saved_model.utils.build_tensor_info(inputs)}
       tensor_info_outputs = {}
       for k, v in outputs.items():
         tensor_info_outputs[k] = tf.saved_model.utils.build_tensor_info(v)
@@ -332,24 +307,19 @@ def write_graph_and_checkpoint(inference_graph_def,
       saver.save(sess, model_path)
 
 
-def _get_outputs_from_inputs(input_tensors, use_mask, detection_model,
+def _get_outputs_from_inputs(input_tensors, detection_model,
                              output_collection_name):
-  if use_mask:
-    image = tf.cast(input_tensors['image_tensor'], tf.float32)
-    mask = tf.cast(input_tensors['mask_tensor'], tf.float32)
-  else:
-    image = tf.cast(input_tensors, tf.float32)
-    mask = None
+  image = tf.cast(input_tensors, tf.float32)
   preprocessed_inputs, true_image_shapes = detection_model.preprocess(image)
   output_tensors = detection_model.predict(
-      preprocessed_inputs, mask, true_image_shapes)
+      preprocessed_inputs, true_image_shapes)
   postprocessed_tensors = detection_model.postprocess(
       output_tensors, true_image_shapes)
   return add_output_tensor_nodes(postprocessed_tensors,
                                  output_collection_name)
 
 
-def build_detection_graph(input_type, use_mask, detection_model, input_shape,
+def build_detection_graph(input_type, detection_model, input_shape,
                           output_collection_name, graph_hook_fn):
   """Build the detection graph."""
   if input_type not in input_placeholder_fn_map:
@@ -360,13 +330,10 @@ def build_detection_graph(input_type, use_mask, detection_model, input_shape,
       raise ValueError('Can only specify input shape for `image_tensor` '
                        'inputs.')
     placeholder_args['input_shape'] = input_shape
-  if input_type == 'image_tensor' and use_mask:
-    input_type = 'image_tensor_with_mask'
   placeholder_tensor, input_tensors = input_placeholder_fn_map[input_type](
       **placeholder_args)
   outputs = _get_outputs_from_inputs(
       input_tensors=input_tensors,
-      use_mask=use_mask,
       detection_model=detection_model,
       output_collection_name=output_collection_name)
 
@@ -379,7 +346,6 @@ def build_detection_graph(input_type, use_mask, detection_model, input_shape,
 
 
 def _export_inference_graph(input_type,
-                            use_mask,
                             detection_model,
                             use_moving_averages,
                             trained_checkpoint_prefix,
@@ -399,7 +365,6 @@ def _export_inference_graph(input_type,
 
   outputs, placeholder_tensor = build_detection_graph(
       input_type=input_type,
-      use_mask=use_mask,
       detection_model=detection_model,
       input_shape=input_shape,
       output_collection_name=output_collection_name,
@@ -456,11 +421,10 @@ def _export_inference_graph(input_type,
       initializer_nodes='')
 
   write_saved_model(saved_model_path, frozen_graph_def,
-                    placeholder_tensor, outputs, use_mask)
+                    placeholder_tensor, outputs)
 
 
 def export_inference_graph(input_type,
-                           use_mask,
                            pipeline_config,
                            trained_checkpoint_prefix,
                            output_directory,
@@ -493,7 +457,6 @@ def export_inference_graph(input_type,
                                                      is_training=False)
   _export_inference_graph(
       input_type,
-      use_mask,
       detection_model,
       pipeline_config.eval_config.use_moving_averages,
       trained_checkpoint_prefix,

@@ -362,7 +362,7 @@ def draw_bounding_boxes_on_image(image,
                                boxes[i, 3], color, thickness, display_str_list)
 
 
-def create_visualization_fn(category_index, include_3d_boxes=False, include_masks=False, include_track_ids=False,
+def create_visualization_fn(category_index, include_3d_boxes=False, include_track_ids=False,
                             **kwargs):
   """Constructs a visualization function that can be wrapped in a py_func.
 
@@ -431,13 +431,10 @@ def create_visualization_fn(category_index, include_3d_boxes=False, include_mask
     boxes = args[1]
     classes = args[2]
     scores = args[3]
-    boxes_3d = masks = track_ids = None
+    boxes_3d = track_ids = None
     pos_arg_ptr = 4  # Positional argument for first optional tensor (masks).
     if include_3d_boxes:
       boxes_3d = args[pos_arg_ptr]
-      pos_arg_ptr += 1
-    if include_masks:
-      masks = args[pos_arg_ptr]
       pos_arg_ptr += 1
     if include_track_ids:
       track_ids = args[pos_arg_ptr]
@@ -449,7 +446,6 @@ def create_visualization_fn(category_index, include_3d_boxes=False, include_mask
         scores,
         category_index=category_index,
         boxes_3d=boxes_3d,
-        instance_masks=masks,
         track_ids=track_ids,
         **kwargs)
   return visualization_py_func_fn
@@ -473,7 +469,6 @@ def draw_bounding_boxes_on_image_tensors(images,
                                          original_image_spatial_shape=None,
                                          true_image_shape=None,
                                          boxes_3d=None,
-                                         instance_masks=None,
                                          track_ids=None,
                                          max_boxes_to_draw=20,
                                          min_score_thresh=0.2,
@@ -534,15 +529,12 @@ def draw_bounding_boxes_on_image_tensors(images,
   visualize_boxes_fn = create_visualization_fn(
       category_index,
       include_3d_boxes=boxes_3d is not None,
-      include_masks=instance_masks is not None,
       include_track_ids=track_ids is not None,
       **visualization_keyword_args)
 
   elems = [true_shapes, original_shapes, images, boxes, classes, scores]
   if boxes_3d is not None:
     elems.append(boxes_3d)
-  if instance_masks is not None:
-    elems.append(instance_masks)
   if track_ids is not None:
     elems.append(track_ids)
 
@@ -606,18 +598,6 @@ def draw_side_by_side_evaluation_image(eval_dict,
     if detection_fields.detection_boxes_3d in eval_dict:
       detection_boxes_3d = tf.expand_dims(
         eval_dict[detection_fields.detection_boxes_3d][indx], axis=0)
-    instance_masks = None
-    if detection_fields.detection_masks in eval_dict:
-      instance_masks = tf.cast(
-          tf.expand_dims(
-              eval_dict[detection_fields.detection_masks][indx], axis=0),
-          tf.uint8)
-    groundtruth_instance_masks = None
-    if input_data_fields.groundtruth_instance_masks in eval_dict:
-      groundtruth_instance_masks = tf.cast(
-          tf.expand_dims(
-              eval_dict[input_data_fields.groundtruth_instance_masks][indx],
-              axis=0), tf.uint8)
 
     images_with_detections = draw_bounding_boxes_on_image_tensors(
         tf.expand_dims(
@@ -635,7 +615,6 @@ def draw_side_by_side_evaluation_image(eval_dict,
         true_image_shape=tf.expand_dims(
             eval_dict[input_data_fields.true_image_shape][indx], axis=0),
         boxes_3d=detection_boxes_3d,
-        instance_masks=instance_masks,
         max_boxes_to_draw=max_boxes_to_draw,
         min_score_thresh=min_score_thresh,
         use_normalized_coordinates=use_normalized_coordinates)
@@ -659,45 +638,12 @@ def draw_side_by_side_evaluation_image(eval_dict,
             eval_dict[input_data_fields.true_image_shape][indx], axis=0),
         boxes_3d=tf.expand_dims(
             eval_dict[input_data_fields.groundtruth_boxes_3d][indx], axis=0),
-        instance_masks=groundtruth_instance_masks,
         max_boxes_to_draw=None,
         min_score_thresh=0.0,
         use_normalized_coordinates=use_normalized_coordinates)
     images_with_detections_list.append(
         tf.concat([images_with_detections, images_with_groundtruth], axis=2))
   return images_with_detections_list
-
-def draw_mask_on_image_array(image, mask, color='red', alpha=0.4):
-  """Draws mask on an image.
-
-  Args:
-    image: uint8 numpy array with shape (img_height, img_height, 3)
-    mask: a uint8 numpy array of shape (img_height, img_height) with
-      values between either 0 or 1.
-    color: color to draw the keypoints with. Default is red.
-    alpha: transparency value between 0 and 1. (default: 0.4)
-
-  Raises:
-    ValueError: On incorrect data type for image or masks.
-  """
-  if image.dtype != np.uint8:
-    raise ValueError('`image` not of type np.uint8')
-  if mask.dtype != np.uint8:
-    raise ValueError('`mask` not of type np.uint8')
-  if np.any(np.logical_and(mask != 1, mask != 0)):
-    raise ValueError('`mask` elements should be in [0, 1]')
-  if image.shape[:2] != mask.shape:
-    raise ValueError('The image has spatial dimensions %s but the mask has '
-                     'dimensions %s' % (image.shape[:2], mask.shape))
-  rgb = ImageColor.getrgb(color)
-  pil_image = Image.fromarray(image)
-
-  solid_color = np.expand_dims(
-      np.ones_like(mask), axis=2) * np.reshape(list(rgb), [1, 1, 3])
-  pil_solid_color = Image.fromarray(np.uint8(solid_color)).convert('RGBA')
-  pil_mask = Image.fromarray(np.uint8(255.0*alpha*mask)).convert('L')
-  pil_image = Image.composite(pil_solid_color, pil_image, pil_mask)
-  np.copyto(image, np.array(pil_image.convert('RGB')))
 
 
 def visualize_boxes_and_labels_on_image_array(
@@ -707,8 +653,6 @@ def visualize_boxes_and_labels_on_image_array(
     scores,
     category_index,
     boxes_3d=None,
-    instance_masks=None,
-    instance_boundaries=None,
     track_ids=None,
     use_normalized_coordinates=False,
     max_boxes_to_draw=20,
@@ -767,8 +711,6 @@ def visualize_boxes_and_labels_on_image_array(
   # that correspond to the same location.
   box_to_display_str_map = collections.defaultdict(list)
   box_to_color_map = collections.defaultdict(str)
-  box_to_instance_masks_map = {}
-  box_to_instance_boundaries_map = {}
   box_to_box_3d_map = collections.defaultdict(list)
   box_to_track_ids_map = {}
   if not max_boxes_to_draw:
@@ -778,10 +720,6 @@ def visualize_boxes_and_labels_on_image_array(
       box = tuple(boxes[i].tolist())
       if boxes_3d is not None:
           box_to_box_3d_map[box] = boxes_3d[i]
-      if instance_masks is not None:
-        box_to_instance_masks_map[box] = instance_masks[i]
-      if instance_boundaries is not None:
-        box_to_instance_boundaries_map[box] = instance_boundaries[i]
       if track_ids is not None:
         box_to_track_ids_map[box] = track_ids[i]
       if scores is None:
@@ -826,19 +764,6 @@ def visualize_boxes_and_labels_on_image_array(
           color=color,
           thickness=line_thickness,
           use_normalized_coordinates=use_normalized_coordinates
-      )
-    if instance_masks is not None:
-      draw_mask_on_image_array(
-          image,
-          box_to_instance_masks_map[box],
-          color=color
-      )
-    if instance_boundaries is not None:
-      draw_mask_on_image_array(
-          image,
-          box_to_instance_boundaries_map[box],
-          color='red',
-          alpha=1.0
       )
     draw_bounding_box_on_image_array(
         image,
