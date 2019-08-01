@@ -23,7 +23,6 @@ import tensorflow as tf
 
 from object_detection.core import box_list
 from object_detection.core import box_list_ops
-from object_detection.core import keypoint_ops
 from object_detection.core import standard_fields as fields
 from object_detection.metrics import coco_evaluation
 from object_detection.utils import label_map_util
@@ -174,7 +173,6 @@ def visualize_detection_results(result_dict,
   detection_scores = result_dict[detection_fields.detection_scores]
   detection_classes = np.int32((result_dict[
       detection_fields.detection_classes]))
-  detection_keypoints = result_dict.get(detection_fields.detection_keypoints)
   detection_masks = result_dict.get(detection_fields.detection_masks)
   detection_boundaries = result_dict.get(detection_fields.detection_boundaries)
 
@@ -182,7 +180,6 @@ def visualize_detection_results(result_dict,
   if show_groundtruth:
     groundtruth_boxes = result_dict[input_fields.groundtruth_boxes]
     groundtruth_boxes_3d = result_dict[input_fields.groundtruth_boxes_3d]
-    groundtruth_keypoints = result_dict.get(input_fields.groundtruth_keypoints)
     vis_utils.visualize_boxes_and_labels_on_image_array(
         image=image,
         boxes=groundtruth_boxes,
@@ -190,7 +187,6 @@ def visualize_detection_results(result_dict,
         scores=None,
         category_index=category_index,
         boxes_3d=groundtruth_boxes_3d,
-        keypoints=groundtruth_keypoints,
         use_normalized_coordinates=False,
         max_boxes_to_draw=None,
         groundtruth_box_visualization_color=groundtruth_box_visualization_color)
@@ -203,7 +199,6 @@ def visualize_detection_results(result_dict,
       boxes_3d=detection_boxes_3d,
       instance_masks=detection_masks,
       instance_boundaries=detection_boundaries,
-      keypoints=detection_keypoints,
       use_normalized_coordinates=False,
       max_boxes_to_draw=max_num_predictions,
       min_score_thresh=min_score_thresh,
@@ -564,12 +559,6 @@ def _resize_groundtruth_masks(args):
       align_corners=True)
   return tf.cast(tf.squeeze(mask, 3), tf.uint8)
 
-
-def _scale_keypoint_to_absolute(args):
-  keypoints, image_shape = args
-  return keypoint_ops.scale(keypoints, image_shape[0], image_shape[1])
-
-
 def result_dict_for_single_example(image,
                                    key,
                                    detections,
@@ -831,16 +820,6 @@ def result_dict_for_batched_example(images,
             elems=[detection_boxes, detection_masks,
                    original_image_spatial_shapes],
             dtype=tf.uint8))
-
-  if detection_fields.detection_keypoints in detections:
-    detection_keypoints = detections[detection_fields.detection_keypoints]
-    output_dict[detection_fields.detection_keypoints] = detection_keypoints
-    if scale_to_absolute:
-      output_dict[detection_fields.detection_keypoints] = (
-          shape_utils.static_or_dynamic_map_fn(
-              _scale_keypoint_to_absolute,
-              elems=[detection_keypoints, original_image_spatial_shapes],
-              dtype=tf.float32))
 
   if groundtruth:
     if max_gt_boxes is None:

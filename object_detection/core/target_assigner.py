@@ -349,15 +349,6 @@ class TargetAssigner(object):
         unmatched_value=tf.zeros(4),
         ignored_value=tf.zeros(4))
     matched_gt_boxlist = box_list.BoxList(matched_gt_boxes)
-    if groundtruth_boxes.has_field(fields.BoxListFields.keypoints):
-      groundtruth_keypoints = groundtruth_boxes.get_field(
-          fields.BoxListFields.keypoints)
-      matched_keypoints = match.gather_based_on_match(
-          groundtruth_keypoints,
-          unmatched_value=tf.zeros(groundtruth_keypoints.get_shape()[1:]),
-          ignored_value=tf.zeros(groundtruth_keypoints.get_shape()[1:]))
-      matched_gt_boxlist.add_field(fields.BoxListFields.keypoints,
-                                   matched_keypoints)
     matched_reg_targets = self._box_coder.encode(matched_gt_boxlist, anchors)
     match_results_shape = shape_utils.combined_static_and_dynamic_shape(
         match.match_results)
@@ -387,16 +378,6 @@ class TargetAssigner(object):
         unmatched_value=tf.zeros(6),
         ignored_value=tf.zeros(6))
     matched_gt_boxlist_3d = box_list.Box3dList(matched_gt_boxes_3d)
-
-    if groundtruth_boxes_3d.has_field(fields.BoxListFields.keypoints):
-      groundtruth_keypoints = groundtruth_boxes_3d.get_field(
-          fields.BoxListFields.keypoints)
-      matched_keypoints = match.gather_based_on_match(
-          groundtruth_keypoints,
-          unmatched_value=tf.zeros(groundtruth_keypoints.get_shape()[1:]),
-          ignored_value=tf.zeros(groundtruth_keypoints.get_shape()[1:]))
-      matched_gt_boxlist_3d.add_field(fields.BoxListFields.keypoints,
-                                   matched_keypoints)
 
     matched_reg_targets_3d = self._box_coder.encode_3d(matched_gt_boxlist_3d,
                                               anchors)

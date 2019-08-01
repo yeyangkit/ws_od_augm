@@ -51,38 +51,10 @@ message NormalizeImage {
 }
 
 // Randomly horizontally flips the image and detections 50% of the time.
-message RandomHorizontalFlip {
-  // Specifies a mapping from the original keypoint indices to horizontally
-  // flipped indices. This is used in the event that keypoints are specified,
-  // in which case when the image is horizontally flipped the keypoints will
-  // need to be permuted. E.g. for keypoints representing left_eye, right_eye,
-  // nose_tip, mouth, left_ear, right_ear (in that order), one might specify
-  // the keypoint_flip_permutation below:
-  // keypoint_flip_permutation: 1
-  // keypoint_flip_permutation: 0
-  // keypoint_flip_permutation: 2
-  // keypoint_flip_permutation: 3
-  // keypoint_flip_permutation: 5
-  // keypoint_flip_permutation: 4
-  repeated int32 keypoint_flip_permutation = 1;
-}
+message RandomHorizontalFlip {}
 
 // Randomly vertically flips the image and detections 50% of the time.
-message RandomVerticalFlip {
-  // Specifies a mapping from the original keypoint indices to vertically
-  // flipped indices. This is used in the event that keypoints are specified,
-  // in which case when the image is vertically flipped the keypoints will
-  // need to be permuted. E.g. for keypoints representing left_eye, right_eye,
-  // nose_tip, mouth, left_ear, right_ear (in that order), one might specify
-  // the keypoint_flip_permutation below:
-  // keypoint_flip_permutation: 1
-  // keypoint_flip_permutation: 0
-  // keypoint_flip_permutation: 2
-  // keypoint_flip_permutation: 3
-  // keypoint_flip_permutation: 5
-  // keypoint_flip_permutation: 4
-  repeated int32 keypoint_flip_permutation = 1;
-}
+message RandomVerticalFlip {}
 
 // Randomly rotates the image and detections by 90 degrees counter-clockwise
 // 50% of the time.

@@ -140,20 +140,10 @@ def build(preprocessor_step_config):
     return (preprocessing_function, function_args)
 
   if step_type == 'random_horizontal_flip':
-    config = preprocessor_step_config.random_horizontal_flip
-    return (preprocessor.random_horizontal_flip,
-            {
-                'keypoint_flip_permutation': tuple(
-                    config.keypoint_flip_permutation),
-            })
+    return (preprocessor.random_horizontal_flip, {})
 
   if step_type == 'random_vertical_flip':
-    config = preprocessor_step_config.random_vertical_flip
-    return (preprocessor.random_vertical_flip,
-            {
-                'keypoint_flip_permutation': tuple(
-                    config.keypoint_flip_permutation),
-            })
+    return (preprocessor.random_vertical_flip, {})
 
   if step_type == 'random_rotation90':
     return (preprocessor.random_rotation90, {})

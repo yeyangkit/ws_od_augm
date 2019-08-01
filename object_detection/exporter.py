@@ -229,7 +229,6 @@ def add_output_tensor_nodes(postprocessed_tensors,
   raw_scores = postprocessed_tensors.get(detection_fields.raw_detection_scores)
   classes = postprocessed_tensors.get(
       detection_fields.detection_classes) + label_id_offset
-  keypoints = postprocessed_tensors.get(detection_fields.detection_keypoints)
   masks = postprocessed_tensors.get(detection_fields.detection_masks)
   num_detections = postprocessed_tensors.get(detection_fields.num_detections)
   outputs = {}
@@ -252,9 +251,6 @@ def add_output_tensor_nodes(postprocessed_tensors,
   if raw_scores is not None:
     outputs[detection_fields.raw_detection_scores] = tf.identity(
         raw_scores, name=detection_fields.raw_detection_scores)
-  if keypoints is not None:
-    outputs[detection_fields.detection_keypoints] = tf.identity(
-        keypoints, name=detection_fields.detection_keypoints)
   if masks is not None:
     outputs[detection_fields.detection_masks] = tf.identity(
         masks, name=detection_fields.detection_masks)

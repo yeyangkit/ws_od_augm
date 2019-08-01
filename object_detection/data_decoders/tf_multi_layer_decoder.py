@@ -132,7 +132,6 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                label_map_proto_file=None,
                use_display_name=False,
                dct_method='',
-               num_keypoints=0,
                num_additional_channels=0):
     """Constructor sets keys_to_features and items_to_handlers.
 
@@ -249,21 +248,11 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         fields.InputDataFields.groundtruth_weights: (
             slim_example_decoder.Tensor('image/object/weight')),
     }
-    self._num_keypoints = num_keypoints
     if load_multiclass_scores:
       self.keys_to_features[
           'image/object/class/multiclass_scores'] = tf.VarLenFeature(tf.float32)
       self.items_to_handlers[fields.InputDataFields.multiclass_scores] = (
           slim_example_decoder.Tensor('image/object/class/multiclass_scores'))
-    if num_keypoints > 0:
-      self.keys_to_features['image/object/keypoint/x'] = (
-          tf.VarLenFeature(tf.float32))
-      self.keys_to_features['image/object/keypoint/y'] = (
-          tf.VarLenFeature(tf.float32))
-      self.items_to_handlers[fields.InputDataFields.groundtruth_keypoints] = (
-          slim_example_decoder.ItemHandlerCallback(
-              ['image/object/keypoint/y', 'image/object/keypoint/x'],
-              self._reshape_keypoints))
     if load_instance_masks:
       if instance_mask_type in (input_reader_pb2.DEFAULT,
                                 input_reader_pb2.NUMERICAL_MASKS):
@@ -370,31 +359,6 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             0), lambda: tensor_dict[fields.InputDataFields.groundtruth_weights],
         default_groundtruth_weights)
     return tensor_dict
-
-  def _reshape_keypoints(self, keys_to_tensors):
-    """Reshape keypoints.
-
-    The instance segmentation masks are reshaped to [num_instances,
-    num_keypoints, 2].
-
-    Args:
-      keys_to_tensors: a dictionary from keys to tensors.
-
-    Returns:
-      A 3-D float tensor of shape [num_instances, num_keypoints, 2] with values
-        in {0, 1}.
-    """
-    y = keys_to_tensors['image/object/keypoint/y']
-    if isinstance(y, tf.SparseTensor):
-      y = tf.sparse_tensor_to_dense(y)
-    y = tf.expand_dims(y, 1)
-    x = keys_to_tensors['image/object/keypoint/x']
-    if isinstance(x, tf.SparseTensor):
-      x = tf.sparse_tensor_to_dense(x)
-    x = tf.expand_dims(x, 1)
-    keypoints = tf.concat([y, x], 1)
-    keypoints = tf.reshape(keypoints, [-1, self._num_keypoints, 2])
-    return keypoints
 
   def _reshape_instance_masks(self, keys_to_tensors):
     """Reshape instance segmentation masks.

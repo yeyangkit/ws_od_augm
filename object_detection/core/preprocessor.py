@@ -72,7 +72,6 @@ from tensorflow.python.ops import control_flow_ops
 
 from object_detection.core import box_list
 from object_detection.core import box_list_ops
-from object_detection.core import keypoint_ops
 from object_detection.core import preprocessor_cache
 from object_detection.core import standard_fields as fields
 from object_detection.utils import shape_utils
@@ -275,7 +274,6 @@ def retain_boxes_above_threshold(boxes,
                                  label_confidences=None,
                                  multiclass_scores=None,
                                  masks=None,
-                                 keypoints=None,
                                  threshold=0.0):
   """Retains boxes whose label weight is above a given threshold.
 
@@ -336,10 +334,6 @@ def retain_boxes_above_threshold(boxes,
     if masks is not None:
       retained_masks = tf.gather(masks, indices)
       result.append(retained_masks)
-
-    if keypoints is not None:
-      retained_keypoints = tf.gather(keypoints, indices)
-      result.append(retained_keypoints)
 
     return result
 
@@ -527,8 +521,6 @@ def random_horizontal_flip(image,
                            boxes=None,
                            boxes_3d=None,
                            masks=None,
-                           keypoints=None,
-                           keypoint_flip_permutation=None,
                            seed=None,
                            preprocess_vars_cache=None):
   """Randomly flips the image and detections horizontally.
@@ -579,10 +571,6 @@ def random_horizontal_flip(image,
     image_flipped = tf.image.flip_left_right(image)
     return image_flipped
 
-  if keypoints is not None and keypoint_flip_permutation is None:
-    raise ValueError(
-        'keypoints are provided but keypoints_flip_permutation is not provided')
-
   with tf.name_scope('RandomHorizontalFlip', values=[image, boxes]):
     result = []
     # random variable defining whether to do flip or not
@@ -615,23 +603,12 @@ def random_horizontal_flip(image,
                       lambda: masks)
       result.append(masks)
 
-    # flip keypoints
-    if keypoints is not None and keypoint_flip_permutation is not None:
-      permutation = keypoint_flip_permutation
-      keypoints = tf.cond(
-          do_a_flip_random,
-          lambda: keypoint_ops.flip_horizontal(keypoints, 0.5, permutation),
-          lambda: keypoints)
-      result.append(keypoints)
-
     return tuple(result)
 
 
 def random_vertical_flip(image,
                          boxes=None,
                          masks=None,
-                         keypoints=None,
-                         keypoint_flip_permutation=None,
                          seed=None,
                          preprocess_vars_cache=None):
   """Randomly flips the image and detections vertically.
@@ -682,10 +659,6 @@ def random_vertical_flip(image,
     image_flipped = tf.image.flip_up_down(image)
     return image_flipped
 
-  if keypoints is not None and keypoint_flip_permutation is None:
-    raise ValueError(
-        'keypoints are provided but keypoints_flip_permutation is not provided')
-
   with tf.name_scope('RandomVerticalFlip', values=[image, boxes]):
     result = []
     # random variable defining whether to do flip or not
@@ -711,22 +684,12 @@ def random_vertical_flip(image,
                       lambda: masks)
       result.append(masks)
 
-    # flip keypoints
-    if keypoints is not None and keypoint_flip_permutation is not None:
-      permutation = keypoint_flip_permutation
-      keypoints = tf.cond(
-          do_a_flip_random,
-          lambda: keypoint_ops.flip_vertical(keypoints, 0.5, permutation),
-          lambda: keypoints)
-      result.append(keypoints)
-
     return tuple(result)
 
 
 def random_rotation90(image,
                       boxes=None,
                       masks=None,
-                      keypoints=None,
                       seed=None,
                       preprocess_vars_cache=None):
   """Randomly rotates the image and detections 90 degrees counter-clockwise.
@@ -802,21 +765,12 @@ def random_rotation90(image,
                       lambda: masks)
       result.append(masks)
 
-    # flip keypoints
-    if keypoints is not None:
-      keypoints = tf.cond(
-          do_a_rot90_random,
-          lambda: keypoint_ops.rot90(keypoints),
-          lambda: keypoints)
-      result.append(keypoints)
-
     return tuple(result)
 
 def random_rotation(image,
                     boxes_aligned=None,
                     boxes_inclined=None,
                     masks=None,
-                    keypoints=None,
                     seed=None):
 
   def _rot_image(image):
@@ -846,10 +800,6 @@ def random_rotation(image,
     # flip masks
     if masks is not None:
       result.append(masks)
-
-    # flip keypoints
-    if keypoints is not None:
-      result.append(keypoints)
 
     return tuple(result)
 
@@ -1267,7 +1217,6 @@ def _strict_random_crop_image(image,
                               label_confidences=None,
                               multiclass_scores=None,
                               masks=None,
-                              keypoints=None,
                               min_object_covered=1.0,
                               aspect_ratio_range=(0.75, 1.33),
                               area_range=(0.1, 1.0),
@@ -1423,17 +1372,6 @@ def _strict_random_crop_image(image,
           masks_box_begin, masks_box_size)
       result.append(new_masks)
 
-    if keypoints is not None:
-      keypoints_of_boxes_inside_window = tf.gather(keypoints, inside_window_ids)
-      keypoints_of_boxes_completely_inside_window = tf.gather(
-          keypoints_of_boxes_inside_window, keep_ids)
-      new_keypoints = keypoint_ops.change_coordinate_frame(
-          keypoints_of_boxes_completely_inside_window, im_box_rank1)
-      if clip_boxes:
-        new_keypoints = keypoint_ops.prune_outside_window(new_keypoints,
-                                                          [0.0, 0.0, 1.0, 1.0])
-      result.append(new_keypoints)
-
     return tuple(result)
 
 
@@ -1444,7 +1382,6 @@ def random_crop_image(image,
                       label_confidences=None,
                       multiclass_scores=None,
                       masks=None,
-                      keypoints=None,
                       min_object_covered=1.0,
                       aspect_ratio_range=(0.75, 1.33),
                       area_range=(0.1, 1.0),
@@ -1533,7 +1470,6 @@ def random_crop_image(image,
         label_confidences=label_confidences,
         multiclass_scores=multiclass_scores,
         masks=masks,
-        keypoints=keypoints,
         min_object_covered=min_object_covered,
         aspect_ratio_range=aspect_ratio_range,
         area_range=area_range,
@@ -1561,8 +1497,6 @@ def random_crop_image(image,
       outputs.append(multiclass_scores)
     if masks is not None:
       outputs.append(masks)
-    if keypoints is not None:
-      outputs.append(keypoints)
 
     result = tf.cond(do_a_crop_random, strict_random_crop_image_fn,
                      lambda: tuple(outputs))
@@ -1571,7 +1505,6 @@ def random_crop_image(image,
 
 def random_pad_image(image,
                      boxes,
-                     keypoints=None,
                      min_image_size=None,
                      max_image_size=None,
                      pad_color=None,
@@ -1695,10 +1628,6 @@ def random_pad_image(image,
   new_boxes = new_boxlist.get()
 
   result = [new_image, new_boxes]
-
-  if keypoints is not None:
-    new_keypoints = keypoint_ops.change_coordinate_frame(keypoints, new_window)
-    result.append(new_keypoints)
 
   return tuple(result)
 
@@ -1896,7 +1825,6 @@ def random_crop_to_aspect_ratio(image,
                                 label_confidences=None,
                                 multiclass_scores=None,
                                 masks=None,
-                                keypoints=None,
                                 aspect_ratio=1.0,
                                 overlap_thresh=0.3,
                                 clip_boxes=True,
@@ -2064,22 +1992,12 @@ def random_crop_to_aspect_ratio(image,
       new_masks = tf.slice(masks_inside_window, masks_box_begin, masks_box_size)
       result.append(new_masks)
 
-    if keypoints is not None:
-      keypoints_inside_window = tf.gather(keypoints, keep_ids)
-      new_keypoints = keypoint_ops.change_coordinate_frame(
-          keypoints_inside_window, im_box)
-      if clip_boxes:
-        new_keypoints = keypoint_ops.prune_outside_window(new_keypoints,
-                                                          [0.0, 0.0, 1.0, 1.0])
-      result.append(new_keypoints)
-
     return tuple(result)
 
 
 def random_pad_to_aspect_ratio(image,
                                boxes,
                                masks=None,
-                               keypoints=None,
                                aspect_ratio=1.0,
                                min_padded_size_ratio=(1.0, 1.0),
                                max_padded_size_ratio=(2.0, 2.0),
@@ -2197,10 +2115,6 @@ def random_pad_to_aspect_ratio(image,
           tf.cast(target_width, dtype=tf.int32))
       new_masks = tf.squeeze(new_masks, [-1])
       result.append(new_masks)
-
-    if keypoints is not None:
-      new_keypoints = keypoint_ops.change_coordinate_frame(keypoints, im_box)
-      result.append(new_keypoints)
 
     return tuple(result)
 
@@ -2571,7 +2485,7 @@ def resize_to_max_dimension(image, masks=None, max_dimension=600,
     return result
 
 
-def scale_boxes_to_pixel_coordinates(image, boxes, keypoints=None):
+def scale_boxes_to_pixel_coordinates(image, boxes):
   """Scales boxes from normalized to pixel coordinates.
 
   Args:
@@ -2596,9 +2510,6 @@ def scale_boxes_to_pixel_coordinates(image, boxes, keypoints=None):
   image_width = tf.shape(image)[1]
   scaled_boxes = box_list_ops.scale(boxlist, image_height, image_width).get()
   result = [image, scaled_boxes]
-  if keypoints is not None:
-    scaled_keypoints = keypoint_ops.scale(keypoints, image_height, image_width)
-    result.append(scaled_keypoints)
   return tuple(result)
 
 
@@ -2842,7 +2753,6 @@ def ssd_random_crop(image,
                     label_confidences=None,
                     multiclass_scores=None,
                     masks=None,
-                    keypoints=None,
                     min_object_covered=(0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0),
                     aspect_ratio_range=((0.5, 2.0),) * 7,
                     area_range=((0.1, 1.0),) * 7,
@@ -2929,7 +2839,6 @@ def ssd_random_crop(image,
     selected_label_confidences = None
     selected_multiclass_scores = None
     selected_masks = None
-    selected_keypoints = None
     if label_weights is not None:
       selected_label_weights = selected_result[i]
       i += 1
@@ -2942,8 +2851,6 @@ def ssd_random_crop(image,
     if masks is not None:
       selected_masks = selected_result[i]
       i += 1
-    if keypoints is not None:
-      selected_keypoints = selected_result[i]
 
     return random_crop_image(
         image=image,
@@ -2953,7 +2860,6 @@ def ssd_random_crop(image,
         label_confidences=selected_label_confidences,
         multiclass_scores=selected_multiclass_scores,
         masks=selected_masks,
-        keypoints=selected_keypoints,
         min_object_covered=min_object_covered[index],
         aspect_ratio_range=aspect_ratio_range[index],
         area_range=area_range[index],
@@ -2966,7 +2872,7 @@ def ssd_random_crop(image,
   result = _apply_with_random_selector_tuples(
       tuple(
           t for t in (image, boxes, labels, label_weights, label_confidences,
-                      multiclass_scores, masks, keypoints) if t is not None),
+                      multiclass_scores, masks) if t is not None),
       random_crop_selector,
       num_cases=len(min_object_covered),
       preprocess_vars_cache=preprocess_vars_cache,
@@ -3097,7 +3003,6 @@ def ssd_random_crop_fixed_aspect_ratio(
     label_confidences=None,
     multiclass_scores=None,
     masks=None,
-    keypoints=None,
     min_object_covered=(0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0),
     aspect_ratio=1.0,
     area_range=((0.1, 1.0),) * 7,
@@ -3179,7 +3084,6 @@ def ssd_random_crop_fixed_aspect_ratio(
       label_confidences=label_confidences,
       multiclass_scores=multiclass_scores,
       masks=masks,
-      keypoints=keypoints,
       min_object_covered=min_object_covered,
       aspect_ratio_range=aspect_ratio_range,
       area_range=area_range,
@@ -3194,7 +3098,6 @@ def ssd_random_crop_fixed_aspect_ratio(
   new_label_confidences = None
   new_multiclass_scores = None
   new_masks = None
-  new_keypoints = None
   if label_weights is not None:
     new_label_weights = crop_result[i]
     i += 1
@@ -3207,8 +3110,6 @@ def ssd_random_crop_fixed_aspect_ratio(
   if masks is not None:
     new_masks = crop_result[i]
     i += 1
-  if keypoints is not None:
-    new_keypoints = crop_result[i]
 
   result = random_crop_to_aspect_ratio(
       new_image,
@@ -3218,7 +3119,6 @@ def ssd_random_crop_fixed_aspect_ratio(
       label_confidences=new_label_confidences,
       multiclass_scores=new_multiclass_scores,
       masks=new_masks,
-      keypoints=new_keypoints,
       aspect_ratio=aspect_ratio,
       clip_boxes=clip_boxes,
       seed=seed,
@@ -3235,7 +3135,6 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
     label_confidences=None,
     multiclass_scores=None,
     masks=None,
-    keypoints=None,
     min_object_covered=(0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0),
     aspect_ratio=1.0,
     aspect_ratio_range=((0.5, 2.0),) * 7,
@@ -3323,7 +3222,6 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
       label_confidences=label_confidences,
       multiclass_scores=multiclass_scores,
       masks=masks,
-      keypoints=keypoints,
       min_object_covered=min_object_covered,
       aspect_ratio_range=aspect_ratio_range,
       area_range=area_range,
@@ -3338,7 +3236,6 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
   new_label_confidences = None
   new_multiclass_scores = None
   new_masks = None
-  new_keypoints = None
   if label_weights is not None:
     new_label_weights = crop_result[i]
     i += 1
@@ -3351,14 +3248,11 @@ def ssd_random_crop_pad_fixed_aspect_ratio(
   if masks is not None:
     new_masks = crop_result[i]
     i += 1
-  if keypoints is not None:
-    new_keypoints = crop_result[i]
 
   result = random_pad_to_aspect_ratio(
       new_image,
       new_boxes,
       masks=new_masks,
-      keypoints=new_keypoints,
       aspect_ratio=aspect_ratio,
       min_padded_size_ratio=min_padded_size_ratio,
       max_padded_size_ratio=max_padded_size_ratio,
@@ -3407,8 +3301,7 @@ def convert_class_logits_to_softmax(multiclass_scores, temperature=1.0):
 def get_default_func_arg_map(include_label_weights=True,
                              include_label_confidences=False,
                              include_multiclass_scores=False,
-                             include_instance_masks=False,
-                             include_keypoints=False):
+                             include_instance_masks=False):
   """Returns the default mapping from a preprocessor function to its args.
 
   Args:
@@ -3445,10 +3338,6 @@ def get_default_func_arg_map(include_label_weights=True,
     groundtruth_instance_masks = (
         fields.InputDataFields.groundtruth_instance_masks)
 
-  groundtruth_keypoints = None
-  if include_keypoints:
-    groundtruth_keypoints = fields.InputDataFields.groundtruth_keypoints
-
   prep_func_arg_map = {
       normalize_image: (fields.InputDataFields.image,),
       random_horizontal_flip: (
@@ -3456,26 +3345,22 @@ def get_default_func_arg_map(include_label_weights=True,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       random_vertical_flip: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       random_rotation90: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       random_rotation: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       random_pixel_value_scale: (fields.InputDataFields.image,),
       random_image_scale: (
@@ -3495,11 +3380,9 @@ def get_default_func_arg_map(include_label_weights=True,
                           groundtruth_label_weights,
                           groundtruth_label_confidences,
                           multiclass_scores,
-                          groundtruth_instance_masks,
-                          groundtruth_keypoints),
+                          groundtruth_instance_masks),
       random_pad_image: (fields.InputDataFields.image,
-                         fields.InputDataFields.groundtruth_boxes,
-                         groundtruth_keypoints),
+                         fields.InputDataFields.groundtruth_boxes),
       random_absolute_pad_image: (fields.InputDataFields.image,
                                   fields.InputDataFields.groundtruth_boxes),
       random_crop_pad_image: (fields.InputDataFields.image,
@@ -3516,13 +3399,11 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_confidences,
           multiclass_scores,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       random_pad_to_aspect_ratio: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       random_black_patches: (fields.InputDataFields.image,),
       retain_boxes_above_threshold: (
@@ -3532,7 +3413,6 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_confidences,
           multiclass_scores,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       image_to_float: (fields.InputDataFields.image,),
       random_resize_method: (fields.InputDataFields.image,),
@@ -3547,7 +3427,6 @@ def get_default_func_arg_map(include_label_weights=True,
       scale_boxes_to_pixel_coordinates: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
-          groundtruth_keypoints,
       ),
       resize_image: (
           fields.InputDataFields.image,
@@ -3568,8 +3447,7 @@ def get_default_func_arg_map(include_label_weights=True,
                         groundtruth_label_weights,
                         groundtruth_label_confidences,
                         multiclass_scores,
-                        groundtruth_instance_masks,
-                        groundtruth_keypoints),
+                        groundtruth_instance_masks),
       ssd_random_crop_pad: (fields.InputDataFields.image,
                             fields.InputDataFields.groundtruth_boxes,
                             fields.InputDataFields.groundtruth_classes,
@@ -3583,8 +3461,7 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_weights,
           groundtruth_label_confidences,
           multiclass_scores,
-          groundtruth_instance_masks,
-          groundtruth_keypoints),
+          groundtruth_instance_masks),
       ssd_random_crop_pad_fixed_aspect_ratio: (
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
@@ -3593,7 +3470,6 @@ def get_default_func_arg_map(include_label_weights=True,
           groundtruth_label_confidences,
           multiclass_scores,
           groundtruth_instance_masks,
-          groundtruth_keypoints,
       ),
       convert_class_logits_to_softmax: (multiclass_scores,),
   }

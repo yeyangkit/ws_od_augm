@@ -165,7 +165,6 @@ def unstack_batch(tensor_dict, unpad_groundtruth_tensors=True):
         fields.InputDataFields.groundtruth_classes,
         fields.InputDataFields.groundtruth_boxes,
         fields.InputDataFields.groundtruth_boxes_3d,
-        fields.InputDataFields.groundtruth_keypoints,
         fields.InputDataFields.groundtruth_group_of,
         fields.InputDataFields.groundtruth_difficult,
         fields.InputDataFields.groundtruth_is_crowd,
@@ -209,9 +208,6 @@ def _provide_groundtruth(model, labels):
   if fields.InputDataFields.groundtruth_instance_masks in labels:
     gt_masks_list = labels[
         fields.InputDataFields.groundtruth_instance_masks]
-  gt_keypoints_list = None
-  if fields.InputDataFields.groundtruth_keypoints in labels:
-    gt_keypoints_list = labels[fields.InputDataFields.groundtruth_keypoints]
   gt_weights_list = None
   if fields.InputDataFields.groundtruth_weights in labels:
     gt_weights_list = labels[fields.InputDataFields.groundtruth_weights]
@@ -228,7 +224,6 @@ def _provide_groundtruth(model, labels):
       groundtruth_classes_list=gt_classes_list,
       groundtruth_confidences_list=gt_confidences_list,
       groundtruth_masks_list=gt_masks_list,
-      groundtruth_keypoints_list=gt_keypoints_list,
       groundtruth_weights_list=gt_weights_list,
       groundtruth_is_crowd_list=gt_is_crowd_list)
 

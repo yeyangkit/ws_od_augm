@@ -92,8 +92,6 @@ class InputDataFields(object):
   groundtruth_instance_masks = 'groundtruth_instance_masks'
   groundtruth_instance_boundaries = 'groundtruth_instance_boundaries'
   groundtruth_instance_classes = 'groundtruth_instance_classes'
-  groundtruth_keypoints = 'groundtruth_keypoints'
-  groundtruth_keypoint_visibilities = 'groundtruth_keypoint_visibilities'
   groundtruth_label_weights = 'groundtruth_label_weights'
   groundtruth_weights = 'groundtruth_weights'
   num_groundtruth_boxes = 'num_groundtruth_boxes'
@@ -131,7 +129,6 @@ class DetectionResultFields(object):
   detection_classes = 'detection_classes'
   detection_masks = 'detection_masks'
   detection_boundaries = 'detection_boundaries'
-  detection_keypoints = 'detection_keypoints'
   num_detections = 'num_detections'
   raw_detection_boxes = 'raw_detection_boxes'
   raw_detection_scores = 'raw_detection_scores'
@@ -161,8 +158,6 @@ class BoxListFields(object):
   objectness = 'objectness'
   masks = 'masks'
   boundaries = 'boundaries'
-  keypoints = 'keypoints'
-  keypoint_heatmaps = 'keypoint_heatmaps'
   is_crowd = 'is_crowd'
 
 

@@ -125,7 +125,7 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     # tangle = (angle - ref_angle) * 3.141 / 180
     # t_sin_angle = tf.sin(2 * tangle)
     # t_cos_angle = tf.cos(2 * tangle)
-    ref_angle_rad = ref_angle * 3.141 / 180
+    ref_angle_rad = ref_angle * 3.141 / 360
     t_sin_angle = sin_angle - tf.sin(2 * ref_angle_rad)
     t_cos_angle = cos_angle - tf.cos(2 * ref_angle_rad)
 
@@ -196,7 +196,7 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     # angle = (tangle + ref_angle) * 3.141 / 180
     # sin_angle = tf.sin(2 * angle)
     # cos_angle = tf.cos(2 * angle)
-    ref_angle_rad = ref_angle * 3.141 / 180
+    ref_angle_rad = ref_angle * 3.141 / 360
     sin_angle = t_sin_angle + tf.sin(2 * ref_angle_rad)
     cos_angle = t_cos_angle + tf.cos(2 * ref_angle_rad)
     return box_list.Box3dList(tf.transpose(tf.stack([x_c, y_c, w, h, sin_angle, cos_angle])))

@@ -372,8 +372,6 @@ def retain_groundtruth(tensor_dict, valid_indices):
       if key in [fields.InputDataFields.groundtruth_boxes,
                  fields.InputDataFields.groundtruth_classes,
                  fields.InputDataFields.groundtruth_confidences,
-                 fields.InputDataFields.groundtruth_keypoints,
-                 fields.InputDataFields.groundtruth_keypoint_visibilities,
                  fields.InputDataFields.groundtruth_instance_masks]:
         valid_dict[key] = tf.gather(tensor_dict[key], valid_indices)
       # Input decoder returns empty tensor when these fields are not provided.

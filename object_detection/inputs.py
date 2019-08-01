@@ -252,19 +252,6 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
     padding_shapes[fields.InputDataFields.original_image] = [
         height, width, num_channels
     ]
-  if fields.InputDataFields.groundtruth_keypoints in tensor_dict:
-    tensor_shape = (
-        tensor_dict[fields.InputDataFields.groundtruth_keypoints].shape)
-    padding_shape = [max_num_boxes,
-                     shape_utils.get_dim_as_int(tensor_shape[1]),
-                     shape_utils.get_dim_as_int(tensor_shape[2])]
-    padding_shapes[fields.InputDataFields.groundtruth_keypoints] = padding_shape
-  if fields.InputDataFields.groundtruth_keypoint_visibilities in tensor_dict:
-    tensor_shape = tensor_dict[fields.InputDataFields.
-                               groundtruth_keypoint_visibilities].shape
-    padding_shape = [max_num_boxes, shape_utils.get_dim_as_int(tensor_shape[1])]
-    padding_shapes[fields.InputDataFields.
-                   groundtruth_keypoint_visibilities] = padding_shape
 
   padded_tensor_dict = {}
   for tensor_name in tensor_dict:
@@ -299,8 +286,6 @@ def augment_input_data(tensor_dict, data_augmentation_options):
 
   include_instance_masks = (fields.InputDataFields.groundtruth_instance_masks
                             in tensor_dict)
-  include_keypoints = (fields.InputDataFields.groundtruth_keypoints
-                       in tensor_dict)
   include_label_weights = (fields.InputDataFields.groundtruth_weights
                            in tensor_dict)
   include_label_confidences = (fields.InputDataFields.groundtruth_confidences
@@ -313,8 +298,7 @@ def augment_input_data(tensor_dict, data_augmentation_options):
           include_label_weights=include_label_weights,
           include_label_confidences=include_label_confidences,
           include_multiclass_scores=include_multiclass_scores,
-          include_instance_masks=include_instance_masks,
-          include_keypoints=include_keypoints))
+          include_instance_masks=include_instance_masks))
   tensor_dict[fields.InputDataFields.image] = tf.squeeze(
       tensor_dict[fields.InputDataFields.image], axis=0)
   return tensor_dict
@@ -335,7 +319,6 @@ def _get_labels_dict(input_dict):
 
   optional_label_keys = [
       fields.InputDataFields.groundtruth_confidences,
-      fields.InputDataFields.groundtruth_keypoints,
       fields.InputDataFields.groundtruth_instance_masks,
       fields.InputDataFields.groundtruth_area,
       fields.InputDataFields.groundtruth_is_crowd,

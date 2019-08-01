@@ -755,10 +755,6 @@ class SSDMetaArch(model.DetectionModel):
           fields.DetectionResultFields.raw_detection_scores:
               detection_scores_with_background
       }
-      if (nmsed_additional_fields is not None and
-          fields.BoxListFields.keypoints in nmsed_additional_fields):
-        detection_dict[fields.DetectionResultFields.detection_keypoints] = (
-            nmsed_additional_fields[fields.BoxListFields.keypoints])
       if nmsed_masks is not None:
         detection_dict[
             fields.DetectionResultFields.detection_masks] = nmsed_masks
@@ -790,9 +786,6 @@ class SSDMetaArch(model.DetectionModel):
         values.
     """
     with tf.name_scope(scope, 'Loss', prediction_dict.values()):
-      keypoints = None
-      if self.groundtruth_has_field(fields.BoxListFields.keypoints):
-        keypoints = self.groundtruth_lists(fields.BoxListFields.keypoints)
       weights = None
       if self.groundtruth_has_field(fields.BoxListFields.weights):
         weights = self.groundtruth_lists(fields.BoxListFields.weights)
@@ -804,7 +797,7 @@ class SSDMetaArch(model.DetectionModel):
            self.groundtruth_lists(fields.BoxListFields.boxes),
            self.groundtruth_lists(fields.BoxListFields.boxes_3d),
            self.groundtruth_lists(fields.BoxListFields.classes),
-           keypoints, weights, confidences)
+           weights, confidences)
       match_list = [matcher.Match(match) for match in tf.unstack(batch_match)]
       if self._add_summaries:
         self._summarize_classwise_target_assignment(
@@ -961,7 +954,6 @@ class SSDMetaArch(model.DetectionModel):
                       groundtruth_boxes_list,
                       groundtruth_boxes_3d_list,
                       groundtruth_classes_list,
-                      groundtruth_keypoints_list=None,
                       groundtruth_weights_list=None,
                       groundtruth_confidences_list=None):
     """Assign groundtruth targets.
@@ -1021,10 +1013,6 @@ class SSDMetaArch(model.DetectionModel):
     else:
       groundtruth_classes_with_background_list = groundtruth_classes_list
 
-    if groundtruth_keypoints_list is not None:
-      for boxlist, keypoints in zip(
-          groundtruth_boxlists, groundtruth_keypoints_list):
-        boxlist.add_field(fields.BoxListFields.keypoints, keypoints)
     if train_using_confidences:
       return target_assigner.batch_assign_confidences(
           self._target_assigner,
@@ -1266,17 +1254,10 @@ class SSDMetaArch(model.DetectionModel):
     decoded_boxes = self._box_coder.decode(
         tf.reshape(box_encodings, [-1, self._box_coder.code_size]),
         tiled_anchors_boxlist)
-    decoded_keypoints = None
-    if decoded_boxes.has_field(fields.BoxListFields.keypoints):
-      decoded_keypoints = decoded_boxes.get_field(
-          fields.BoxListFields.keypoints)
-      num_keypoints = decoded_keypoints.get_shape()[1]
-      decoded_keypoints = tf.reshape(
-          decoded_keypoints,
-          tf.stack([combined_shape[0], combined_shape[1], num_keypoints, 2]))
+
     decoded_boxes = tf.reshape(decoded_boxes.get(), tf.stack(
         [combined_shape[0], combined_shape[1], 4]))
-    return decoded_boxes, decoded_keypoints
+    return decoded_boxes
 
   def _batch_decode_3d(self, box_encodings):
     """Decodes a batch of box encodings with respect to the anchors.

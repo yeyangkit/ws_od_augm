@@ -362,8 +362,7 @@ def draw_bounding_boxes_on_image(image,
                                boxes[i, 3], color, thickness, display_str_list)
 
 
-def create_visualization_fn(category_index, include_3d_boxes=False, include_masks=False,
-                            include_keypoints=False, include_track_ids=False,
+def create_visualization_fn(category_index, include_3d_boxes=False, include_masks=False, include_track_ids=False,
                             **kwargs):
   """Constructs a visualization function that can be wrapped in a py_func.
 
@@ -432,16 +431,13 @@ def create_visualization_fn(category_index, include_3d_boxes=False, include_mask
     boxes = args[1]
     classes = args[2]
     scores = args[3]
-    boxes_3d = masks = keypoints = track_ids = None
+    boxes_3d = masks = track_ids = None
     pos_arg_ptr = 4  # Positional argument for first optional tensor (masks).
     if include_3d_boxes:
       boxes_3d = args[pos_arg_ptr]
       pos_arg_ptr += 1
     if include_masks:
       masks = args[pos_arg_ptr]
-      pos_arg_ptr += 1
-    if include_keypoints:
-      keypoints = args[pos_arg_ptr]
       pos_arg_ptr += 1
     if include_track_ids:
       track_ids = args[pos_arg_ptr]
@@ -454,7 +450,6 @@ def create_visualization_fn(category_index, include_3d_boxes=False, include_mask
         category_index=category_index,
         boxes_3d=boxes_3d,
         instance_masks=masks,
-        keypoints=keypoints,
         track_ids=track_ids,
         **kwargs)
   return visualization_py_func_fn
@@ -479,7 +474,6 @@ def draw_bounding_boxes_on_image_tensors(images,
                                          true_image_shape=None,
                                          boxes_3d=None,
                                          instance_masks=None,
-                                         keypoints=None,
                                          track_ids=None,
                                          max_boxes_to_draw=20,
                                          min_score_thresh=0.2,
@@ -541,7 +535,6 @@ def draw_bounding_boxes_on_image_tensors(images,
       category_index,
       include_3d_boxes=boxes_3d is not None,
       include_masks=instance_masks is not None,
-      include_keypoints=keypoints is not None,
       include_track_ids=track_ids is not None,
       **visualization_keyword_args)
 
@@ -550,8 +543,6 @@ def draw_bounding_boxes_on_image_tensors(images,
     elems.append(boxes_3d)
   if instance_masks is not None:
     elems.append(instance_masks)
-  if keypoints is not None:
-    elems.append(keypoints)
   if track_ids is not None:
     elems.append(track_ids)
 
@@ -621,10 +612,6 @@ def draw_side_by_side_evaluation_image(eval_dict,
           tf.expand_dims(
               eval_dict[detection_fields.detection_masks][indx], axis=0),
           tf.uint8)
-    keypoints = None
-    if detection_fields.detection_keypoints in eval_dict:
-      keypoints = tf.expand_dims(
-          eval_dict[detection_fields.detection_keypoints][indx], axis=0)
     groundtruth_instance_masks = None
     if input_data_fields.groundtruth_instance_masks in eval_dict:
       groundtruth_instance_masks = tf.cast(
@@ -649,7 +636,6 @@ def draw_side_by_side_evaluation_image(eval_dict,
             eval_dict[input_data_fields.true_image_shape][indx], axis=0),
         boxes_3d=detection_boxes_3d,
         instance_masks=instance_masks,
-        keypoints=keypoints,
         max_boxes_to_draw=max_boxes_to_draw,
         min_score_thresh=min_score_thresh,
         use_normalized_coordinates=use_normalized_coordinates)
@@ -674,63 +660,12 @@ def draw_side_by_side_evaluation_image(eval_dict,
         boxes_3d=tf.expand_dims(
             eval_dict[input_data_fields.groundtruth_boxes_3d][indx], axis=0),
         instance_masks=groundtruth_instance_masks,
-        keypoints=None,
         max_boxes_to_draw=None,
         min_score_thresh=0.0,
         use_normalized_coordinates=use_normalized_coordinates)
     images_with_detections_list.append(
         tf.concat([images_with_detections, images_with_groundtruth], axis=2))
   return images_with_detections_list
-
-
-def draw_keypoints_on_image_array(image,
-                                  keypoints,
-                                  color='red',
-                                  radius=2,
-                                  use_normalized_coordinates=True):
-  """Draws keypoints on an image (numpy array).
-
-  Args:
-    image: a numpy array with shape [height, width, 3].
-    keypoints: a numpy array with shape [num_keypoints, 2].
-    color: color to draw the keypoints with. Default is red.
-    radius: keypoint radius. Default value is 2.
-    use_normalized_coordinates: if True (default), treat keypoint values as
-      relative to the image.  Otherwise treat them as absolute.
-  """
-  image_pil = Image.fromarray(np.uint8(image)).convert('RGB')
-  draw_keypoints_on_image(image_pil, keypoints, color, radius,
-                          use_normalized_coordinates)
-  np.copyto(image, np.array(image_pil))
-
-
-def draw_keypoints_on_image(image,
-                            keypoints,
-                            color='red',
-                            radius=2,
-                            use_normalized_coordinates=True):
-  """Draws keypoints on an image.
-
-  Args:
-    image: a PIL.Image object.
-    keypoints: a numpy array with shape [num_keypoints, 2].
-    color: color to draw the keypoints with. Default is red.
-    radius: keypoint radius. Default value is 2.
-    use_normalized_coordinates: if True (default), treat keypoint values as
-      relative to the image.  Otherwise treat them as absolute.
-  """
-  draw = ImageDraw.Draw(image)
-  im_width, im_height = image.size
-  keypoints_x = [k[1] for k in keypoints]
-  keypoints_y = [k[0] for k in keypoints]
-  if use_normalized_coordinates:
-    keypoints_x = tuple([im_width * x for x in keypoints_x])
-    keypoints_y = tuple([im_height * y for y in keypoints_y])
-  for keypoint_x, keypoint_y in zip(keypoints_x, keypoints_y):
-    draw.ellipse([(keypoint_x - radius, keypoint_y - radius),
-                  (keypoint_x + radius, keypoint_y + radius)],
-                 outline=color, fill=color)
-
 
 def draw_mask_on_image_array(image, mask, color='red', alpha=0.4):
   """Draws mask on an image.
@@ -774,7 +709,6 @@ def visualize_boxes_and_labels_on_image_array(
     boxes_3d=None,
     instance_masks=None,
     instance_boundaries=None,
-    keypoints=None,
     track_ids=None,
     use_normalized_coordinates=False,
     max_boxes_to_draw=20,
@@ -835,7 +769,6 @@ def visualize_boxes_and_labels_on_image_array(
   box_to_color_map = collections.defaultdict(str)
   box_to_instance_masks_map = {}
   box_to_instance_boundaries_map = {}
-  box_to_keypoints_map = collections.defaultdict(list)
   box_to_box_3d_map = collections.defaultdict(list)
   box_to_track_ids_map = {}
   if not max_boxes_to_draw:
@@ -849,8 +782,6 @@ def visualize_boxes_and_labels_on_image_array(
         box_to_instance_masks_map[box] = instance_masks[i]
       if instance_boundaries is not None:
         box_to_instance_boundaries_map[box] = instance_boundaries[i]
-      if keypoints is not None:
-        box_to_keypoints_map[box].extend(keypoints[i])
       if track_ids is not None:
         box_to_track_ids_map[box] = track_ids[i]
       if scores is None:
@@ -919,13 +850,6 @@ def visualize_boxes_and_labels_on_image_array(
         thickness=line_thickness,
         display_str_list=box_to_display_str_map[box],
         use_normalized_coordinates=use_normalized_coordinates)
-    if keypoints is not None:
-      draw_keypoints_on_image_array(
-          image,
-          box_to_keypoints_map[box],
-          color=color,
-          radius=line_thickness / 2,
-          use_normalized_coordinates=use_normalized_coordinates)
 
   return image
 
