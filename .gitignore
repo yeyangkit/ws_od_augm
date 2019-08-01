@@ -91,6 +91,9 @@ ENV/
 # PyCharm
 .idea/
 
+# ignore pb2.py files
+*pb2.py
+
 # For mac
 .DS_Store
 
@@ -100,4 +103,4 @@ tutorials/embedding/questions-words.txt
 
 samples/outreach/blogs/segmentation_blogpost/carvana-image-masking-challenge/
 
-object_detection/protos/*_pb2.py
+
