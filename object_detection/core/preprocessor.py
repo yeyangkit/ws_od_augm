@@ -2373,7 +2373,6 @@ def scale_boxes_to_pixel_coordinates(image, boxes):
 # masks is None.
 # pylint: disable=g-doc-return-or-yield
 def resize_image(image,
-                 masks=None,
                  new_height=600,
                  new_width=1024,
                  method=tf.image.ResizeMethod.BILINEAR,

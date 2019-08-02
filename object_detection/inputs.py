@@ -113,7 +113,7 @@ def transform_input_data(tensor_dict,
 
   if retain_original_image:
     tensor_dict[fields.InputDataFields.original_image] = tf.cast(
-        image_resizer_fn(tensor_dict[fields.InputDataFields.image], None)[0],
+        image_resizer_fn(tensor_dict[fields.InputDataFields.image])[0],
         tf.uint8)
 
   if fields.InputDataFields.image_additional_channels in tensor_dict:

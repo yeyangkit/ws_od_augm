@@ -32,7 +32,6 @@ import tensorflow as tf
 BOX_ENCODINGS = 'box_encodings'
 BOX_3D_ENCODINGS = 'box_3d_encodings'
 CLASS_PREDICTIONS_WITH_BACKGROUND = 'class_predictions_with_background'
-MASK_PREDICTIONS = 'mask_predictions'
 
 
 class BoxPredictor(object):

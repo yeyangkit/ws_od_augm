@@ -630,7 +630,7 @@ def batch_multiclass_non_max_suppression(boxes,
       # the iteration order of ordered_additional_fields
       per_image_additional_fields = {
           key: value
-          for key, value in zip(ordered_additional_fields, args[5:-1])
+          for key, value in zip(ordered_additional_fields, args[4:-1])
       }
       per_image_num_valid_boxes = args[-1]
       if use_static_shapes:
