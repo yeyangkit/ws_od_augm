@@ -219,7 +219,7 @@ def _provide_groundtruth(model, labels):
       groundtruth_is_crowd_list=gt_is_crowd_list)
 
 
-def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
+def create_model_fn(detection_model_fn, configs, hparams,
                     postprocess_on_cpu=False):
   """Creates a model function for `Estimator`.
 
@@ -261,7 +261,7 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
     # False for inference.
     tf.keras.backend.set_learning_phase(is_training)
     detection_model = detection_model_fn(
-        is_training=is_training, add_summaries=(not use_tpu))
+        is_training=is_training, add_summaries=True)
     scaffold_fn = None
 
     if mode == tf.estimator.ModeKeys.TRAIN:
@@ -274,7 +274,7 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
       boxes_shape = (
           labels[fields.InputDataFields.groundtruth_boxes].get_shape()
           .as_list())
-      unpad_groundtruth_tensors = boxes_shape[1] is not None and not use_tpu
+      unpad_groundtruth_tensors = boxes_shape[1] is not None
       labels = unstack_batch(
           labels, unpad_groundtruth_tensors=unpad_groundtruth_tensors)
 
@@ -283,30 +283,17 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
 
     preprocessed_images = features[fields.InputDataFields.image]
 
-    if use_tpu and train_config.use_bfloat16:
-      with tf.contrib.tpu.bfloat16_scope():
-        prediction_dict = detection_model.predict(
-            preprocessed_images,
-            features[fields.InputDataFields.true_image_shape])
-        prediction_dict = ops.bfloat16_to_float32_nested(prediction_dict)
-    else:
-      prediction_dict = detection_model.predict(
-          preprocessed_images,
-          features[fields.InputDataFields.true_image_shape])
+    prediction_dict = detection_model.predict(
+        preprocessed_images,
+        features[fields.InputDataFields.true_image_shape])
 
     def postprocess_wrapper(args):
       return detection_model.postprocess(args[0], args[1])
 
     if mode in (tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT):
-      if use_tpu and postprocess_on_cpu:
-        detections = tf.contrib.tpu.outside_compilation(
-            postprocess_wrapper,
-            (prediction_dict,
-             features[fields.InputDataFields.true_image_shape]))
-      else:
-        detections = postprocess_wrapper((
-            prediction_dict,
-            features[fields.InputDataFields.true_image_shape]))
+      detections = postprocess_wrapper((
+          prediction_dict,
+          features[fields.InputDataFields.true_image_shape]))
 
     if mode == tf.estimator.ModeKeys.TRAIN:
       if train_config.fine_tune_checkpoint and hparams.load_pretrained:
@@ -327,17 +314,8 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
                 asg_map,
                 train_config.fine_tune_checkpoint,
                 include_global_step=False))
-        if use_tpu:
-
-          def tpu_scaffold():
-            tf.train.init_from_checkpoint(train_config.fine_tune_checkpoint,
-                                          available_var_map)
-            return tf.train.Scaffold()
-
-          scaffold_fn = tpu_scaffold
-        else:
-          tf.train.init_from_checkpoint(train_config.fine_tune_checkpoint,
-                                        available_var_map)
+        tf.train.init_from_checkpoint(train_config.fine_tune_checkpoint,
+                                      available_var_map)
 
     if mode in (tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL):
       category_index_train = label_map_util.create_category_index_from_labelmap(
@@ -347,9 +325,6 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
       losses = [loss_tensor for loss_tensor in losses_dict.values()]
       if train_config.add_regularization_loss:
         regularization_losses = detection_model.regularization_losses()
-        if use_tpu and train_config.use_bfloat16:
-          regularization_losses = ops.bfloat16_to_float32_nested(
-              regularization_losses)
         if regularization_losses:
           regularization_loss = tf.add_n(
               regularization_losses, name='regularization_loss')
@@ -370,9 +345,6 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
           train_config.optimizer)
 
     if mode == tf.estimator.ModeKeys.TRAIN:
-      if use_tpu:
-        training_optimizer = tf.contrib.tpu.CrossShardOptimizer(
-            training_optimizer)
 
       # Optionally freeze some layers by setting their gradients to be zero.
       trainable_variables = None
@@ -391,10 +363,9 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
       if train_config.gradient_clipping_by_norm > 0:
         clip_gradients_value = train_config.gradient_clipping_by_norm
 
-      if not use_tpu:
-        for var in optimizer_summary_vars:
-          tf.summary.scalar(var.op.name, var)
-      summaries = [] if use_tpu else None
+      for var in optimizer_summary_vars:
+        tf.summary.scalar(var.op.name, var)
+      summaries = None
       if train_config.summarize_gradients:
         summaries = ['gradients', 'gradient_norm', 'global_gradient_norm']
       train_op = tf.contrib.layers.optimize_loss(
@@ -451,7 +422,7 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
         category_index = label_map_util.create_category_index_from_labelmap(
             eval_input_config.label_map_path)
       vis_metric_ops = None
-      if not use_tpu and use_original_images:
+      if use_original_images:
         eval_metric_op_vis = vis_utils.VisualizeSingleFrameDetections(
             category_index,
             max_examples_to_draw=eval_config.num_visualizations,
@@ -482,34 +453,23 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False,
             keep_checkpoint_every_n_hours=keep_checkpoint_every_n_hours)
         scaffold = tf.train.Scaffold(saver=saver)
 
-    # EVAL executes on CPU, so use regular non-TPU EstimatorSpec.
-    if use_tpu and mode != tf.estimator.ModeKeys.EVAL:
-      return tf.contrib.tpu.TPUEstimatorSpec(
-          mode=mode,
-          scaffold_fn=scaffold_fn,
-          predictions=detections,
-          loss=total_loss,
-          train_op=train_op,
-          eval_metrics=eval_metric_ops,
-          export_outputs=export_outputs)
-    else:
-      if scaffold is None:
-        keep_checkpoint_every_n_hours = (
-            train_config.keep_checkpoint_every_n_hours)
-        saver = tf.train.Saver(
-            sharded=True,
-            keep_checkpoint_every_n_hours=keep_checkpoint_every_n_hours,
-            save_relative_paths=True)
-        tf.add_to_collection(tf.GraphKeys.SAVERS, saver)
-        scaffold = tf.train.Scaffold(saver=saver)
-      return tf.estimator.EstimatorSpec(
-          mode=mode,
-          predictions=detections,
-          loss=total_loss,
-          train_op=train_op,
-          eval_metric_ops=eval_metric_ops,
-          export_outputs=export_outputs,
-          scaffold=scaffold)
+    if scaffold is None:
+      keep_checkpoint_every_n_hours = (
+          train_config.keep_checkpoint_every_n_hours)
+      saver = tf.train.Saver(
+          sharded=True,
+          keep_checkpoint_every_n_hours=keep_checkpoint_every_n_hours,
+          save_relative_paths=True)
+      tf.add_to_collection(tf.GraphKeys.SAVERS, saver)
+      scaffold = tf.train.Scaffold(saver=saver)
+    return tf.estimator.EstimatorSpec(
+        mode=mode,
+        predictions=detections,
+        loss=total_loss,
+        train_op=train_op,
+        eval_metric_ops=eval_metric_ops,
+        export_outputs=export_outputs,
+        scaffold=scaffold)
 
   return model_fn
 
@@ -522,14 +482,8 @@ def create_estimator_and_inputs(run_config,
                                 sample_1_of_n_eval_examples=1,
                                 sample_1_of_n_eval_on_train_examples=1,
                                 model_fn_creator=create_model_fn,
-                                use_tpu_estimator=False,
-                                use_tpu=False,
-                                num_shards=1,
-                                params=None,
                                 override_eval_num_epochs=True,
                                 save_final_config=False,
-                                postprocess_on_cpu=False,
-                                export_to_tpu=None,
                                 **kwargs):
   """Creates `Estimator`, input functions, and steps.
 
@@ -601,8 +555,7 @@ def create_estimator_and_inputs(run_config,
       pipeline_config_path, config_override=config_override)
   kwargs.update({
       'train_steps': train_steps,
-      'sample_1_of_n_eval_examples': sample_1_of_n_eval_examples,
-      'use_bfloat16': configs['train_config'].use_bfloat16 and use_tpu
+      'sample_1_of_n_eval_examples': sample_1_of_n_eval_examples
   })
   if override_eval_num_epochs:
     kwargs.update({'eval_num_epochs': 1})
@@ -654,32 +607,8 @@ def create_estimator_and_inputs(run_config,
   predict_input_fn = create_predict_input_fn(
       model_config=model_config, predict_input_config=eval_input_configs[0])
 
-  # Read export_to_tpu from hparams if not passed.
-  if export_to_tpu is None:
-    export_to_tpu = hparams.get('export_to_tpu', False)
-  tf.logging.info('create_estimator_and_inputs: use_tpu %s, export_to_tpu %s',
-                  use_tpu, export_to_tpu)
-  model_fn = model_fn_creator(detection_model_fn, configs, hparams, use_tpu,
-                              postprocess_on_cpu)
-  if use_tpu_estimator:
-    # Multicore inference disabled due to b/129367127
-    tpu_estimator_args = function_utils.fn_args(tf.contrib.tpu.TPUEstimator)
-    kwargs = {}
-    if 'experimental_export_device_assignment' in tpu_estimator_args:
-      kwargs['experimental_export_device_assignment'] = True
-    estimator = tf.contrib.tpu.TPUEstimator(
-        model_fn=model_fn,
-        train_batch_size=train_config.batch_size,
-        # For each core, only batch size 1 is supported for eval.
-        eval_batch_size=num_shards * 1 if use_tpu else 1,
-        use_tpu=use_tpu,
-        config=run_config,
-        export_to_tpu=export_to_tpu,
-        eval_on_tpu=False,  # Eval runs on CPU, so disable eval on TPU
-        params=params if params else {},
-        **kwargs)
-  else:
-    estimator = tf.estimator.Estimator(model_fn=model_fn, config=run_config)
+  model_fn = model_fn_creator(detection_model_fn, configs, hparams)
+  estimator = tf.estimator.Estimator(model_fn=model_fn, config=run_config)
 
   # Write the as-run pipeline config to disk.
   if run_config.is_chief and save_final_config:
