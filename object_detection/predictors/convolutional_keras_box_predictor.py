@@ -27,7 +27,6 @@ keras = tf.keras.layers
 BOX_ENCODINGS = box_predictor.BOX_ENCODINGS
 CLASS_PREDICTIONS_WITH_BACKGROUND = (
     box_predictor.CLASS_PREDICTIONS_WITH_BACKGROUND)
-MASK_PREDICTIONS = box_predictor.MASK_PREDICTIONS
 
 
 class _NoopVariableScope(object):
