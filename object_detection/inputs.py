@@ -55,8 +55,7 @@ def transform_input_data(tensor_dict,
                          data_augmentation_fn=None,
                          merge_multiple_boxes=False,
                          retain_original_image=False,
-                         use_multiclass_scores=False,
-                         use_bfloat16=False):
+                         use_multiclass_scores=False):
   """A single function that is responsible for all input data transformations.
 
   Data transformation functions are applied in the following order.
@@ -129,9 +128,6 @@ def transform_input_data(tensor_dict,
   image = tensor_dict[fields.InputDataFields.image]
   preprocessed_resized_image, true_image_shape = model_preprocess_fn(
       tf.expand_dims(tf.cast(image, dtype=tf.float32), axis=0))
-  if use_bfloat16:
-    preprocessed_resized_image = tf.cast(
-        preprocessed_resized_image, tf.bfloat16)
   tensor_dict[fields.InputDataFields.image] = tf.squeeze(
       preprocessed_resized_image, axis=0)
   tensor_dict[fields.InputDataFields.true_image_shape] = tf.squeeze(
@@ -475,8 +471,7 @@ def train_input(train_config, train_input_config,
         data_augmentation_fn=data_augmentation_fn,
         merge_multiple_boxes=train_config.merge_multiple_label_boxes,
         retain_original_image=train_config.retain_original_images,
-        use_multiclass_scores=train_config.use_multiclass_scores,
-        use_bfloat16=train_config.use_bfloat16)
+        use_multiclass_scores=train_config.use_multiclass_scores)
 
     tensor_dict = pad_input_data_to_static_shapes(
         tensor_dict=transform_data_fn(tensor_dict),

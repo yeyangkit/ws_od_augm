@@ -975,32 +975,6 @@ def fpn_feature_levels(num_levels, unit_scale_index, image_ratio, boxes):
   levels = tf.maximum(0, tf.minimum(num_levels - 1, levels))
   return levels
 
-
-def bfloat16_to_float32_nested(tensor_nested):
-  """Convert float32 tensors in a nested structure to bfloat16.
-
-  Args:
-    tensor_nested: A Python dict, values being Tensor or Python list/tuple of
-      Tensor.
-
-  Returns:
-    A Python dict with the same structure as `tensor_dict`,
-    with all bfloat16 tensors converted to float32.
-  """
-  if isinstance(tensor_nested, tf.Tensor):
-    if tensor_nested.dtype == tf.bfloat16:
-      return tf.cast(tensor_nested, dtype=tf.float32)
-    else:
-      return tensor_nested
-  elif isinstance(tensor_nested, (list, tuple)):
-    out_tensor_dict = [bfloat16_to_float32_nested(t) for t in tensor_nested]
-  elif isinstance(tensor_nested, dict):
-    out_tensor_dict = {
-        k: bfloat16_to_float32_nested(v) for k, v in tensor_nested.items()
-    }
-  return out_tensor_dict
-
-
 def gather_with_padding_values(input_tensor, indices, padding_value):
   """Gathers elements from tensor and pads `padding_value` for ignore indices.
 
