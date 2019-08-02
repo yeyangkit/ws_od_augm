@@ -28,7 +28,6 @@ from object_detection.builders import preprocessor_builder
 from object_detection.core import preprocessor
 from object_detection.core import standard_fields as fields
 from object_detection.data_decoders import tf_multi_layer_decoder
-from object_detection.data_decoders import tf_example_decoder
 from object_detection.protos import eval_pb2
 from object_detection.protos import input_reader_pb2
 from object_detection.protos import model_pb2

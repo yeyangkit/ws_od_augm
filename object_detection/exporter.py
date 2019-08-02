@@ -23,7 +23,6 @@ from tensorflow.python.tools import freeze_graph  # pylint: disable=g-direct-ten
 from object_detection.builders import graph_rewriter_builder
 from object_detection.builders import model_builder
 from object_detection.core import standard_fields as fields
-from object_detection.data_decoders import tf_example_decoder
 from object_detection.utils import config_util
 from object_detection.utils import shape_utils
 
@@ -111,28 +110,6 @@ def _image_tensor_input_placeholder(input_shape=None):
       dtype=tf.uint8, shape=input_shape, name='image_tensor')
   return input_tensor, input_tensor
 
-def _tf_example_input_placeholder():
-  """Returns input that accepts a batch of strings with tf examples.
-
-  Returns:
-    a tuple of input placeholder and the output decoded images.
-  """
-  batch_tf_example_placeholder = tf.placeholder(
-      tf.string, shape=[None], name='tf_example')
-  def decode(tf_example_string_tensor):
-    tensor_dict = tf_example_decoder.TfExampleDecoder().decode(
-        tf_example_string_tensor)
-    image_tensor = tensor_dict[fields.InputDataFields.image]
-    return image_tensor
-  return (batch_tf_example_placeholder,
-          shape_utils.static_or_dynamic_map_fn(
-              decode,
-              elems=batch_tf_example_placeholder,
-              dtype=tf.uint8,
-              parallel_iterations=32,
-              back_prop=False))
-
-
 def _encoded_image_string_tensor_input_placeholder():
   """Returns input that accepts a batch of PNG or JPEG strings.
 
@@ -160,8 +137,7 @@ def _encoded_image_string_tensor_input_placeholder():
 input_placeholder_fn_map = {
     'image_tensor': _image_tensor_input_placeholder,
     'encoded_image_string_tensor':
-    _encoded_image_string_tensor_input_placeholder,
-    'tf_example': _tf_example_input_placeholder,
+    _encoded_image_string_tensor_input_placeholder
 }
 
 

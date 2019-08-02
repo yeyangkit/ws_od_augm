@@ -22,20 +22,117 @@ import tensorflow as tf
 
 from tensorflow.python.framework import dtypes
 from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import functional_ops
 from tensorflow.python.ops import image_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import parsing_ops
+from object_detection.utils import label_map_util
 
 from object_detection.core import data_decoder
 from object_detection.core import standard_fields as fields
-from object_detection.protos import input_reader_pb2
-from object_detection.utils import label_map_util
 
-from object_detection.data_decoders.tf_example_decoder import slim_example_decoder
-from object_detection.data_decoders.tf_example_decoder import _BackupHandler
-from object_detection.data_decoders.tf_example_decoder import _ClassTensorHandler
+slim_example_decoder = tf.contrib.slim.tfexample_decoder
+
+
+class _ClassTensorHandler(slim_example_decoder.Tensor):
+  """An ItemHandler to fetch class ids from class text."""
+
+  def __init__(self,
+               tensor_key,
+               label_map_proto_file,
+               shape_keys=None,
+               shape=None,
+               default_value=''):
+    """Initializes the LookupTensor handler.
+
+    Simply calls a vocabulary (most often, a label mapping) lookup.
+
+    Args:
+      tensor_key: the name of the `TFExample` feature to read the tensor from.
+      label_map_proto_file: File path to a text format LabelMapProto message
+        mapping class text to id.
+      shape_keys: Optional name or list of names of the TF-Example feature in
+        which the tensor shape is stored. If a list, then each corresponds to
+        one dimension of the shape.
+      shape: Optional output shape of the `Tensor`. If provided, the `Tensor` is
+        reshaped accordingly.
+      default_value: The value used when the `tensor_key` is not found in a
+        particular `TFExample`.
+
+    Raises:
+      ValueError: if both `shape_keys` and `shape` are specified.
+    """
+    name_to_id = label_map_util.get_label_map_dict(
+        label_map_proto_file, use_display_name=False)
+    # We use a default_value of -1, but we expect all labels to be contained
+    # in the label map.
+    try:
+      # Dynamically try to load the tf v2 lookup, falling back to contrib
+      lookup = tf.compat.v2.lookup
+      hash_table_class = tf.compat.v2.lookup.StaticHashTable
+    except AttributeError:
+      lookup = tf.contrib.lookup
+      hash_table_class = tf.contrib.lookup.HashTable
+    name_to_id_table = hash_table_class(
+        initializer=lookup.KeyValueTensorInitializer(
+            keys=tf.constant(list(name_to_id.keys())),
+            values=tf.constant(list(name_to_id.values()), dtype=tf.int64)),
+        default_value=-1)
+    display_name_to_id = label_map_util.get_label_map_dict(
+        label_map_proto_file, use_display_name=True)
+    # We use a default_value of -1, but we expect all labels to be contained
+    # in the label map.
+    display_name_to_id_table = hash_table_class(
+        initializer=lookup.KeyValueTensorInitializer(
+            keys=tf.constant(list(display_name_to_id.keys())),
+            values=tf.constant(
+                list(display_name_to_id.values()), dtype=tf.int64)),
+        default_value=-1)
+
+    self._name_to_id_table = name_to_id_table
+    self._display_name_to_id_table = display_name_to_id_table
+    super(_ClassTensorHandler, self).__init__(tensor_key, shape_keys, shape,
+                                              default_value)
+
+  def tensors_to_item(self, keys_to_tensors):
+    unmapped_tensor = super(_ClassTensorHandler,
+                            self).tensors_to_item(keys_to_tensors)
+    return tf.maximum(self._name_to_id_table.lookup(unmapped_tensor),
+                      self._display_name_to_id_table.lookup(unmapped_tensor))
+
+
+class _BackupHandler(slim_example_decoder.ItemHandler):
+  """An ItemHandler that tries two ItemHandlers in order."""
+
+  def __init__(self, handler, backup):
+    """Initializes the BackupHandler handler.
+
+    If the first Handler's tensors_to_item returns a Tensor with no elements,
+    the second Handler is used.
+
+    Args:
+      handler: The primary ItemHandler.
+      backup: The backup ItemHandler.
+
+    Raises:
+      ValueError: if either is not an ItemHandler.
+    """
+    if not isinstance(handler, slim_example_decoder.ItemHandler):
+      raise ValueError('Primary handler is of type %s instead of ItemHandler' %
+                       type(handler))
+    if not isinstance(backup, slim_example_decoder.ItemHandler):
+      raise ValueError(
+          'Backup handler is of type %s instead of ItemHandler' % type(backup))
+    self._handler = handler
+    self._backup = backup
+    super(_BackupHandler, self).__init__(handler.keys + backup.keys)
+
+  def tensors_to_item(self, keys_to_tensors):
+    item = self._handler.tensors_to_item(keys_to_tensors)
+    return tf.cond(
+        pred=tf.equal(tf.reduce_prod(tf.shape(item)), 0),
+        true_fn=lambda: self._backup.tensors_to_item(keys_to_tensors),
+        false_fn=lambda: item)
 
 class BoundingBox3d(slim_example_decoder.ItemHandler):
 
