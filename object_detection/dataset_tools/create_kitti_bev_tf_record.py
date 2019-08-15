@@ -19,7 +19,6 @@ from object_detection.utils import label_map_util
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('data', None, 'Directory to grid maps.')
-flags.DEFINE_string('data_mask', None, 'Directory to occupancy mask.')
 flags.DEFINE_string('param', None, 'Directory to grid map parameter file.')
 flags.DEFINE_string('labels', '/mrtstorage/datasets/kitti/object_detection/training/label_2/', 'Directory to kitti labels.')
 flags.DEFINE_string('calib', '/mrtstorage/datasets/kitti/object_detection/training/calib/', 'Directory to kitti calibrations.')
@@ -126,7 +125,6 @@ def dict_to_tf_example(labels_image,
                        params,
                        label_map_dict,
                        image_dir,
-                       mask_dir,
                        image_prefix):
 
   width = int(60 / 0.15)
@@ -293,7 +291,7 @@ def create_tf_record(fn_in, fn_out):
     label_data = read_label_file(os.path.join(FLAGS.labels, example + '.txt'))
     tf_velo_to_cam = _read_calib(os.path.join(FLAGS.calib, example + '.txt'))
     labels_image, labels_t, labels = compute_labels_image(label_data, tf_velo_to_cam, params)
-    tf_example = dict_to_tf_example(labels_image, labels_t, labels, params, label_map_dict, FLAGS.data, FLAGS.data_mask, example)
+    tf_example = dict_to_tf_example(labels_image, labels_t, labels, params, label_map_dict, FLAGS.data, example)
     writer.write(tf_example.SerializeToString())
 
 
@@ -304,5 +302,5 @@ def main(_):
 
 
 if __name__ == '__main__':
-  flags.mark_flags_as_required(['data', 'data_mask', 'param'])
+  flags.mark_flags_as_required(['data', 'param'])
   app.run(main)
