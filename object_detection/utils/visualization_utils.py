@@ -240,8 +240,10 @@ def draw_3d_box_on_image_array(image,
                               thickness, use_normalized_coordinates)
     np.copyto(image, np.array(image_pil))
 
+# def _calculate_box_corner(x_c, y_c, w, l, phi):
+#   return (l * math.cos(phi) - w * math.sin(phi)) + x_c, (l * math.sin(phi) + w * math.cos(phi)) + y_c
 def _calculate_box_corner(x_c, y_c, w, l, phi):
-  return (l * math.cos(phi) - w * math.sin(phi)) + x_c, (l * math.sin(phi) + w * math.cos(phi)) + y_c
+    return (w * math.cos(phi) + l * math.sin(phi)) + x_c, (-w * math.sin(phi) + l * math.cos(phi)) + y_c
 
 def draw_3d_box_on_image(image,
                          box_3d,

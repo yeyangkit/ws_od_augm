@@ -99,8 +99,10 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     # angle = 0.5 * tf.atan2(sin_angle, cos_angle)
 
     cond = tf.greater(wa, ha)
-    angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
-    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), -90.0)
+    # angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
+    # angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), -90.0)
+    angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 90.0)
+    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
     ref_angle = tf.where(cond , angle_a_1, angle_a_2)
     #ref_angle = tf.ones(tf.shape(ycenter_a)) * -90
 
@@ -171,8 +173,10 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     # tangle = 0.5 * tf.atan2(t_sin_angle, t_cos_angle)
 
     cond = tf.greater(wa, ha)
-    angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
-    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), -90.0)
+    # angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
+    # angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), -
+    angle_a_1 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 90.0)
+    angle_a_2 = tf.multiply(tf.ones(tf.shape(ycenter_a)), 0.0)
     ref_angle = tf.where(cond, angle_a_1, angle_a_2)
 
     # da = tf.sqrt(tf.square(wa) + tf.square(ha))

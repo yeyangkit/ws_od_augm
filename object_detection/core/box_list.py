@@ -302,11 +302,12 @@ class Box3dList(object):
       tensor_dict[field] = self.get_field(field)
     return tensor_dict
 
-  def _calculate_box_corner(self, x_c, y_c, w, l, phi):
-    return (l * tf.cos(phi) - w * tf.sin(phi)) + x_c, (l * tf.sin(phi) + w * tf.cos(phi)) + y_c
+  # def _calculate_box_corner(self, x_c, y_c, w, l, phi):
+  #   return (l * tf.cos(phi) - w * tf.sin(phi)) + x_c, (l * tf.sin(phi) + w * tf.cos(phi)) + y_c
 
-  # def _calculate_box_corner(x_c, y_c, w, l, phi):
-  #   return (w * tf.cos(phi) + l * tf.sin(phi)) + x_c, (-w * tf.sin(phi) + l * tf.cos(phi)) + y_c
+  def _calculate_box_corner(x_c, y_c, w, l, phi):
+    return (w * tf.cos(phi) + l * tf.sin(phi)) + x_c, (-w * tf.sin(phi) + l * tf.cos(phi)) + y_c
+
 
   def convert_to_boxlist(self, scope=None):
     with tf.name_scope(scope, 'convert_to_boxlist_2d'):
