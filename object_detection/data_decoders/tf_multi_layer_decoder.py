@@ -273,6 +273,10 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         'layers/zmax/encoded': tf.FixedLenFeature((), tf.string),
         'layers/occlusions/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/rgb/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),
+
 
         'boxes/aligned/x_min': tf.VarLenFeature(tf.float32),
         'boxes/aligned/x_max': tf.VarLenFeature(tf.float32),

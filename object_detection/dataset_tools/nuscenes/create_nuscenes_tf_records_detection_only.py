@@ -1,6 +1,6 @@
-import sys
-sys.path.remove('/opt/mrtsoftware/release/lib/python2.7/dist-packages')
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+# import sys
+# sys.path.remove('/opt/mrtsoftware/release/lib/python2.7/dist-packages')
+# sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 import io
 import hashlib
@@ -284,8 +284,8 @@ def create_tf_record(fn_out, split, vis_results):
       lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
       labels_corners, labels_center, labels_data = compute_labels_image(nusc, sample, sensor,
                                                                         nu_to_kitti_lidar, params)
-      #filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
-      filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0].split('/')[-1]
+      filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
+      # filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0].split('/')[-1]
       tf_example = dict_to_tf_example(labels_corners, labels_center, labels_data, params, label_map_dict,
                                       FLAGS.data, filename)
       writer.write(tf_example.SerializeToString())

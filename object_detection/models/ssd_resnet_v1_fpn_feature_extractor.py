@@ -455,7 +455,7 @@ class SSDResnet50V1FpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
         override_base_feature_extractor_hyperparams=
         override_base_feature_extractor_hyperparams)
 
-class SSDResnet50V1LightweightFpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
+class SSDResnet50V1LightweightFpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):   # used
   """SSD Resnet50 V1 FPN feature extractor."""
 
   def __init__(self,
