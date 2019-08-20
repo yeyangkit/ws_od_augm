@@ -31,7 +31,7 @@ flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1
 # flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/output0815NuScenes_singleBeliefs_keyFrame_train', 'Directory to evidential grid maps.')
 flags.DEFINE_string('param', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml', 'Directory to grid map parameter file.')
 flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
-flags.DEFINE_string('output', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_gridMaps_tfrecord/baseline_0819/correct_validation_tfrecord_corresponding_0819', 'Path to directory to output TFRecords.')
+flags.DEFINE_string('output', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_gridMaps_tfrecord/baseline_0819', 'Path to directory to output TFRecords.')
 flags.DEFINE_string('label_map','/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt', # '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt', aug15 krenew incompatible with options/flags here
                     'Path to label map proto')
 
@@ -327,36 +327,6 @@ def create_tf_record_train_as_val(fn_out, split, vis_results):
     random.shuffle(sample_tokens)
     print('Number of samples:', len(sample_tokens))
 
-    for sample_token in sample_tokens[1:100]:
-        sample = nusc.get('sample', sample_token)
-        lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
-        if not lidar_top_data['prev']:
-            continue
-        lidar_top_data_prev = nusc.get('sample_data', lidar_top_data['prev'])
-        labels_corners, labels_center, labels_data = compute_labels_image(nusc, sample, sensor,
-                                                                          nu_to_kitti_lidar, params)
-        filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
-        filename_prev = os.path.splitext(os.path.splitext(lidar_top_data_prev['filename'])[0])[0]
-        tf_example = dict_to_tf_example(labels_corners, labels_center, labels_data, params, label_map_dict,
-                                        FLAGS.data, filename, filename_prev)
-        writer.write(tf_example.SerializeToString())
-        if (vis_results):
-            visualize_results(FLAGS.data, filename, labels_corners, os.path.join(FLAGS.output, 'Debug'))
-
-def create_tf_record_train_as_val_sceneSelected(fn_out, split, vis_results, start, end):
-    label_map_dict = label_map_util.get_label_map_dict(FLAGS.label_map)
-    writer = tf.python_io.TFRecordWriter(fn_out)
-    params = read_params(FLAGS.param)
-    logging.debug('Params: ' + str(params))
-    nusc = NuScenes(version='v1.0-trainval', dataroot=FLAGS.nuscenes, verbose=True)
-    sensor = 'LIDAR_TOP'
-    nu_to_kitti_lidar = Quaternion(axis=(0, 0, 1), angle=np.pi / 2).inverse
-    split_logs = create_splits_logs(split, nusc)
-    sample_tokens = split_to_samples(nusc, split_logs)
-    sample_tokens = sample_tokens[start:end]
-    random.shuffle(sample_tokens)
-    print('Number of samples:', len(sample_tokens))
-
     for sample_token in sample_tokens:
         sample = nusc.get('sample', sample_token)
         lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
@@ -372,6 +342,7 @@ def create_tf_record_train_as_val_sceneSelected(fn_out, split, vis_results, star
         writer.write(tf_example.SerializeToString())
         if (vis_results):
             visualize_results(FLAGS.data, filename, labels_corners, os.path.join(FLAGS.output, 'Debug'))
+
 
 def visualize_results(dir,
                       file_name_prefix,
@@ -400,7 +371,7 @@ def visualize_results(dir,
 
 def main(_):
     vis_results = False
-    # create_tf_record(os.path.join(FLAGS.output, 'training.record'), 'train', vis_results)
+    create_tf_record(os.path.join(FLAGS.output, 'training.record'), 'train', vis_results)
     # create_tf_record(os.path.join(FLAGS.output, 'validation.record'), 'val', vis_results) # zurzeit nicht vorhanden
     create_tf_record_train_as_val(os.path.join(FLAGS.output, 'validation.record'), 'train', vis_results)
 
