@@ -314,7 +314,7 @@ def create_tf_record(fn_out, split, vis_results):
             visualize_results(FLAGS.data, filename, labels_corners, os.path.join(FLAGS.output, 'Debug'))
 
 
-def create_tf_record_train_as_val(fn_out, split, vis_results, start, end):
+def create_tf_record_train_as_val(fn_out, split, vis_results):
     label_map_dict = label_map_util.get_label_map_dict(FLAGS.label_map)
     writer = tf.python_io.TFRecordWriter(fn_out)
     params = read_params(FLAGS.param)
@@ -324,7 +324,6 @@ def create_tf_record_train_as_val(fn_out, split, vis_results, start, end):
     nu_to_kitti_lidar = Quaternion(axis=(0, 0, 1), angle=np.pi / 2).inverse
     split_logs = create_splits_logs(split, nusc)
     sample_tokens = split_to_samples(nusc, split_logs)
-    sample_tokens = sample_tokens[start:end]
     random.shuffle(sample_tokens)
     print('Number of samples:', len(sample_tokens))
 
