@@ -405,7 +405,7 @@ def _rotate_point_counterclockwise(x, y, phi, offset_x, offset_y):
 
 # def _calculate_box_corner(x_c, y_c, w, l, phi):
 #   return (l * tf.cos(phi) - w * tf.sin(phi)) + x_c, (l * tf.sin(phi) + w * tf.cos(phi)) + y_c
-def _calculate_box_corner(self, x_c, y_c, w, l, phi):
+def _calculate_box_corner(x_c, y_c, w, l, phi):
     return (w * tf.cos(phi) + l * tf.sin(phi)) + x_c, (-w * tf.sin(phi) + l * tf.cos(phi)) + y_c
 
 def _point_inside(x, y):
