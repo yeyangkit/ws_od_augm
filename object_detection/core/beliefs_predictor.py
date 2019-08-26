@@ -1,8 +1,8 @@
 from abc import abstractmethod
 import tensorflow as tf
 
-BELIEF_PREDICTION = 'belief_prediction'
-# FLOW_PYRAMID = 'flow_pyramid'
+BELIEF_O_PREDICTION = 'belief_O_prediction'
+BELIEF_F_PREDICTION = 'belief_O_prediction'
 
 
 class BeliefPredictor(object):
