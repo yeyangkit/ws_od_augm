@@ -27,9 +27,21 @@ from object_detection import model_lib
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
+
+
 flags.DEFINE_string(
-    'model_dir', None, 'Path to output model directory '
+    'model_parent_dir', None, 'Path to output model directory '
     'where event and checkpoint files will be written.')
+
+import datetime
+
+now = datetime.datetime.now()
+tf.app.flags.DEFINE_string('time_stample', now.strftime("%Y_%m_%d_%H_%M_%S"), """ current time """)
+
+flags.DEFINE_string(
+    'model_dir', "{}/{}".format(tf.app.flags.FLAGS.model_parent_dir, tf.app.flags.FLAGS.time_stample), 'Path to output model directory '
+    'where event and checkpoint files will be written.')
+
 flags.DEFINE_string('pipeline_config_path', None, 'Path to pipeline config '
                     'file.')
 flags.DEFINE_integer('num_train_steps', None, 'Number of train steps.')
@@ -57,11 +69,15 @@ flags.DEFINE_boolean(
 )
 flags.DEFINE_integer('save_checkpoints_steps', 3000, 'Evaluation after saving checkpoint.')
 flags.DEFINE_integer('tf_random_seed', 1, 'Random seed for weight initialization.')
+
 FLAGS = flags.FLAGS
 
 
 def main(unused_argv):
   flags.mark_flag_as_required('model_dir')
+  if not os.path.exists(FLAGS.model_dir):
+      os.makedirs(FLAGS.model_dir)
+
   flags.mark_flag_as_required('pipeline_config_path')
   sess_config = tf.ConfigProto()
   sess_config.gpu_options.allow_growth = True

@@ -25,16 +25,14 @@ from pyquaternion import Quaternion
 from object_detection.utils import dataset_util
 from object_detection.utils import label_map_util
 
-
 FLAGS = flags.FLAGS
 flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1.0-trainval_meta', 'Directory to grid maps.')
-# flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/output0815NuScenes_singleBeliefs_keyFrame_train', 'Directory to evidential grid maps.')
+flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/output0815NuScenes_fusedBeliefs_keyFrame_train', 'Directory to evidential grid maps.')
 flags.DEFINE_string('param', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml', 'Directory to grid map parameter file.')
 flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
-flags.DEFINE_string('output', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_gridMaps_tfrecord/baseline_trainval667', 'Path to directory to output TFRecords.')
+flags.DEFINE_string('output', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_gridMaps_tfrecord/partialFusedBel_valReplacedWithPartialTraining_0821/', 'Path to directory to output TFRecords.')
 flags.DEFINE_string('label_map','/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt', # '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt', aug15 krenew incompatible with options/flags here
                     'Path to label map proto')
-
 
 
 class Label:
@@ -67,6 +65,14 @@ def split_to_samples(nusc, split_logs):
             samples.append(sample['token'])
     return samples
 
+def scenes_to_samples(nusc, split_scenes):
+    samples = []
+    for sample in nusc.sample:
+        scene = nusc.get('scene', sample['scene_token'])
+        # print(scene)
+        if scene['name'] in split_scenes:
+            samples.append(sample['token'])
+    return samples
 
 def compute_labels_image(nusc, sample, sensor, nu_to_kitti_lidar, p):
     resolution = p['pointcloud_grid_map_interface']['grids']['cartesian']['resolution']['x']
@@ -174,6 +180,7 @@ def dict_to_tf_example(labels_corners,
                        params,
                        label_map_dict,
                        image_dir,
+                       image_dir_beliefs,
                        image_prefix,
                        image_prev_prefix):
     width = round(params['pointcloud_grid_map_interface']['grids']['cartesian']['range']['y'] /
@@ -251,6 +258,13 @@ def dict_to_tf_example(labels_corners,
         'layers/occlusions/encoded': dataset_util.bytes_feature(
             _readImage(image_dir, image_prefix, 'z_max_occlusions_cartesian')),
 
+        'layers/bel_O_FUSED/encoded': dataset_util.bytes_feature(
+            _readImage(image_dir_beliefs, image_prefix, 'bel_O_FUSED_cartesian')),
+        'layers/bel_F_FUSED/encoded': dataset_util.bytes_feature(
+            _readImage(image_dir_beliefs, image_prefix, 'bel_F_FUSED_cartesian')),
+        'layers/bel_U_FUSED/encoded': dataset_util.bytes_feature(
+            _readImage(image_dir_beliefs, image_prefix, 'bel_U_FUSED_cartesian')),
+
         # 'layers_prev/detections/encoded': dataset_util.bytes_feature(
         #     _readImage(image_dir, image_prev_prefix, 'detections_cartesian')),
         # 'layers_prev/observations/encoded': dataset_util.bytes_feature(
@@ -292,8 +306,28 @@ def create_tf_record(fn_out, split, vis_results):
     nusc = NuScenes(version='v1.0-trainval', dataroot=FLAGS.nuscenes, verbose=True)
     sensor = 'LIDAR_TOP'
     nu_to_kitti_lidar = Quaternion(axis=(0, 0, 1), angle=np.pi / 2).inverse
-    split_logs = create_splits_logs(split, nusc)
-    sample_tokens = split_to_samples(nusc, split_logs)
+
+    selected_train_set_1 = [
+        'scene-0002', 'scene-0252', 'scene-0390', 'scene-0480', 'scene-0644', 'scene-0749', 'scene-1017', 'scene-0391',
+        'scene-0645', 'scene-0499', 'scene-0004', 'scene-0392', 'scene-0500', 'scene-1018', 'scene-0005', 'scene-0393',
+        'scene-0646', 'scene-1020', 'scene-0649', 'scene-0891', 'scene-1021', 'scene-0892', 'scene-1022', 'scene-0893',
+        'scene-0894', 'scene-0650', 'scene-0750', 'scene-0895', 'scene-0651', 'scene-1023', 'scene-0896', 'scene-0897',
+        'scene-0001', 'scene-0055', 'scene-0155', 'scene-0191', 'scene-0243', 'scene-0301', 'scene-0373', 'scene-0416',
+        'scene-0452', 'scene-0515', 'scene-0576', 'scene-0662', 'scene-0709', 'scene-0056', 'scene-0517', 'scene-0417',
+        'scene-0710', 'scene-0057', 'scene-0192', 'scene-0006', 'scene-0453', 'scene-0418', 'scene-0577', 'scene-0518',
+        'scene-0058', 'scene-0157', 'scene-0419', 'scene-0059', 'scene-0578', 'scene-0007', 'scene-0663', 'scene-0420',
+        'scene-0580', 'scene-0525', 'scene-0664', 'scene-0008', 'scene-0582', 'scene-0421', 'scene-0374', 'scene-0583',
+        'scene-0009', 'scene-0665', 'scene-0526', 'scene-0010', 'scene-0158', 'scene-0244', 'scene-0422', 'scene-0454',
+        'scene-0193', 'scene-0527', 'scene-0011', 'scene-0711', 'scene-0455', 'scene-0584', 'scene-0423', 'scene-0528',
+        'scene-0456', 'scene-0019', 'scene-0529', 'scene-0457', 'scene-0302', 'scene-0585', 'scene-0194', 'scene-0424',
+        'scene-0303', 'scene-0159', 'scene-0712', 'scene-0020', 'scene-0586', 'scene-0425', 'scene-0530', 'scene-0195',
+        'scene-0304', 'scene-0458', 'scene-0666', 'scene-0426', 'scene-0713', 'scene-0305', 'scene-0196', 'scene-0459',
+        'scene-0375', 'scene-0531', 'scene-0199', 'scene-0245', 'scene-0306', 'scene-0667', 'scene-0376'
+    ]
+    # split_logs = create_splits_logs(split, nusc)
+    split_scenes = selected_train_set_1
+    sample_tokens = scenes_to_samples(nusc, split_scenes)
+    random.seed(30)  # to have the same evaluation set
     random.shuffle(sample_tokens)
     print('Number of samples:', len(sample_tokens))
 
@@ -308,11 +342,10 @@ def create_tf_record(fn_out, split, vis_results):
         filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
         filename_prev = os.path.splitext(os.path.splitext(lidar_top_data_prev['filename'])[0])[0]
         tf_example = dict_to_tf_example(labels_corners, labels_center, labels_data, params, label_map_dict,
-                                        FLAGS.data, filename, filename_prev)
+                                        FLAGS.data, FLAGS.data_beliefs, filename, filename_prev)
         writer.write(tf_example.SerializeToString())
         if (vis_results):
             visualize_results(FLAGS.data, filename, labels_corners, os.path.join(FLAGS.output, 'Debug'))
-
 
 def create_tf_record_train_as_val(fn_out, split, vis_results):
     label_map_dict = label_map_util.get_label_map_dict(FLAGS.label_map)
@@ -322,12 +355,32 @@ def create_tf_record_train_as_val(fn_out, split, vis_results):
     nusc = NuScenes(version='v1.0-trainval', dataroot=FLAGS.nuscenes, verbose=True)
     sensor = 'LIDAR_TOP'
     nu_to_kitti_lidar = Quaternion(axis=(0, 0, 1), angle=np.pi / 2).inverse
-    split_logs = create_splits_logs(split, nusc)
-    sample_tokens = split_to_samples(nusc, split_logs)
+
+    selected_train_set_1 = [
+        'scene-0002', 'scene-0252', 'scene-0390', 'scene-0480', 'scene-0644', 'scene-0749', 'scene-1017', 'scene-0391',
+        'scene-0645', 'scene-0499', 'scene-0004', 'scene-0392', 'scene-0500', 'scene-1018', 'scene-0005', 'scene-0393',
+        'scene-0646', 'scene-1020', 'scene-0649', 'scene-0891', 'scene-1021', 'scene-0892', 'scene-1022', 'scene-0893',
+        'scene-0894', 'scene-0650', 'scene-0750', 'scene-0895', 'scene-0651', 'scene-1023', 'scene-0896', 'scene-0897',
+        'scene-0001', 'scene-0055', 'scene-0155', 'scene-0191', 'scene-0243', 'scene-0301', 'scene-0373', 'scene-0416',
+        'scene-0452', 'scene-0515', 'scene-0576', 'scene-0662', 'scene-0709', 'scene-0056', 'scene-0517', 'scene-0417',
+        'scene-0710', 'scene-0057', 'scene-0192', 'scene-0006', 'scene-0453', 'scene-0418', 'scene-0577', 'scene-0518',
+        'scene-0058', 'scene-0157', 'scene-0419', 'scene-0059', 'scene-0578', 'scene-0007', 'scene-0663', 'scene-0420',
+        'scene-0580', 'scene-0525', 'scene-0664', 'scene-0008', 'scene-0582', 'scene-0421', 'scene-0374', 'scene-0583',
+        'scene-0009', 'scene-0665', 'scene-0526', 'scene-0010', 'scene-0158', 'scene-0244', 'scene-0422', 'scene-0454',
+        'scene-0193', 'scene-0527', 'scene-0011', 'scene-0711', 'scene-0455', 'scene-0584', 'scene-0423', 'scene-0528',
+        'scene-0456', 'scene-0019', 'scene-0529', 'scene-0457', 'scene-0302', 'scene-0585', 'scene-0194', 'scene-0424',
+        'scene-0303', 'scene-0159', 'scene-0712', 'scene-0020', 'scene-0586', 'scene-0425', 'scene-0530', 'scene-0195',
+        'scene-0304', 'scene-0458', 'scene-0666', 'scene-0426', 'scene-0713', 'scene-0305', 'scene-0196', 'scene-0459',
+        'scene-0375', 'scene-0531', 'scene-0199', 'scene-0245', 'scene-0306', 'scene-0667', 'scene-0376'
+    ]
+    # split_logs = create_splits_logs(split, nusc)
+    split_scenes = selected_train_set_1
+    sample_tokens = scenes_to_samples(nusc, split_scenes)
+    random.seed(30)  # to have the same evaluation set
     random.shuffle(sample_tokens)
     print('Number of samples:', len(sample_tokens))
 
-    for sample_token in sample_tokens:
+    for sample_token in sample_tokens[1:100]:
         sample = nusc.get('sample', sample_token)
         lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
         if not lidar_top_data['prev']:
@@ -338,11 +391,10 @@ def create_tf_record_train_as_val(fn_out, split, vis_results):
         filename = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
         filename_prev = os.path.splitext(os.path.splitext(lidar_top_data_prev['filename'])[0])[0]
         tf_example = dict_to_tf_example(labels_corners, labels_center, labels_data, params, label_map_dict,
-                                        FLAGS.data, filename, filename_prev)
+                                        FLAGS.data, FLAGS.data_beliefs, filename, filename_prev)
         writer.write(tf_example.SerializeToString())
         if (vis_results):
             visualize_results(FLAGS.data, filename, labels_corners, os.path.join(FLAGS.output, 'Debug'))
-
 
 def visualize_results(dir,
                       file_name_prefix,
@@ -371,9 +423,9 @@ def visualize_results(dir,
 
 def main(_):
     vis_results = False
-    # create_tf_record(os.path.join(FLAGS.output, 'training.record'), 'train', vis_results)
+    create_tf_record(os.path.join(FLAGS.output, 'training.record'), 'train', vis_results) # erledigt
     # create_tf_record(os.path.join(FLAGS.output, 'validation.record'), 'val', vis_results) # zurzeit nicht vorhanden
-    create_tf_record(os.path.join(FLAGS.output, 'validation.record'), 'val', vis_results)
+    create_tf_record_train_as_val(os.path.join(FLAGS.output, 'validation.record'), 'train', vis_results)
 
 
 if __name__ == '__main__':

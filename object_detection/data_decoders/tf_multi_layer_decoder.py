@@ -277,9 +277,9 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         # 'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),
 
 
         'boxes/aligned/x_min': tf.VarLenFeature(tf.float32),

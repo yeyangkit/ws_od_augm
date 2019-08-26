@@ -376,8 +376,8 @@ def visualize_results(dir,
 def main(_):
     vis_results = False
     # create_tf_record(os.path.join(FLAGS.output, 'training.record'), 'train', vis_results) # erledigt
-    # create_tf_record(os.path.join(FLAGS.output, 'validation.record'), 'val', vis_results) # zurzeit nicht vorhanden
-    create_tf_record_train_as_val(os.path.join(FLAGS.output, 'validation.record'), 'train', vis_results)
+    create_tf_record(os.path.join(FLAGS.output, 'validation.record'), 'val', vis_results) # zurzeit nicht vorhanden
+    # create_tf_record_train_as_val(os.path.join(FLAGS.output, 'validation.record'), 'train', vis_results)
 
 
 if __name__ == '__main__':

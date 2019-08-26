@@ -3,11 +3,13 @@ syntax = "proto2";
 package object_detection.protos;
 
 import "object_detection/protos/ssd.proto";
+import "object_detection/protos/ssd_augmentation.proto";
 
 // Top level configuration for DetectionModels.
 message DetectionModel {
   oneof model {
     Ssd ssd = 1;
+    SsdAugmentation ssd_augmentation = 2;
   }
   repeated string input_features = 3;
   repeated int32 input_channels = 4;
