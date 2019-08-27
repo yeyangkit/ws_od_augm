@@ -702,7 +702,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             '''
             pred_bel_F = prediction_dict['BELIEF_F_PREDICTION']
             pred_bel_O = prediction_dict['BELIEF_O_PREDICTION']
-            labels['img_file_bel_F'] = images_features # todo Fragen
+            labels['img_file_bel_F'] = prediction_dict[''] # todo Fragen
             labels['img_file_bel_O'] = # todo Fragen
             label_bel_F = labels['img_file_bel_F']
             label_bel_O = labels['img_file_bel_O']
@@ -712,13 +712,13 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             with tf.name_scope("losses_and_weights"): # todo Fragen switch needed
                 wLC10 = self._my_weights_label_cert(labels, 10.)
 
-                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=10., weights=wLC10) + my_loss_L1(pred_bel_O,
+                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=10., weights=wLC10) + self._my_loss_L1(pred_bel_O,
                                                                                                    label_bel_O,
                                                                                                    xBiggerY=10.,
                                                                                                    weights=wLC10)
-                L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) + my_loss_L1(pred_bel_O, label_bel_O,
+                L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) + self._my_loss_L1(pred_bel_O, label_bel_O,
                                                                                      xBiggerY=2.)
-                L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + my_loss_L2(pred_bel_O, label_bel_O)
+                L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
 
                 augmentation_loss = L1 # todo Fragen is trainloss? how about eval/test
 

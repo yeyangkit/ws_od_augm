@@ -274,9 +274,9 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         'layers/occlusions/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/rgb/encoded': tf.FixedLenFeature((), tf.string),
         # following layers are from GridMapsAugmentation task
-        # 'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),
