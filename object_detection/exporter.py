@@ -105,7 +105,7 @@ def replace_variable_values_with_moving_averages(graph,
 def _image_tensor_input_placeholder(input_shape=None):
   """Returns input placeholder and a 4-D uint8 image tensor."""
   if input_shape is None:
-    input_shape = (None, None, None, 3)
+    input_shape = (None, None, None, None)
   input_tensor = tf.placeholder(
       dtype=tf.uint8, shape=input_shape, name='image_tensor')
   return input_tensor, input_tensor

@@ -18,29 +18,28 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from absl import flags
 
 import tensorflow as tf
+import os
 
 from object_detection import model_hparams
 from object_detection import model_lib
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-
+from absl import flags
 
 flags.DEFINE_string(
     'model_parent_dir', None, 'Path to output model directory '
     'where event and checkpoint files will be written.')
 
 import datetime
-
 now = datetime.datetime.now()
-tf.app.flags.DEFINE_string('time_stample', now.strftime("%Y_%m_%d_%H_%M_%S"), """ current time """)
+flags.DEFINE_string('time_stample', now.strftime("%Y_%m_%d_%H_%M_%S"), 'current time')
 
-flags.DEFINE_string(
-    'model_dir', "{}/{}".format(tf.app.flags.FLAGS.model_parent_dir, tf.app.flags.FLAGS.time_stample), 'Path to output model directory '
-    'where event and checkpoint files will be written.')
+# flags.DEFINE_string(
+#     'model_dir', "{}/{}".format(flags.FLAGS.model_parent_dir, flags.FLAGS.time_stample), 'Path to output model directory '
+#     'where event and checkpoint files will be written.')
 
 flags.DEFINE_string('pipeline_config_path', None, 'Path to pipeline config '
                     'file.')
@@ -74,7 +73,12 @@ FLAGS = flags.FLAGS
 
 
 def main(unused_argv):
-  flags.mark_flag_as_required('model_dir')
+  flags.mark_flag_as_required('model_parent_dir')
+  # flags.mark_flag_as_required('model_dir')
+  flags.DEFINE_string(
+      'model_dir', "{}/{}".format(flags.FLAGS.model_parent_dir, flags.FLAGS.time_stample),
+      'Path to output model directory '
+      'where event and checkpoint files will be written.')
   if not os.path.exists(FLAGS.model_dir):
       os.makedirs(FLAGS.model_dir)
 

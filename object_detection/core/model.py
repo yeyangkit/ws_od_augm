@@ -265,6 +265,8 @@ class DetectionModel(_BaseClass):
                           groundtruth_boxes_3d_list,
                           groundtruth_classes_list,
                           groundtruth_weights_list=None,
+                          groundtruth_bel_O_list=None,  # augmentation
+                          groundtruth_bel_F_list=None,  # augmentation
                           groundtruth_confidences_list=None,
                           groundtruth_is_crowd_list=None,
                           is_annotated_list=None):
@@ -314,6 +316,12 @@ class DetectionModel(_BaseClass):
     if is_annotated_list:
       self._groundtruth_lists[
           fields.InputDataFields.is_annotated] = is_annotated_list
+    if  groundtruth_bel_O_list:
+      self._groundtruth_lists[
+          fields.InputDataFields. groundtruth_bel_O] =  groundtruth_bel_O_list
+    if  groundtruth_bel_F_list:
+      self._groundtruth_lists[
+          fields.InputDataFields. groundtruth_bel_F] =  groundtruth_bel_F_list
 
   @abc.abstractmethod
   def regularization_losses(self):

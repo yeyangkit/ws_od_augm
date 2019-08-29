@@ -253,7 +253,7 @@ def dict_to_tf_example(labels_corners,
         'layers/bel_O/encoded': dataset_util.bytes_feature(
             _readImage(image_dir_beliefs, image_prefix, 'bel_O_cartesian')),
         'layers/bel_F/encoded': dataset_util.bytes_feature(
-            _readImage(image_dir_beliefs, image_prefix, 'bel_F_cartesian')),
+            _readImage(image_dir_beliefs, image_prefix, 'bel_F_cartesian')),    #   todo question for labels also?
         'layers/bel_U/encoded': dataset_util.bytes_feature(
             _readImage(image_dir_beliefs, image_prefix, 'bel_U_cartesian')),
 

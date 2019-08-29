@@ -95,6 +95,8 @@ class InputDataFields(object):
   is_annotated = 'is_annotated'
   true_image_shape = 'true_image_shape'
   multiclass_scores = 'multiclass_scores'
+  groundtruth_bel_O = 'groundtruth_bel_O'
+  groundtruth_bel_F = 'groundtruth_bel_F'
 
 
 class DetectionResultFields(object):

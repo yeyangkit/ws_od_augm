@@ -108,7 +108,7 @@ def build(model_config, is_training, add_summaries=True):
         return _build_ssd_model(model_config.ssd, is_training, add_summaries, sum(model_config.input_channels),
                                 input_features)
     if meta_architecture == 'ssd_augmentation':
-        return _build_ssd_augmentation_model(model_config.ssd, is_training, add_summaries,
+        return _build_ssd_augmentation_model(model_config.ssd_augmentation, is_training, add_summaries,
                                              sum(model_config.input_channels),
                                              input_features)
     raise ValueError('Unknown meta architecture: {}'.format(meta_architecture))
@@ -147,7 +147,7 @@ def _build_ssd_feature_extractor(feature_extractor_config,
     use_explicit_padding = feature_extractor_config.use_explicit_padding
     use_depthwise = feature_extractor_config.use_depthwise
     channel_means = feature_extractor_config.channel_means
-    include_root_block = feature_extractor_config.include_root_block
+    # include_root_block = feature_extractor_config.include_root_block
     depthwise_convolution = feature_extractor_config.depthwise_convolution
     max_pool_subsample = feature_extractor_config.max_pool_subsample
     root_downsampling_rate = feature_extractor_config.root_downsampling_rate
@@ -164,6 +164,9 @@ def _build_ssd_feature_extractor(feature_extractor_config,
 
     if (feature_type not in SSD_FEATURE_EXTRACTOR_CLASS_MAP) and (
             not is_keras_extractor):
+        print(feature_type)
+        print("feature_type")
+
         raise ValueError('Unknown ssd feature_extractor: {}'.format(feature_type))
 
     if is_keras_extractor:
@@ -194,8 +197,8 @@ def _build_ssd_feature_extractor(feature_extractor_config,
             use_depthwise,
         'override_base_feature_extractor_hyperparams':
             override_base_feature_extractor_hyperparams,
-        'include_root_block':
-            include_root_block,
+        # 'include_root_block':  #  todo question
+        #     include_root_block,
         'depthwise_convolution':
             depthwise_convolution,
         'max_pool_subsample':
@@ -274,9 +277,10 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
     encode_background_as_zeros = ssd_config.encode_background_as_zeros
     negative_class_weight = ssd_config.negative_class_weight
     anchor_generator = anchor_generator_builder.build(
-        ssd_config.anchor_generator, ssd_config.feature_extractor.include_root_block,
-        ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
-        ssd_config.feature_extractor.store_non_strided_activations)
+        ssd_config.anchor_generator)    #   todo question
+        # , ssd_config.feature_extractor.include_root_block,
+        # ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
+        # ssd_config.feature_extractor.store_non_strided_activations
     if feature_extractor.is_keras_model:
         ssd_box_predictor = box_predictor_builder.build_keras(
             hyperparams_fn=hyperparams_builder.KerasLayerHyperparams,
@@ -300,9 +304,9 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
      expected_loss_weights_fn) = losses_builder.build(ssd_config.loss)
     normalize_loss_by_num_matches = ssd_config.normalize_loss_by_num_matches
     normalize_loc_loss_by_codesize = ssd_config.normalize_loc_loss_by_codesize
-    specific_threshold = ssd_config.specific_threshold
-    threshold_offset = ssd_config.threshold_offset
-    increse_small_object_size = ssd_config.increse_small_object_size
+    # specific_threshold = ssd_config.specific_threshold
+    # threshold_offset = ssd_config.threshold_offset
+    # increse_small_object_size = ssd_config.increse_small_object_size
 
     equalization_loss_config = ops.EqualizationLossConfig(
         weight=ssd_config.loss.equalization_loss.weight,
@@ -312,10 +316,11 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
         region_similarity_calculator,
         matcher,
         box_coder,
-        negative_class_weight=negative_class_weight,
-        increse_small_object_size=increse_small_object_size,
-        specific_threshold=specific_threshold,
-        threshold_offset=threshold_offset)
+        negative_class_weight=negative_class_weight
+        # increse_small_object_size=increse_small_object_size,
+        # specific_threshold=specific_threshold,
+        # threshold_offset=threshold_offset
+    )
 
     ssd_meta_arch_fn = ssd_meta_arch.SSDMetaArch
     kwargs = {}
@@ -384,11 +389,12 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
     encode_background_as_zeros = ssd_config.encode_background_as_zeros
     negative_class_weight = ssd_config.negative_class_weight
     anchor_generator = anchor_generator_builder.build(
-        ssd_config.anchor_generator)
+        ssd_config.anchor_generator
+        # todo question Tom: kommentieren folgendes?
         # ssd_config.feature_extractor.include_root_block,
         # ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
         # ssd_config.feature_extractor.store_non_strided_activations
-        # todo FRAGE
+    )
 
     if feature_extractor.is_keras_model:
         ssd_box_predictor = box_predictor_builder.build_keras(
@@ -409,12 +415,11 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
     ## Add augmentation network
     ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
         is_training=is_training,
-        fpn_config=ssd_flow_config.feature_extractor.fpn,
-        search_range=ssd_flow_config.flow_predictor.search_range,
-        use_dense=ssd_flow_config.flow_predictor.use_dense,
-        use_res=ssd_flow_config.flow_predictor.use_res
-
-    )
+        layer_norm=True,
+        stack_size=3,
+        kernel_size=3,
+        filters=8,
+        depth=3)
 
     image_resizer_fn = image_resizer_builder.build(ssd_config.image_resizer)
     non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
@@ -424,9 +429,9 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
      expected_loss_weights_fn) = losses_builder.build(ssd_config.loss)
     normalize_loss_by_num_matches = ssd_config.normalize_loss_by_num_matches
     normalize_loc_loss_by_codesize = ssd_config.normalize_loc_loss_by_codesize
-    specific_threshold = ssd_config.specific_threshold
-    threshold_offset = ssd_config.threshold_offset
-    increse_small_object_size = ssd_config.increse_small_object_size
+    # specific_threshold = ssd_config.specific_threshold # todo question
+    # threshold_offset = ssd_config.threshold_offset
+    # increse_small_object_size = ssd_config.increse_small_object_size
 
     equalization_loss_config = ops.EqualizationLossConfig(
         weight=ssd_config.loss.equalization_loss.weight,
@@ -436,12 +441,13 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
         region_similarity_calculator,
         matcher,
         box_coder,
-        negative_class_weight=negative_class_weight,
-        increse_small_object_size=increse_small_object_size,
-        specific_threshold=specific_threshold,
-        threshold_offset=threshold_offset)
+        negative_class_weight=negative_class_weight
+        # increse_small_object_size=increse_small_object_size,
+        # specific_threshold=specific_threshold,
+        # threshold_offset=threshold_offset
+    )
 
-    ssd_augm_meta_arch_fn = ssd_meta_arch.SSDAugmentationMetaArch
+    ssd_augm_meta_arch_fn = ssd_augmentation_meta_arch.SSDAugmentationMetaArch
     kwargs = {}
 
     return ssd_augm_meta_arch_fn(

@@ -51,7 +51,7 @@ def transform_input_data(tensor_dict,
                          model_preprocess_fn,
                          image_resizer_fn,
                          num_classes,
-                         data_augmentation_fn=None,
+                         data_augmentation_fn=None, # todo
                          merge_multiple_boxes=False,
                          retain_original_image=False,
                          use_multiclass_scores=False):
@@ -119,9 +119,12 @@ def transform_input_data(tensor_dict,
     tensor_dict[fields.InputDataFields.image] = tf.concat(
         [tensor_dict[fields.InputDataFields.image], channels], axis=2)
 
+
+
   # Apply data augmentation ops.
   if data_augmentation_fn is not None:
-    tensor_dict = data_augmentation_fn(tensor_dict)
+    tensor_dict = data_augmentation_fn(tensor_dict) # todo first without data augm
+
 
   # Apply model preprocessing ops and resize instance masks.
   image = tensor_dict[fields.InputDataFields.image]
@@ -131,6 +134,23 @@ def transform_input_data(tensor_dict,
       preprocessed_resized_image, axis=0)
   tensor_dict[fields.InputDataFields.true_image_shape] = tf.squeeze(
       true_image_shape, axis=0)
+
+  groundtruth_bel_F = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_bel_F], axis=2)
+  groundtruth_bel_O = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_bel_O], axis=2)
+
+  groundtruth_bel_F = tf.expand_dims(groundtruth_bel_F, axis=0)
+  _, resized_groundtruth_bel_F, _ = image_resizer_fn(image, groundtruth_bel_F)
+  # resized_groundtruth_bel_F = image_resizer_fn(groundtruth_bel_F)
+
+  groundtruth_bel_O = tf.expand_dims(groundtruth_bel_O, axis=0)
+  _, resized_groundtruth_bel_O, _ = image_resizer_fn(image, groundtruth_bel_O)
+  # resized_groundtruth_bel_O = image_resizer_fn(groundtruth_bel_O)
+
+  tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.expand_dims(tf.squeeze(
+      resized_groundtruth_bel_F, axis=0), axis=2)
+
+  tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.expand_dims(tf.squeeze(
+      resized_groundtruth_bel_O, axis=0), axis=2)
 
   # Transform groundtruth classes to one hot encodings.
   label_offset = 1
@@ -172,6 +192,21 @@ def transform_input_data(tensor_dict,
   if fields.InputDataFields.groundtruth_boxes in tensor_dict:
     tensor_dict[fields.InputDataFields.num_groundtruth_boxes] = tf.shape(
         tensor_dict[fields.InputDataFields.groundtruth_boxes])[0]
+
+  # if fields.InputDataFields.groundtruth_bel_F in tensor_dict:
+  #   channels = tensor_dict[fields.InputDataFields.groundtruth_bel_F]
+  #   tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.concat(
+  #       [tensor_dict[fields.InputDataFields.groundtruth_bel_F], channels], axis=2)
+  #   """ValueError: Can't concatenate scalars (use tf.stack instead) for 'concat_10' (op: 'ConcatV2') with input shapes: [], [], []."""
+  # if fields.InputDataFields.groundtruth_bel_O in tensor_dict:
+  #   channels = tensor_dict[fields.InputDataFields.groundtruth_bel_O]
+  #   tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.concat(
+  #       [tensor_dict[fields.InputDataFields.groundtruth_bel_O], channels], axis=2)
+  #   """ValueError: Can't concatenate scalars (use tf.stack instead) for 'concat_10' (op: 'ConcatV2') with input shapes: [], [], []."""
+
+
+
+
 
   return tensor_dict
 
@@ -231,6 +266,8 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.true_image_shape: [3],
       fields.InputDataFields.groundtruth_image_classes: [num_classes],
       fields.InputDataFields.groundtruth_image_confidences: [num_classes],
+      fields.InputDataFields.groundtruth_bel_O: [height, width, 1],
+      fields.InputDataFields.groundtruth_bel_F: [height, width, 1]
   }
 
   if fields.InputDataFields.original_image in tensor_dict:
@@ -242,7 +279,20 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
   for tensor_name in tensor_dict:
     padded_tensor_dict[tensor_name] = shape_utils.pad_or_clip_nd(
         tensor_dict[tensor_name], padding_shapes[tensor_name])
+    # todo question
+    """  
+    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/builders/dataset_builder.py", line 135, in process_fn
 
+    processed_tensors = transform_input_data_fn(processed_tensors)
+    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/inputs.py", line 500, in transform_and_pad_input_data_fn
+
+    num_channels=sum(model_config.input_channels))
+    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/inputs.py", line 261, in pad_input_data_to_static_shapes
+
+    tensor_dict[tensor_name], padding_shapes[tensor_name])
+    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/utils/shape_utils.py", line 129, in pad_or_clip_nd
+    if shape is not None else -1 for i, shape in enumerate(output_shape)
+    """
   # Make sure that the number of groundtruth boxes now reflects the
   # padded/clipped tensors.
   if fields.InputDataFields.num_groundtruth_boxes in padded_tensor_dict:
@@ -300,6 +350,8 @@ def _get_labels_dict(input_dict):
     labels_dict[key] = input_dict[key]
 
   optional_label_keys = [
+      fields.InputDataFields.groundtruth_bel_F,
+      fields.InputDataFields.groundtruth_bel_O,
       fields.InputDataFields.groundtruth_confidences,
       fields.InputDataFields.groundtruth_area,
       fields.InputDataFields.groundtruth_is_crowd,
@@ -479,7 +531,12 @@ def train_input(train_config, train_input_config,
         spatial_image_shape=config_util.get_spatial_image_size(
             image_resizer_config),
         num_channels=sum(model_config.input_channels))
-    return (_get_features_dict(tensor_dict), _get_labels_dict(tensor_dict))
+    return (_get_features_dict(tensor_dict), _get_labels_dict(tensor_dict)) # todo question
+  """ValueError: slice index 0 of dimension 0 out of bounds. 
+  for 'strided_slice_30' (op: 'StridedSlice') 
+  with input shapes: [0], [1], [1], [1] 
+  and with computed input tensors: input[1] = <0>, input[2] = <1>, input[3] = <1>.
+"""
 
   dataset = INPUT_BUILDER_UTIL_MAP['dataset_build'](
       train_input_config,

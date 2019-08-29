@@ -201,6 +201,8 @@ def _provide_groundtruth(model, labels):
   gt_boxes_3d_list = labels[fields.InputDataFields.groundtruth_boxes_3d]
   gt_classes_list = labels[fields.InputDataFields.groundtruth_classes]
   gt_weights_list = None
+  gt_bel_O_list = labels[fields.InputDataFields.groundtruth_bel_O]  # augmentation labels
+  gt_bel_F_list = labels[fields.InputDataFields.groundtruth_bel_F]  # augmentation labels
   if fields.InputDataFields.groundtruth_weights in labels:
     gt_weights_list = labels[fields.InputDataFields.groundtruth_weights]
   gt_confidences_list = None
@@ -216,7 +218,9 @@ def _provide_groundtruth(model, labels):
       groundtruth_classes_list=gt_classes_list,
       groundtruth_confidences_list=gt_confidences_list,
       groundtruth_weights_list=gt_weights_list,
-      groundtruth_is_crowd_list=gt_is_crowd_list)
+      groundtruth_is_crowd_list=gt_is_crowd_list,
+      groundtruth_bel_F_list=gt_bel_F_list,
+      groundtruth_bel_O_list=gt_bel_O_list)
 
 
 def create_model_fn(detection_model_fn, configs, hparams,

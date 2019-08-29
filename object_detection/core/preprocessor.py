@@ -2371,10 +2371,51 @@ def scale_boxes_to_pixel_coordinates(image, boxes):
   return tuple(result)
 
 
-# TODO(alirezafathi): Investigate if instead the function should return None if
-# masks is None.
-# pylint: disable=g-doc-return-or-yield
+# # TODO(alirezafathi): Investigate if instead the function should return None if
+# # masks is None.
+# # pylint: disable=g-doc-return-or-yield
+# def resize_image(image,
+#                  new_height=600,
+#                  new_width=1024,
+#                  method=tf.image.ResizeMethod.BILINEAR,
+#                  align_corners=False):
+#   """Resizes images to the given height and width.
+#
+#   Args:
+#     image: A 3D tensor of shape [height, width, channels]
+#     masks: (optional) rank 3 float32 tensor with shape
+#            [num_instances, height, width] containing instance masks.
+#     new_height: (optional) (scalar) desired height of the image.
+#     new_width: (optional) (scalar) desired width of the image.
+#     method: (optional) interpolation method used in resizing. Defaults to
+#             BILINEAR.
+#     align_corners: bool. If true, exactly align all 4 corners of the input
+#                    and output. Defaults to False.
+#
+#   Returns:
+#     Note that the position of the resized_image_shape changes based on whether
+#     masks are present.
+#     resized_image: A tensor of size [new_height, new_width, channels].
+#     resized_masks: If masks is not None, also outputs masks. A 3D tensor of
+#       shape [num_instances, new_height, new_width]
+#     resized_image_shape: A 1D tensor of shape [3] containing the shape of the
+#       resized image.
+#   """
+#   with tf.name_scope(
+#       'ResizeImage',
+#       values=[image, new_height, new_width, method, align_corners]):
+#     new_image = tf.image.resize_images(
+#         image, tf.stack([new_height, new_width]),
+#         method=method,
+#         align_corners=align_corners)
+#     image_shape = shape_utils.combined_static_and_dynamic_shape(image)
+#     result = [new_image]
+#
+#     result.append(tf.stack([new_height, new_width, image_shape[2]]))
+#     return result
+
 def resize_image(image,
+                 masks=None,
                  new_height=600,
                  new_width=1024,
                  method=tf.image.ResizeMethod.BILINEAR,
@@ -2410,10 +2451,31 @@ def resize_image(image,
         align_corners=align_corners)
     image_shape = shape_utils.combined_static_and_dynamic_shape(image)
     result = [new_image]
+    if masks is not None:
+      num_instances = tf.shape(masks)[0]
+      new_size = tf.stack([new_height, new_width])
+
+      def resize_masks_branch():
+        new_masks = tf.expand_dims(masks, 3)
+        new_masks = tf.image.resize_nearest_neighbor(
+            new_masks, new_size, align_corners=align_corners)
+        new_masks = tf.squeeze(new_masks, axis=3)
+        return new_masks
+
+      def reshape_masks_branch():
+          # The shape function will be computed for both branches of the
+          # condition, regardless of which branch is actually taken. Make sure
+          # that we don't trigger an assertion in the shape function when trying
+          # to reshape a non empty tensor into an empty one.
+          new_masks = tf.reshape(masks, [-1, new_size[0], new_size[1]])
+          return new_masks
+
+      masks = tf.cond(num_instances > 0, resize_masks_branch,
+                      reshape_masks_branch)
+      result.append(masks)
 
     result.append(tf.stack([new_height, new_width, image_shape[2]]))
     return result
-
 
 def subtract_channel_mean(image, means=None):
   """Normalizes an image by subtracting a mean from each channel.

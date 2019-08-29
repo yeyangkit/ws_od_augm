@@ -273,13 +273,16 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         'layers/zmax/encoded': tf.FixedLenFeature((), tf.string),
         'layers/occlusions/encoded': tf.FixedLenFeature((), tf.string),
         # 'layers/rgb/encoded': tf.FixedLenFeature((), tf.string),
-        # following layers are from GridMapsAugmentation task
-        'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),
+
+        # following layers are from GridMapsAugmentation task:
+
+        # 'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+
+        'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),  # todo question ? herein übergegeben aber soll nicht in image gespeichert sondern groundtruth_bel_O
 
 
         'boxes/aligned/x_min': tf.VarLenFeature(tf.float32),
@@ -309,20 +312,34 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         self.keys_to_features['boxes/inclined/' + param] = tf.VarLenFeature(tf.float32)
 
     self._num_input_channels = sum(input_channels)
-    image_keys = ['layers/' + input_feature + '/encoded' for input_feature in input_features]
+    image_keys = ['layers/' + input_feature + '/encoded' for input_feature in input_features]  # todo question ? herein übergegeben aber soll nicht in image gespeichert sondern groundtruth_bel_O
 
     # We are checking `dct_method` instead of passing it directly in order to
     # ensure TF version 1.6 compatibility.
     if dct_method:
-      image = MultilayerImages(
+      image = MultilayerImages( # todo question ? herein übergegeben aber soll nicht in image gespeichert sondern groundtruth_bel_O
           image_keys=image_keys,
           layer_channels=input_channels,
           format_key='image/format',
           num_channels= self._num_input_channels,
           dct_method=dct_method)
+      groundtruth_bel_O = slim_example_decoder.Image(
+          image_key='layers/bel_O/encoded',
+          format_key='image/format',
+          channels=1,
+          dct_method=dct_method)
+      groundtruth_bel_F = slim_example_decoder.Image(
+          image_key='layers/bel_F/encoded',
+          format_key='image/format',
+          channels=1,
+          dct_method=dct_method)
     else:
       image = MultilayerImages(
           image_keys=image_keys, layer_channels=input_channels, format_key='image/format', num_channels=self._num_input_channels)
+      groundtruth_bel_O = slim_example_decoder.Image(
+          image_key='layers/bel_O/encoded', format_key='image/format', channels=1)
+      groundtruth_bel_F = slim_example_decoder.Image(
+          image_key='layers/bel_F/encoded', format_key='image/format', channels=1)
 
     self.items_to_handlers = {
         fields.InputDataFields.image:
@@ -349,6 +366,8 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             slim_example_decoder.Tensor('image/object/group_of')),
         fields.InputDataFields.groundtruth_weights: (
             slim_example_decoder.Tensor('image/object/weight')),
+        fields.InputDataFields.groundtruth_bel_O: groundtruth_bel_O,   # todo question soll ich es hier to handlers hinzu?
+        fields.InputDataFields.groundtruth_bel_F: groundtruth_bel_F
     }
     if load_multiclass_scores:
       self.keys_to_features[
@@ -425,6 +444,13 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
     is_crowd = fields.InputDataFields.groundtruth_is_crowd
     tensor_dict[is_crowd] = tf.cast(tensor_dict[is_crowd], dtype=tf.bool)
     tensor_dict[fields.InputDataFields.image].set_shape([None, None, self._num_input_channels])
+    print("shape is () = " + str(tensor_dict[fields.InputDataFields.groundtruth_bel_O].shape))  # todo question
+    '''ValueError: Can't concatenate scalars (use tf.stack instead) for 'concat_10' (op: 'ConcatV2') with input shapes: [], [], [].'''
+    # tensor_dict[fields.InputDataFields.groundtruth_bel_O].set_shape([None, None, self._num_input_channels]) #   augmentation label
+    # tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, self._num_input_channels]) #   augmentation label
+    tensor_dict[fields.InputDataFields.groundtruth_bel_O].set_shape([None, None, 1]) #   augmentation label
+    tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, 1]) #   augmentation label
+
     tensor_dict[fields.InputDataFields.original_image_spatial_shape] = tf.shape(
         tensor_dict[fields.InputDataFields.image])[:2]
     tensor_dict[fields.InputDataFields.num_groundtruth_boxes] = tf.shape(

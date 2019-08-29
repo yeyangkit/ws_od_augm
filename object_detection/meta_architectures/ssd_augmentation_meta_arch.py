@@ -141,7 +141,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
           equalization_loss_config: a namedtuple that specifies configs for
             computing equalization loss.
         """
-        super(SSDMetaArch, self).__init__(num_classes=box_predictor.num_classes)
+        super(SSDAugmentationMetaArch, self).__init__(num_classes=box_predictor.num_classes)
         self._is_training = is_training
         self._freeze_batchnorm = freeze_batchnorm
         self._inplace_batchnorm_update = inplace_batchnorm_update
@@ -389,10 +389,10 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             # todo FRAGEN
         ''' 
         [prediction_augm_key]  are:
-        predictions[BELIEF_O_PREDICTION] = pred_bel_O_clamped
+        predictions[BELIEF_O_PREDICTION] = pred_bel_O_clamped 
         predictions[BELIEF_F_PREDICTION] = pred_bel_F_clamped
         in u_net_predictor
-        '''
+        '''# todo try the clamp function
         for prediction_key, prediction_list in iter(predictor_results_dict.items()):
             prediction = tf.concat(prediction_list, axis=1)
             if (prediction_key == 'box_3d_encodings' and prediction.shape.ndims == 6 and
@@ -700,28 +700,29 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             '''            flow_enum = enumerate(zip(prediction_dict['flow_pyramid_fw'],
                                       prediction_dict['flow_pyramid_bw']))
             '''
+
             pred_bel_F = prediction_dict['BELIEF_F_PREDICTION']
             pred_bel_O = prediction_dict['BELIEF_O_PREDICTION']
-            labels['img_file_bel_F'] = prediction_dict[''] # todo Fragen
-            labels['img_file_bel_O'] = # todo Fragen
-            label_bel_F = labels['img_file_bel_F']
-            label_bel_O = labels['img_file_bel_O']
-            global_step = tf.train.get_or_create_global_step()# todo Fragen GAUSS SIGMA
+            label_bel_F = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
+            label_bel_O = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
             # LOSSES TO CHOOSE #
             with tf.name_scope("losses_and_weights"): # todo Fragen switch needed
-                wLC10 = self._my_weights_label_cert(labels, 10.)
+                # wLC10 = self._my_weights_label_cert(labels, 10.)
 
                 L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=10., weights=wLC10) + self._my_loss_L1(pred_bel_O,
                                                                                                    label_bel_O,
-                                                                                                   xBiggerY=10.,
-                                                                                                   weights=wLC10)
+                                                                                                   xBiggerY=10.)
                 L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) + self._my_loss_L1(pred_bel_O, label_bel_O,
                                                                                      xBiggerY=2.)
                 L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
 
                 augmentation_loss = L1 # todo Fragen is trainloss? how about eval/test
 
+            tf.summary.image('bel_O', pred_bel_O)
+            tf.summary.image('bel_F', pred_bel_F)
+            tf.summary.image('soll_bel_F', label_bel_F)
+            tf.summary.image('soll_bel_O', label_bel_O)
 
             loss_dict = {
                 'Loss/localization_loss': localization_loss,
@@ -731,6 +732,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             }
 
         return loss_dict
+
 
     def _my_weights_label_cert(self, labels, factor):
 
@@ -754,6 +756,42 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             if weights is not None:
                 loss = tf.multiply(loss, weights)
             return tf.reduce_mean(loss)
+
+    def _summarize_grid_maps_augmentation(self, groundtruth_boxes_list, match_list):
+        """Creates tensorflow summaries for the grid-map-augmentation.
+
+        Args:
+
+        """
+        avg_num_gt_boxes = tf.reduce_mean(
+            tf.cast(
+                tf.stack([tf.shape(x)[0] for x in groundtruth_boxes_list]),
+                dtype=tf.float32))
+
+        # TODO(rathodv): Add a test for these summaries.
+        try:
+            # TODO(kaftan): Integrate these summaries into the v2 style loops
+            with tf.compat.v2.init_scope():
+                if tf.compat.v2.executing_eagerly():
+                    return
+        except AttributeError:
+            pass
+
+        tf.summary.scalar('AvgNumGroundtruthBoxesPerImage',
+                          avg_num_gt_boxes,
+                          family='TargetAssignment')
+        tf.summary.scalar('AvgNumGroundtruthBoxesMatchedPerImage',
+                          avg_num_matched_gt_boxes,
+                          family='TargetAssignment')
+        tf.summary.scalar('AvgNumPositiveAnchorsPerImage',
+                          avg_pos_anchors,
+                          family='TargetAssignment')
+        tf.summary.scalar('AvgNumNegativeAnchorsPerImage',
+                          avg_neg_anchors,
+                          family='TargetAssignment')
+        tf.summary.scalar('AvgNumIgnoredAnchorsPerImage',
+                          avg_ignored_anchors,
+                          family='TargetAssignment')
 
     def _minibatch_subsample_fn(self, inputs):
         """Randomly samples anchors for one image.
