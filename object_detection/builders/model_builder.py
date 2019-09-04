@@ -48,6 +48,7 @@ from object_detection.models.ssd_mobilenet_v2_fpn_keras_feature_extractor import
 from object_detection.models.ssd_mobilenet_v2_keras_feature_extractor import SSDMobileNetV2KerasFeatureExtractor
 from object_detection.models.ssd_pnasnet_feature_extractor import SSDPNASNetFeatureExtractor
 from object_detection.predictors import u_net_predictor
+from object_detection.predictors import upsampling_predictor
 from object_detection.protos import model_pb2
 from object_detection.utils import ops
 
@@ -413,12 +414,21 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
             num_classes, ssd_config.add_background_class)
 
     ## Add augmentation network
-    ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
+
+    # ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
+    #     is_training=is_training,
+    #     layer_norm=True,
+    #     stack_size=3,
+    #     kernel_size=3,
+    #     filters=8,
+    #     depth=2)
+
+    ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
         is_training=is_training,
         layer_norm=True,
         stack_size=3,
         kernel_size=3,
-        filters=8,
+        filters=128,
         depth=3)
 
     image_resizer_fn = image_resizer_builder.build(ssd_config.image_resizer)

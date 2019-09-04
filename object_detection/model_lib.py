@@ -613,6 +613,7 @@ def create_estimator_and_inputs(run_config,
 
   model_fn = model_fn_creator(detection_model_fn, configs, hparams)
   estimator = tf.estimator.Estimator(model_fn=model_fn, config=run_config)
+  print("\n ==================NOW IS ESTIMATOR(RUN_CONFIG) DONE==================\n")
 
   # Write the as-run pipeline config to disk.
   if run_config.is_chief and save_final_config:

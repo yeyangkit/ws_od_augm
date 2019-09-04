@@ -11,7 +11,7 @@ BELIEF_O_PREDICTION = beliefs_predictor.BELIEF_O_PREDICTION
 BELIEF_F_PREDICTION = beliefs_predictor.BELIEF_F_PREDICTION
 
 
-class UNetPredictor(beliefs_predictor.BeliefPredictor):  ## todo fragen relationship between od and augm where to see
+class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
   """U Net Predictor with weight sharing."""
 
   def __init__(self,
@@ -21,7 +21,7 @@ class UNetPredictor(beliefs_predictor.BeliefPredictor):  ## todo fragen relation
                kernel_size,
                filters,
                depth):
-    super(UNetPredictor, self).__init__(is_training)
+    super(UpsamplingPredictor, self).__init__(is_training)
     self._layer_norm = layer_norm
     self._stack_size = stack_size
     self._kernel_size = kernel_size
@@ -44,29 +44,16 @@ class UNetPredictor(beliefs_predictor.BeliefPredictor):  ## todo fragen relation
                   x = self._conv_bn_relu(x, filters=filters, ksize=self._kernel_size, stride=1)
           return x
 
-  def _create_unet(self, x, outputs_channels):
+  def _create_net(self, x, outputs_channels):
+      # tf.summary.image('input--image_features[0]', x)
 
-      skips = []
+      x = tf.layers.conv2d_transpose(x, filters=int(self._filters/4), kernel_size=self._kernel_size, strides=2, padding='same')
 
-      for i in range(self._depth):
-          x = self._unet_block(x, filters=self._filters * (2 ** i), training=self._is_training, name="enc_%i" % i)
+      x = self._unet_block(x, filters=int(self._filters/4), training=self._is_training, name="dec_1")
 
-          skips.append(x)
-          x = tf.layers.max_pooling2d(x, pool_size=2, strides=2, name='pool_%i' % (i + 1))
+      x = tf.layers.conv2d_transpose(x, filters=int(self._filters/16), kernel_size=self._kernel_size, strides=2, padding='same')
 
-      x = self._unet_block(x, filters=self._filters * (2 ** (self._depth - 1)), training=self._is_training, name="deep")
-
-      for i in reversed(range(self._depth+1)): ## todo fragen
-
-          with tf.variable_scope('up_conv_%i' % (i + 1)):
-              x = tf.layers.conv2d_transpose(x, filters=self._filters * (2 ** i), kernel_size=self._kernel_size,
-                                             strides=2, padding='same')
-              if self._layer_norm:
-                  x = clayer.layer_norm(x, scale=False)
-              x = tf.nn.relu(x)
-          x = tf.concat([skips.pop(), x], axis=3)
-
-          x = self._unet_block(x, filters=self._filters * (2 ** i), training=self._is_training, name="dec_%i" % i)
+      x = self._unet_block(x, filters=int(self._filters/16), training=self._is_training, name="dec_2")
 
       # End
       with tf.variable_scope("end"):
@@ -75,27 +62,26 @@ class UNetPredictor(beliefs_predictor.BeliefPredictor):  ## todo fragen relation
       return x
 
   def _predict(self, image_features):
-    predictions = {
-        BELIEF_O_PREDICTION: [],
-        BELIEF_F_PREDICTION: []
-    }
-
-    #TODO fragen
-    input = image_features[-1]
-
-
-
-    # Create Unet
-    output = self._create_unet(input, outputs_channels=2)
+    input = image_features[0]
+    output = self._create_net(input, outputs_channels=2)
 
     pred_bel_F = tf.slice(output, begin=[0, 0, 0, 0], size=[-1, -1, -1, 1])
     pred_bel_O = tf.slice(output, begin=[0, 0, 0, 1], size=[-1, -1, -1, 1])
 
+    tf.summary.image('predicted_bel_O_before_clamping', pred_bel_O)
+    tf.summary.image('predicted_bel_F_before_clamping', pred_bel_F)
+
     with tf.name_scope("clamping"):
         pred_bel_F_clamped = tf.maximum(tf.minimum(pred_bel_F, 1), 0)
         pred_bel_O_clamped = tf.maximum(tf.minimum(pred_bel_O, 1), 0)
+        # pred_bel_F_clamped = tf.clamp
+        # pred_bel_F, 1), 0)
+        # pred_bel_O_clamped = tf.maximum(tf.minimum(pred_bel_O, 1), 0)
 
-
+    predictions = {
+        BELIEF_O_PREDICTION: [],
+        BELIEF_F_PREDICTION: []
+    }
     predictions[BELIEF_O_PREDICTION] = pred_bel_O_clamped
     predictions[BELIEF_F_PREDICTION] = pred_bel_F_clamped
     # predictions[Z_XX] = # todo

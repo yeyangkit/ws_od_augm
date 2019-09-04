@@ -238,7 +238,7 @@ class WeightedSigmoidClassificationLoss(Loss):
           ops.indices_to_dense_vector(class_indices,
                                       tf.shape(prediction_tensor)[2]),
           [1, 1, -1])
-    per_entry_cross_ent = (tf.nn.sigmoid_cross_entropy_with_logits(
+    per_entry_cross_ent = (tf.nn.sigmoid_cross_entropy_with_logits(  ###  USED SIGMOID CROSS ENTROPY FOR PREDICTION
         labels=target_tensor, logits=prediction_tensor))
     return per_entry_cross_ent * weights
 

@@ -370,7 +370,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             'feature_maps': feature_maps,
             'anchors': self._anchors.get()
         }
-        # augmentation
+        # grid maps augmentation
         predictor_augm_dict = self._augm_predictor.predict(feature_maps)
 
         if self._box_predictor.is_keras_model:
@@ -701,16 +701,20 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                                       prediction_dict['flow_pyramid_bw']))
             '''
 
-            pred_bel_F = prediction_dict['BELIEF_F_PREDICTION']
-            pred_bel_O = prediction_dict['BELIEF_O_PREDICTION']
+            pred_bel_F = prediction_dict['belief_F_prediction']
+            pred_bel_O = prediction_dict['belief_O_prediction']
             label_bel_F = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
             label_bel_O = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
             # LOSSES TO CHOOSE #
             with tf.name_scope("losses_and_weights"): # todo Fragen switch needed
                 # wLC10 = self._my_weights_label_cert(labels, 10.)
+                #  weights=wLC10
 
-                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=10., weights=wLC10) + self._my_loss_L1(pred_bel_O,
+                # print(pred_bel_F)
+                # print(label_bel_F)
+
+                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=10.) + self._my_loss_L1(pred_bel_O,
                                                                                                    label_bel_O,
                                                                                                    xBiggerY=10.)
                 L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) + self._my_loss_L1(pred_bel_O, label_bel_O,
@@ -719,10 +723,10 @@ class SSDAugmentationMetaArch(model.DetectionModel):
 
                 augmentation_loss = L1 # todo Fragen is trainloss? how about eval/test
 
-            tf.summary.image('bel_O', pred_bel_O)
-            tf.summary.image('bel_F', pred_bel_F)
-            tf.summary.image('soll_bel_F', label_bel_F)
-            tf.summary.image('soll_bel_O', label_bel_O)
+            tf.summary.image('predicted_bel_O', pred_bel_O)
+            tf.summary.image('predicted_bel_F', pred_bel_F)
+            tf.summary.image('GT_bel_F', label_bel_F)
+            tf.summary.image('GT_bel_O', label_bel_O)
 
             loss_dict = {
                 'Loss/localization_loss': localization_loss,
@@ -746,7 +750,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         # x = tf.cast(x, tf.float32)
         loss = tf.abs(x - y) + tf.multiply((xBiggerY - 1.) / (xBiggerY + 1.), (x - y))
         if weights is not None:
-            loss = tf.multiply(loss, weights)
+            loss = tf.multiply(loss, weights)/10
         return tf.reduce_mean(loss)
 
     def _my_loss_L2(self,x, y, weights=None, name=None):

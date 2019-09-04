@@ -21,6 +21,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import os
+from shutil import copyfile
 
 from object_detection import model_hparams
 from object_detection import model_lib
@@ -83,6 +84,9 @@ def main(unused_argv):
       os.makedirs(FLAGS.model_dir)
 
   flags.mark_flag_as_required('pipeline_config_path')
+  destination_file = os.path.join(FLAGS.model_dir + '/corresponding_pipelineConfig.config')
+  copyfile(FLAGS.pipeline_config_path, destination_file)
+
   sess_config = tf.ConfigProto()
   sess_config.gpu_options.allow_growth = True
   config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir,
