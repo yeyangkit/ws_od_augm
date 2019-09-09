@@ -276,13 +276,18 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
 
         # following layers are from GridMapsAugmentation task:
 
-        # 'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
-        # 'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_O_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_F_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/bel_U_FUSED/encoded': tf.FixedLenFeature((), tf.string),
 
-        'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
-        'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),  # todo question ? herein übergegeben aber soll nicht in image gespeichert sondern groundtruth_bel_O
+        # 'layers/detections_drivingCorridor_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/z_max_detections_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/z_min_detections_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+        'layers/observations_z_min_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+
+        # 'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
+        # 'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),  # todo question ? herein übergegeben aber soll nicht in image gespeichert sondern groundtruth_bel_O
 
 
         'boxes/aligned/x_min': tf.VarLenFeature(tf.float32),
@@ -324,12 +329,22 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
           num_channels= self._num_input_channels,
           dct_method=dct_method)
       groundtruth_bel_O = slim_example_decoder.Image(
-          image_key='layers/bel_O/encoded',
+          image_key='layers/bel_O_FUSED/encoded',
           format_key='image/format',
           channels=1,
           dct_method=dct_method)
       groundtruth_bel_F = slim_example_decoder.Image(
-          image_key='layers/bel_F/encoded',
+          image_key='layers/bel_F_FUSED/encoded',
+          format_key='image/format',
+          channels=1,
+          dct_method=dct_method)
+      groundtruth_z_max_detections = slim_example_decoder.Image(
+          image_key='layers/z_max_detections_FUSED/encoded',
+          format_key='image/format',
+          channels=1,
+          dct_method=dct_method)
+      groundtruth_z_min_observations = slim_example_decoder.Image(
+          image_key='layers/observations_z_min_FUSED/encoded',
           format_key='image/format',
           channels=1,
           dct_method=dct_method)
@@ -337,9 +352,17 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
       image = MultilayerImages(
           image_keys=image_keys, layer_channels=input_channels, format_key='image/format', num_channels=self._num_input_channels)
       groundtruth_bel_O = slim_example_decoder.Image(
-          image_key='layers/bel_O/encoded', format_key='image/format', channels=1)
+          image_key='layers/bel_O_FUSED/encoded', format_key='image/format', channels=1)
       groundtruth_bel_F = slim_example_decoder.Image(
-          image_key='layers/bel_F/encoded', format_key='image/format', channels=1)
+          image_key='layers/bel_F_FUSED/encoded', format_key='image/format', channels=1)
+      groundtruth_z_max_detections = slim_example_decoder.Image(
+          image_key='layers/z_max_detections_FUSED/encoded',
+          format_key='image/format',
+          channels=1)
+      groundtruth_z_min_observations = slim_example_decoder.Image(
+          image_key='layers/observations_z_min_FUSED/encoded',
+          format_key='image/format',
+          channels=1)
 
     self.items_to_handlers = {
         fields.InputDataFields.image:
@@ -367,7 +390,9 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         fields.InputDataFields.groundtruth_weights: (
             slim_example_decoder.Tensor('image/object/weight')),
         fields.InputDataFields.groundtruth_bel_O: groundtruth_bel_O,   # todo question soll ich es hier to handlers hinzu?
-        fields.InputDataFields.groundtruth_bel_F: groundtruth_bel_F
+        fields.InputDataFields.groundtruth_bel_F: groundtruth_bel_F,
+        fields.InputDataFields.groundtruth_z_max_detections: groundtruth_z_max_detections,
+        fields.InputDataFields.groundtruth_z_min_observations: groundtruth_z_min_observations
     }
     if load_multiclass_scores:
       self.keys_to_features[
@@ -450,6 +475,9 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
     # tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, self._num_input_channels]) #   augmentation label
     tensor_dict[fields.InputDataFields.groundtruth_bel_O].set_shape([None, None, 1]) #   augmentation label
     tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, 1]) #   augmentation label
+    tensor_dict[fields.InputDataFields.groundtruth_z_min_observations].set_shape([None, None, 1])  # augmentation label
+    tensor_dict[fields.InputDataFields.groundtruth_z_max_detections].set_shape([None, None, 1])  # augmentation label
+
 
     tensor_dict[fields.InputDataFields.original_image_spatial_shape] = tf.shape(
         tensor_dict[fields.InputDataFields.image])[:2]

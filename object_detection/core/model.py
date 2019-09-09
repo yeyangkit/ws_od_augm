@@ -267,6 +267,8 @@ class DetectionModel(_BaseClass):
                           groundtruth_weights_list=None,
                           groundtruth_bel_O_list=None,  # augmentation
                           groundtruth_bel_F_list=None,  # augmentation
+                          groundtruth_z_min_observations_list=None,
+                          groundtruth_z_max_detections_list=None,
                           groundtruth_confidences_list=None,
                           groundtruth_is_crowd_list=None,
                           is_annotated_list=None):
@@ -322,6 +324,12 @@ class DetectionModel(_BaseClass):
     if  groundtruth_bel_F_list:
       self._groundtruth_lists[
           fields.InputDataFields. groundtruth_bel_F] =  groundtruth_bel_F_list
+    if  groundtruth_z_min_observations_list:
+      self._groundtruth_lists[
+          fields.InputDataFields. groundtruth_z_min_observations] =  groundtruth_z_min_observations_list
+    if  groundtruth_z_max_detections_list:
+      self._groundtruth_lists[
+          fields.InputDataFields. groundtruth_z_max_detections] =  groundtruth_z_max_detections_list
 
   @abc.abstractmethod
   def regularization_losses(self):

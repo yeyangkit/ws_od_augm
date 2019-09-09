@@ -137,6 +137,8 @@ def transform_input_data(tensor_dict,
 
   groundtruth_bel_F = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_bel_F], axis=2)
   groundtruth_bel_O = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_bel_O], axis=2)
+  groundtruth_z_max_detections = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_z_max_detections], axis=2)
+  groundtruth_z_min_observations = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_z_min_observations], axis=2)
 
   groundtruth_bel_F = tf.expand_dims(groundtruth_bel_F, axis=0)
   _, resized_groundtruth_bel_F, _ = image_resizer_fn(image, groundtruth_bel_F)
@@ -146,11 +148,24 @@ def transform_input_data(tensor_dict,
   _, resized_groundtruth_bel_O, _ = image_resizer_fn(image, groundtruth_bel_O)
   # resized_groundtruth_bel_O = image_resizer_fn(groundtruth_bel_O)
 
+  groundtruth_z_max_detections = tf.expand_dims(groundtruth_z_max_detections, axis=0)
+  _, resized_groundtruth_z_max_detections, _ = image_resizer_fn(image, groundtruth_z_max_detections)
+
+  groundtruth_z_min_observations = tf.expand_dims(groundtruth_z_min_observations, axis=0)
+  _, resized_groundtruth_z_min_observations, _ = image_resizer_fn(image, groundtruth_z_min_observations)
+
+
   tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.expand_dims(tf.squeeze(
       resized_groundtruth_bel_F, axis=0), axis=2)
 
   tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.expand_dims(tf.squeeze(
       resized_groundtruth_bel_O, axis=0), axis=2)
+
+  tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = tf.expand_dims(tf.squeeze(
+      resized_groundtruth_z_min_observations, axis=0), axis=2)
+
+  tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = tf.expand_dims(tf.squeeze(
+      resized_groundtruth_z_max_detections, axis=0), axis=2)
 
   # Transform groundtruth classes to one hot encodings.
   label_offset = 1
@@ -267,7 +282,9 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.groundtruth_image_classes: [num_classes],
       fields.InputDataFields.groundtruth_image_confidences: [num_classes],
       fields.InputDataFields.groundtruth_bel_O: [height, width, 1],
-      fields.InputDataFields.groundtruth_bel_F: [height, width, 1]
+      fields.InputDataFields.groundtruth_bel_F: [height, width, 1],
+      fields.InputDataFields.groundtruth_z_max_detections: [height, width, 1],
+      fields.InputDataFields.groundtruth_z_min_observations: [height, width, 1]
   }
 
   if fields.InputDataFields.original_image in tensor_dict:
@@ -352,6 +369,8 @@ def _get_labels_dict(input_dict):
   optional_label_keys = [
       fields.InputDataFields.groundtruth_bel_F,
       fields.InputDataFields.groundtruth_bel_O,
+      fields.InputDataFields.groundtruth_z_max_detections,
+      fields.InputDataFields.groundtruth_z_min_observations,
       fields.InputDataFields.groundtruth_confidences,
       fields.InputDataFields.groundtruth_area,
       fields.InputDataFields.groundtruth_is_crowd,

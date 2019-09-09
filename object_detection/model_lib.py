@@ -203,6 +203,8 @@ def _provide_groundtruth(model, labels):
   gt_weights_list = None
   gt_bel_O_list = labels[fields.InputDataFields.groundtruth_bel_O]  # augmentation labels
   gt_bel_F_list = labels[fields.InputDataFields.groundtruth_bel_F]  # augmentation labels
+  gt_z_max_detections_list = labels[fields.InputDataFields.groundtruth_z_max_detections]  # augmentation labels
+  gt_z_min_observations_list = labels[fields.InputDataFields.groundtruth_z_min_observations]  # augmentation labels
   if fields.InputDataFields.groundtruth_weights in labels:
     gt_weights_list = labels[fields.InputDataFields.groundtruth_weights]
   gt_confidences_list = None
@@ -220,7 +222,9 @@ def _provide_groundtruth(model, labels):
       groundtruth_weights_list=gt_weights_list,
       groundtruth_is_crowd_list=gt_is_crowd_list,
       groundtruth_bel_F_list=gt_bel_F_list,
-      groundtruth_bel_O_list=gt_bel_O_list)
+      groundtruth_bel_O_list=gt_bel_O_list,
+      groundtruth_z_max_detections_list=gt_z_max_detections_list,
+      groundtruth_z_min_observations_list=gt_z_min_observations_list)
 
 
 def create_model_fn(detection_model_fn, configs, hparams,

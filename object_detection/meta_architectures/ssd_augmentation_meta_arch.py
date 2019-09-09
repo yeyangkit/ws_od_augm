@@ -352,7 +352,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                                 updates_collections=batchnorm_updates_collections):
                 with tf.variable_scope(None, self._extract_features_scope,
                                        [preprocessed_inputs]):
-                    feature_maps = self._feature_extractor.extract_features(
+                    feature_maps = self._feature_extractor.extract_features(  # todo
                         preprocessed_inputs)
         self._add_histogram_summaries()
         feature_map_spatial_dims = self._get_feature_map_spatial_dims(
@@ -392,7 +392,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         predictions[BELIEF_O_PREDICTION] = pred_bel_O_clamped 
         predictions[BELIEF_F_PREDICTION] = pred_bel_F_clamped
         in u_net_predictor
-        '''# todo try the clamp function
+        '''  # todo try the clamp function
         for prediction_key, prediction_list in iter(predictor_results_dict.items()):
             prediction = tf.concat(prediction_list, axis=1)
             if (prediction_key == 'box_3d_encodings' and prediction.shape.ndims == 6 and
@@ -700,43 +700,48 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             '''            flow_enum = enumerate(zip(prediction_dict['flow_pyramid_fw'],
                                       prediction_dict['flow_pyramid_bw']))
             '''
-
+            pred_z_max_detections = prediction_dict['z_max_detections_prediction']
+            pred_z_min_observations = prediction_dict['z_min_observations_prediction']
             pred_bel_F = prediction_dict['belief_F_prediction']
             pred_bel_O = prediction_dict['belief_O_prediction']
+            label_z_max_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_max_detections)
+            label_z_min_observations = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_observations)
             label_bel_F = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
             label_bel_O = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
             # LOSSES TO CHOOSE #
-            with tf.name_scope("losses_and_weights"): # todo Fragen switch needed
+            with tf.name_scope("losses_and_weights"):  # todo Fragen switch needed
                 # wLC10 = self._my_weights_label_cert(labels, 10.)
                 #  weights=wLC10
 
-                # print(pred_bel_F)
-                # print(label_bel_F)
+                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=1.) \
+                     + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.) \
+                     + self._my_loss_L1(pred_z_min_observations, label_z_min_observations, xBiggerY=1.) \
+                     + self._my_loss_L1(pred_z_max_detections, label_z_max_detections, xBiggerY=2.)
 
-                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=10.) + self._my_loss_L1(pred_bel_O,
-                                                                                                   label_bel_O,
-                                                                                                   xBiggerY=10.)
-                L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) + self._my_loss_L1(pred_bel_O, label_bel_O,
-                                                                                     xBiggerY=2.)
+                L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) \
+                       + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.)
                 L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
 
-                augmentation_loss = L1 # todo Fragen is trainloss? how about eval/test
+                # augmentation_loss = L1  # todo Fragen is trainloss? how about eval/test
+                augmentation_loss = tf.Print(L1, [L1], message="AUGMENTATION Loss L1")
 
-            tf.summary.image('predicted_bel_O', pred_bel_O)
-            tf.summary.image('predicted_bel_F', pred_bel_F)
-            tf.summary.image('GT_bel_F', label_bel_F)
-            tf.summary.image('GT_bel_O', label_bel_O)
+            tf.summary.image('pred_bel_O', pred_bel_O)
+            tf.summary.image('pred_bel_F', pred_bel_F)
+            tf.summary.image('pred_z_min_observations', pred_z_min_observations)
+            tf.summary.image('pred_z_max_detections', pred_z_max_detections)
+            tf.summary.image('label_bel_F', label_bel_F)
+            tf.summary.image('label_bel_O', label_bel_O)
+            tf.summary.image('label_z_min_observations', label_z_min_observations)
+            tf.summary.image('label_z_max_detections', label_z_max_detections)
 
             loss_dict = {
                 'Loss/localization_loss': localization_loss,
                 'Loss/classification_loss': classification_loss,
-                'Loss/augmentation_loss': augmentation_loss
-
+                'Loss/augmentation_loss': augmentation_loss * 0.01
             }
 
         return loss_dict
-
 
     def _my_weights_label_cert(self, labels, factor):
 
@@ -744,19 +749,28 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             cert = labels['img_file_bel_O'] + labels['img_file_bel_F']
             return (1. / factor) + (1. - (1. / factor)) * cert
 
-    def _my_loss_L1(self,x, y, weights=None, xBiggerY=1., name=None):
+    def _my_loss_L1(self, pred, label, weights=None, xBiggerY=1., name=None):
         """L1 loss with optional weight and optional assymmetry."""
         # with tf.name_scope(name or "loss_L1"):
-        # x = tf.cast(x, tf.float32)
-        loss = tf.abs(x - y) + tf.multiply((xBiggerY - 1.) / (xBiggerY + 1.), (x - y))
+        # pred = tf.cast(pred, tf.float32)
+        loss = tf.abs(pred - label) + tf.multiply((xBiggerY - 1.) / (xBiggerY + 1.), (label - pred))
         if weights is not None:
-            loss = tf.multiply(loss, weights)/10
+            loss = tf.multiply(loss, weights)
         return tf.reduce_mean(loss)
 
-    def _my_loss_L2(self,x, y, weights=None, name=None):
+    def _my_loss_L1_originFelix(self, pred, label, weights=None, xBiggerY=1., name=None):
+        """L1 loss with optional weight and optional assymmetry."""
+        # with tf.name_scope(name or "loss_L1"):
+        # pred = tf.cast(pred, tf.float32)
+        loss = tf.abs(pred - label) + tf.multiply((xBiggerY - 1.) / (xBiggerY + 1.), (pred - label))
+        if weights is not None:
+            loss = tf.multiply(loss, weights)
+        return tf.reduce_mean(loss)
+
+    def _my_loss_L2(self, pred, label, weights=None, name=None):
         """L2 loss with optional weight and optional assymmetry."""
         with tf.name_scope(name or "loss_L2"):
-            loss = tf.square(x - y)
+            loss = tf.square(pred - label)
             if weights is not None:
                 loss = tf.multiply(loss, weights)
             return tf.reduce_mean(loss)

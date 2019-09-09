@@ -3,6 +3,8 @@ import tensorflow as tf
 
 BELIEF_O_PREDICTION = 'belief_O_prediction'
 BELIEF_F_PREDICTION = 'belief_F_prediction'
+Z_MAX_DETECTIONS_PREDICTION = 'z_max_detections_prediction'
+Z_MIN_OBSERVATIONS_PREDICTION = 'z_min_observations_prediction'
 
 
 class BeliefPredictor(object):

@@ -153,6 +153,7 @@ def _build_ssd_feature_extractor(feature_extractor_config,
     max_pool_subsample = feature_extractor_config.max_pool_subsample
     root_downsampling_rate = feature_extractor_config.root_downsampling_rate
     store_non_strided_activations = feature_extractor_config.store_non_strided_activations
+    include_root_block = feature_extractor_config.include_root_block
 
     if is_keras_extractor:
         conv_hyperparams = hyperparams_builder.KerasLayerHyperparams(
@@ -198,8 +199,8 @@ def _build_ssd_feature_extractor(feature_extractor_config,
             use_depthwise,
         'override_base_feature_extractor_hyperparams':
             override_base_feature_extractor_hyperparams,
-        # 'include_root_block':  #  todo question
-        #     include_root_block,
+        'include_root_block':  #  todo question wieder einkommentiert!!
+            include_root_block,
         'depthwise_convolution':
             depthwise_convolution,
         'max_pool_subsample':
@@ -425,11 +426,10 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
 
     ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
         is_training=is_training,
-        layer_norm=True,
-        stack_size=3,
+        layer_norm=False,
+        stack_size=4,
         kernel_size=3,
-        filters=128,
-        depth=3)
+        filters=128)
 
     image_resizer_fn = image_resizer_builder.build(ssd_config.image_resizer)
     non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(

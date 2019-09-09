@@ -97,6 +97,8 @@ class InputDataFields(object):
   multiclass_scores = 'multiclass_scores'
   groundtruth_bel_O = 'groundtruth_bel_O'
   groundtruth_bel_F = 'groundtruth_bel_F'
+  groundtruth_z_max_detections = 'groundtruth_z_max_detections'  # augmentation labels
+  groundtruth_z_min_observations = 'groundtruth_z_min_observations' # augmentation labels
 
 
 class DetectionResultFields(object):
