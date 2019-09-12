@@ -122,8 +122,13 @@ def main(unused_argv):
         os.makedirs(FLAGS.model_dir)
 
     flags.mark_flag_as_required('pipeline_config_path')
-    copyfile(FLAGS.pipeline_config_path, os.path.join(FLAGS.model_dir + '/corresponding_pipelineConfig.config'))
-    copyfile('/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py', os.path.join(FLAGS.model_dir + '/upsampling_predictor.txt'))
+    copyfile(FLAGS.pipeline_config_path, os.path.join(FLAGS.model_dir + '/correspondingPipelineConfig.config'))
+    copyfile(
+        '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
+        os.path.join(FLAGS.model_dir + '/upsampling_predictor.txt'))
+    copyfile(
+        '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/ht_predictor.py',
+        os.path.join(FLAGS.model_dir + '/ht_predictor.txt'))
 
     sess_config = tf.ConfigProto()
     sess_config.gpu_options.allow_growth = True
@@ -175,9 +180,8 @@ def main(unused_argv):
         # Currently only a single Eval Spec is allowed.
         tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
 
-
-
     email_sender = EmailSender()
+
 
 if __name__ == '__main__':
     tf.app.run()

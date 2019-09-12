@@ -296,20 +296,6 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
   for tensor_name in tensor_dict:
     padded_tensor_dict[tensor_name] = shape_utils.pad_or_clip_nd(
         tensor_dict[tensor_name], padding_shapes[tensor_name])
-    # todo question
-    """  
-    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/builders/dataset_builder.py", line 135, in process_fn
-
-    processed_tensors = transform_input_data_fn(processed_tensors)
-    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/inputs.py", line 500, in transform_and_pad_input_data_fn
-
-    num_channels=sum(model_config.input_channels))
-    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/inputs.py", line 261, in pad_input_data_to_static_shapes
-
-    tensor_dict[tensor_name], padding_shapes[tensor_name])
-    File "/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/utils/shape_utils.py", line 129, in pad_or_clip_nd
-    if shape is not None else -1 for i, shape in enumerate(output_shape)
-    """
   # Make sure that the number of groundtruth boxes now reflects the
   # padded/clipped tensors.
   if fields.InputDataFields.num_groundtruth_boxes in padded_tensor_dict:

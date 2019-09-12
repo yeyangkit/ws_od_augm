@@ -49,6 +49,7 @@ from object_detection.models.ssd_mobilenet_v2_keras_feature_extractor import SSD
 from object_detection.models.ssd_pnasnet_feature_extractor import SSDPNASNetFeatureExtractor
 from object_detection.predictors import u_net_predictor
 from object_detection.predictors import upsampling_predictor
+from object_detection.predictors import ht_predictor
 from object_detection.protos import model_pb2
 from object_detection.utils import ops
 
@@ -424,12 +425,19 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
     #     filters=8,
     #     depth=2)
 
-    ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
+    # ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
+    #     is_training=is_training,
+    #     layer_norm=ssd_config.beliefs_predictor.layer_norm,
+    #     stack_size=ssd_config.beliefs_predictor.stack_size,
+    #     kernel_size=ssd_config.beliefs_predictor.kernel_size,
+    #     filters=ssd_config.beliefs_predictor.filters)
+
+    ssd_augmentation_predictor = ht_predictor.HTPredictor(
         is_training=is_training,
-        layer_norm=False,
-        stack_size=4,
-        kernel_size=3,
-        filters=128)
+        layer_norm=ssd_config.beliefs_predictor.layer_norm,
+        stack_size=ssd_config.beliefs_predictor.stack_size,
+        kernel_size=ssd_config.beliefs_predictor.kernel_size,
+        filters=ssd_config.beliefs_predictor.filters)
 
     image_resizer_fn = image_resizer_builder.build(ssd_config.image_resizer)
     non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
@@ -457,6 +465,8 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
         # threshold_offset=threshold_offset
     )
 
+
+
     ssd_augm_meta_arch_fn = ssd_augmentation_meta_arch.SSDAugmentationMetaArch
     kwargs = {}
 
@@ -465,6 +475,11 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
         anchor_generator=anchor_generator,
         box_predictor=ssd_box_predictor,
         augmentation_predictor=ssd_augmentation_predictor,
+        factor_loss_fused_bel_O=ssd_config.augmentation_branch.factor_loss_fused_bel_O,
+        factor_loss_fused_bel_F=ssd_config.augmentation_branch.factor_loss_fused_bel_F,
+        factor_loss_fused_zmax_det= ssd_config.augmentation_branch.factor_loss_fused_zmax_det,
+        factor_loss_fused_obs_zmin = ssd_config.augmentation_branch.factor_loss_fused_obs_zmin,
+        factor_loss_augm= ssd_config.augmentation_branch.factor_loss_augm,
         box_coder=box_coder,
         feature_extractor=feature_extractor,
         encode_background_as_zeros=encode_background_as_zeros,

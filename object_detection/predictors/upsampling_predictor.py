@@ -12,6 +12,7 @@ BELIEF_F_PREDICTION = beliefs_predictor.BELIEF_F_PREDICTION
 Z_MAX_DETECTIONS_PREDICTION = beliefs_predictor.Z_MAX_DETECTIONS_PREDICTION
 Z_MIN_OBSERVATIONS_PREDICTION = beliefs_predictor.Z_MIN_OBSERVATIONS_PREDICTION
 
+
 class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
     """U Net Predictor with weight sharing."""
 
@@ -88,8 +89,16 @@ class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
 
         # pred_bel_F = tf.slice(output, begin=[0, 0, 0, 0], size=[-1, -1, -1, 1])
         # pred_bel_O = tf.slice(output, begin=[0, 0, 0, 1], size=[-1, -1, -1, 1])
+
+        print('shape_utils.combined_static_and_dynamic_shape(output)')
+        print(shape_utils.combined_static_and_dynamic_shape(output))
+
         pred_bel_F = tf.expand_dims(output[:, :, :, 0], axis=3)
         pred_bel_O = tf.expand_dims(output[:, :, :, 1], axis=3)
+
+        print('shape_utils.combined_static_and_dynamic_shape(pred_bel_O)')
+        print(shape_utils.combined_static_and_dynamic_shape(pred_bel_O))
+
         pred_z_max_detections = tf.expand_dims(output[:, :, :, 2], axis=3)
         pred_z_min_observations = tf.expand_dims(output[:, :, :, 3], axis=3)
 

@@ -41,6 +41,11 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                  anchor_generator,
                  box_predictor,
                  augmentation_predictor,
+                 factor_loss_fused_bel_O,
+                 factor_loss_fused_bel_F,
+                 factor_loss_fused_zmax_det,
+                 factor_loss_fused_obs_zmin,
+                 factor_loss_augm,
                  box_coder,
                  feature_extractor,
                  encode_background_as_zeros,
@@ -154,6 +159,12 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         self._feature_extractor = feature_extractor
         self._add_background_class = add_background_class
         self._explicit_background_class = explicit_background_class
+
+        self._factor_loss_fused_bel_O = factor_loss_fused_bel_O
+        self._factor_loss_fused_bel_F = factor_loss_fused_bel_F
+        self._factor_loss_fused_zmax_det = factor_loss_fused_zmax_det
+        self._factor_loss_fused_obs_zmin = factor_loss_fused_obs_zmin
+        self._factor_loss_augm = factor_loss_augm
 
         if add_background_class and explicit_background_class:
             raise ValueError("Cannot have both 'add_background_class' and"
@@ -710,21 +721,23 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             label_bel_O = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
             # LOSSES TO CHOOSE #
-            with tf.name_scope("losses_and_weights"):  # todo Fragen switch needed
+            with tf.name_scope("losses_and_weights"):
                 # wLC10 = self._my_weights_label_cert(labels, 10.)
                 #  weights=wLC10
 
-                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=1.) \
-                     + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.) \
-                     + self._my_loss_L1(pred_z_min_observations, label_z_min_observations, xBiggerY=1.) \
-                     + self._my_loss_L1(pred_z_max_detections, label_z_max_detections, xBiggerY=2.)
+                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=1.) * self._factor_loss_fused_bel_F \
+                     + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.) * self._factor_loss_fused_bel_O \
+                     + self._my_loss_L1(pred_z_min_observations, label_z_min_observations,
+                                        xBiggerY=1.) * self._factor_loss_fused_obs_zmin \
+                     + self._my_loss_L1(pred_z_max_detections, label_z_max_detections,
+                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det
 
                 L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) \
                        + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.)
                 L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
 
-                # augmentation_loss = L1  # todo Fragen is trainloss? how about eval/test
-                augmentation_loss = tf.Print(L1, [L1], message="AUGMENTATION Loss L1")
+                augmentation_loss = L1
+                augmentation_loss_print = tf.Print(L1, [L1], message="AUGMENTATION Loss L1")
 
             tf.summary.image('pred_bel_O', pred_bel_O)
             tf.summary.image('pred_bel_F', pred_bel_F)
@@ -738,7 +751,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             loss_dict = {
                 'Loss/localization_loss': localization_loss,
                 'Loss/classification_loss': classification_loss,
-                'Loss/augmentation_loss': augmentation_loss * 0.01
+                'Loss/augmentation_loss': augmentation_loss * self._factor_loss_augm
             }
 
         return loss_dict

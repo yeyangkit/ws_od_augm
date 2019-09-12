@@ -95,7 +95,7 @@ message Ssd {
   optional bool use_confidences_as_targets = 22 [default = false];
 
   optional float implicit_example_weight = 23 [default = 1.0];
-  // todo question
+
 }
 
 message SsdFeatureExtractor {
