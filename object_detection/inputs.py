@@ -135,10 +135,10 @@ def transform_input_data(tensor_dict,
   tensor_dict[fields.InputDataFields.true_image_shape] = tf.squeeze(
       true_image_shape, axis=0)
 
-  groundtruth_bel_F = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_bel_F], axis=2)
-  groundtruth_bel_O = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_bel_O], axis=2)
-  groundtruth_z_max_detections = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_z_max_detections], axis=2)
-  groundtruth_z_min_observations = tf.squeeze(tensor_dict[fields.InputDataFields.groundtruth_z_min_observations], axis=2)
+  groundtruth_bel_F = tensor_dict[fields.InputDataFields.groundtruth_bel_F]
+  groundtruth_bel_O = tensor_dict[fields.InputDataFields.groundtruth_bel_O]
+  groundtruth_z_max_detections = tensor_dict[fields.InputDataFields.groundtruth_z_max_detections]
+  groundtruth_z_min_observations = tensor_dict[fields.InputDataFields.groundtruth_z_min_observations]
 
   groundtruth_bel_F = tf.expand_dims(groundtruth_bel_F, axis=0)
   _, resized_groundtruth_bel_F, _ = image_resizer_fn(image, groundtruth_bel_F)
@@ -322,6 +322,15 @@ def augment_input_data(tensor_dict, data_augmentation_options):
   tensor_dict[fields.InputDataFields.image] = tf.expand_dims(
       tf.cast(tensor_dict[fields.InputDataFields.image], dtype=tf.float32), 0)
 
+  tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.expand_dims(
+      tensor_dict[fields.InputDataFields.groundtruth_bel_O], 0)
+  tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.expand_dims(
+      tensor_dict[fields.InputDataFields.groundtruth_bel_F], 0)
+  tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = tf.expand_dims(
+      tensor_dict[fields.InputDataFields.groundtruth_z_max_detections], 0)
+  tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = tf.expand_dims(
+      tensor_dict[fields.InputDataFields.groundtruth_z_min_observations], 0)
+
   include_label_weights = (fields.InputDataFields.groundtruth_weights
                            in tensor_dict)
   include_label_confidences = (fields.InputDataFields.groundtruth_confidences
@@ -336,6 +345,14 @@ def augment_input_data(tensor_dict, data_augmentation_options):
           include_multiclass_scores=include_multiclass_scores))
   tensor_dict[fields.InputDataFields.image] = tf.squeeze(
       tensor_dict[fields.InputDataFields.image], axis=0)
+  tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.squeeze(tf.squeeze(
+      tensor_dict[fields.InputDataFields.groundtruth_bel_O], axis=0), axis=2)
+  tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.squeeze(tf.squeeze(
+      tensor_dict[fields.InputDataFields.groundtruth_bel_F], axis=0), axis=2)
+  tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = tf.squeeze(tf.squeeze(
+      tensor_dict[fields.InputDataFields.groundtruth_z_max_detections], axis=0), axis=2)
+  tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = tf.squeeze(tf.squeeze(
+      tensor_dict[fields.InputDataFields.groundtruth_z_min_observations], axis=0), axis=2)
   return tensor_dict
 
 

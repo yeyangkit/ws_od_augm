@@ -8,21 +8,21 @@ Z_MIN_OBSERVATIONS_PREDICTION = 'z_min_observations_prediction'
 
 
 class BeliefPredictor(object):
-  """BeliefPredictor."""
+    """BeliefPredictor."""
 
-  def __init__(self, is_training):
-    self._is_training = is_training
+    def __init__(self, is_training):
+        self._is_training = is_training
 
-  @property
-  def is_keras_model(self):
-    return False
+    @property
+    def is_keras_model(self):
+        return False
 
-  def predict(self, image_features, scope=None, **params):
-    if scope is not None:
-      with tf.variable_scope(scope):
-        return self._predict(image_features, **params)
-    return self._predict(image_features, **params)
+    def predict(self, image_features, preprocessed_input, scope=None, **params):
+        if scope is not None:
+            with tf.variable_scope(scope):
+                return self._predict(image_features, preprocessed_input, **params)
+        return self._predict(image_features, preprocessed_input, **params)
 
-  @abstractmethod
-  def _predict(self, image_features, **params):
-    pass
+    @abstractmethod
+    def _predict(self, image_features, preprocessed_input, **params):
+        pass

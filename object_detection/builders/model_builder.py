@@ -200,7 +200,7 @@ def _build_ssd_feature_extractor(feature_extractor_config,
             use_depthwise,
         'override_base_feature_extractor_hyperparams':
             override_base_feature_extractor_hyperparams,
-        'include_root_block':  #  todo question wieder einkommentiert!!
+        'include_root_block':
             include_root_block,
         'depthwise_convolution':
             depthwise_convolution,
@@ -280,10 +280,10 @@ def _build_ssd_model(ssd_config, is_training, add_summaries, num_input_channels,
     encode_background_as_zeros = ssd_config.encode_background_as_zeros
     negative_class_weight = ssd_config.negative_class_weight
     anchor_generator = anchor_generator_builder.build(
-        ssd_config.anchor_generator)    #   todo question
-        # , ssd_config.feature_extractor.include_root_block,
-        # ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
-        # ssd_config.feature_extractor.store_non_strided_activations
+        ssd_config.anchor_generator)
+    # , ssd_config.feature_extractor.include_root_block,
+    # ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
+    # ssd_config.feature_extractor.store_non_strided_activations
     if feature_extractor.is_keras_model:
         ssd_box_predictor = box_predictor_builder.build_keras(
             hyperparams_fn=hyperparams_builder.KerasLayerHyperparams,
@@ -393,7 +393,7 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
     negative_class_weight = ssd_config.negative_class_weight
     anchor_generator = anchor_generator_builder.build(
         ssd_config.anchor_generator
-        # todo question Tom: kommentieren folgendes?
+
         # ssd_config.feature_extractor.include_root_block,
         # ssd_config.feature_extractor.root_downsampling_rate, ssd_config.feature_extractor.type,
         # ssd_config.feature_extractor.store_non_strided_activations
@@ -416,28 +416,29 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
             num_classes, ssd_config.add_background_class)
 
     ## Add augmentation network
-
-    # ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
-    #     is_training=is_training,
-    #     layer_norm=True,
-    #     stack_size=3,
-    #     kernel_size=3,
-    #     filters=8,
-    #     depth=2)
-
-    # ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
-    #     is_training=is_training,
-    #     layer_norm=ssd_config.beliefs_predictor.layer_norm,
-    #     stack_size=ssd_config.beliefs_predictor.stack_size,
-    #     kernel_size=ssd_config.beliefs_predictor.kernel_size,
-    #     filters=ssd_config.beliefs_predictor.filters)
-
-    ssd_augmentation_predictor = ht_predictor.HTPredictor(
-        is_training=is_training,
-        layer_norm=ssd_config.beliefs_predictor.layer_norm,
-        stack_size=ssd_config.beliefs_predictor.stack_size,
-        kernel_size=ssd_config.beliefs_predictor.kernel_size,
-        filters=ssd_config.beliefs_predictor.filters)
+    if ssd_config.beliefs_predictor.predictor == 'u_net':
+        ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
+            is_training=is_training,
+            layer_norm=ssd_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_config.beliefs_predictor.kernel_size,
+            filters=ssd_config.beliefs_predictor.filters)
+    elif ssd_config.beliefs_predictor.predictor == 'upsampling':
+        ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
+            is_training=is_training,
+            layer_norm=ssd_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_config.beliefs_predictor.kernel_size,
+            filters=ssd_config.beliefs_predictor.filters)
+    elif ssd_config.beliefs_predictor.predictor == 'hybrid_task_cascade':
+        ssd_augmentation_predictor = ht_predictor.HTPredictor(
+            is_training=is_training,
+            layer_norm=ssd_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_config.beliefs_predictor.kernel_size,
+            filters=ssd_config.beliefs_predictor.filters)
+    else:
+        raise RuntimeError('unknown predictor %s for augmentation branch' % ssd_config.beliefs_predictor.predictor)
 
     image_resizer_fn = image_resizer_builder.build(ssd_config.image_resizer)
     non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
@@ -447,7 +448,7 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
      expected_loss_weights_fn) = losses_builder.build(ssd_config.loss)
     normalize_loss_by_num_matches = ssd_config.normalize_loss_by_num_matches
     normalize_loc_loss_by_codesize = ssd_config.normalize_loc_loss_by_codesize
-    # specific_threshold = ssd_config.specific_threshold # todo question
+    # specific_threshold = ssd_config.specific_threshold
     # threshold_offset = ssd_config.threshold_offset
     # increse_small_object_size = ssd_config.increse_small_object_size
 
@@ -465,8 +466,6 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
         # threshold_offset=threshold_offset
     )
 
-
-
     ssd_augm_meta_arch_fn = ssd_augmentation_meta_arch.SSDAugmentationMetaArch
     kwargs = {}
 
@@ -477,9 +476,9 @@ def _build_ssd_augmentation_model(ssd_config, is_training, add_summaries, num_in
         augmentation_predictor=ssd_augmentation_predictor,
         factor_loss_fused_bel_O=ssd_config.augmentation_branch.factor_loss_fused_bel_O,
         factor_loss_fused_bel_F=ssd_config.augmentation_branch.factor_loss_fused_bel_F,
-        factor_loss_fused_zmax_det= ssd_config.augmentation_branch.factor_loss_fused_zmax_det,
-        factor_loss_fused_obs_zmin = ssd_config.augmentation_branch.factor_loss_fused_obs_zmin,
-        factor_loss_augm= ssd_config.augmentation_branch.factor_loss_augm,
+        factor_loss_fused_zmax_det=ssd_config.augmentation_branch.factor_loss_fused_zmax_det,
+        factor_loss_fused_obs_zmin=ssd_config.augmentation_branch.factor_loss_fused_obs_zmin,
+        factor_loss_augm=ssd_config.augmentation_branch.factor_loss_augm,
         box_coder=box_coder,
         feature_extractor=feature_extractor,
         encode_background_as_zeros=encode_background_as_zeros,

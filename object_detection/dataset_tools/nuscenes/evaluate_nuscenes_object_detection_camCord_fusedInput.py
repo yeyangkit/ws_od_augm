@@ -30,7 +30,7 @@ flags.DEFINE_string('param',
                     '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml',
                     'Directory to grid map parameter file.')
 flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
-flags.DEFINE_string('nuscenes', None, 'Directory to nuscenes data.')
+flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
 flags.DEFINE_string('output', '/tmp/', 'Output directory of json file.')
 flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt',
                     'Path to label map proto')
@@ -91,8 +91,8 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     # print(image_fused_bel_O.shape)
 
     image_stacked = np.stack(
-        [image_det, image_occ, image_obs, image_int, image_zmin, image_zmax, image_fused_bel_F, image_fused_bel_U,
-         image_fused_bel_O], axis=-1)
+        [image_fused_bel_O, image_fused_bel_F, image_occ, image_det, image_obs, image_int, image_zmin, image_zmax,
+         image_fused_bel_U], axis=-1)
 
     detection_mask = image_det > 0.0001
     return np.expand_dims(image_stacked, axis=0), detection_mask, image_ground, image_zmax
@@ -223,9 +223,9 @@ def evaluate(split):
                         sample_in_scene = False
                     sample = nusc.get('sample', current_sample_token)
                     if skip_first_sample_mode:
-                        if current_sample_token==scene['first_sample_token']:
-                            current_sample_token = sample['next']
+                        if current_sample_token == scene['first_sample_token']:
                             results[current_sample_token] = []
+                            current_sample_token = sample['next']
                             continue
                     lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
                     # Get global pose and calibration data
@@ -256,6 +256,7 @@ def evaluate(split):
                     scores = np.squeeze(scores)
                     for i in range(scores.shape[0]):
                         if scores[i] > .3:
+                            print("object detected test")
                             object_class = category_index[int(np.squeeze(classes)[i])]['name']
                             box = calculate_object_box(tuple(np.squeeze(boxes_aligned)[i]),
                                                        tuple(np.squeeze(boxes_inclined)[i]), image_ground, image_zmax,

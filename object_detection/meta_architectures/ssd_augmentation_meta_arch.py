@@ -363,7 +363,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                                 updates_collections=batchnorm_updates_collections):
                 with tf.variable_scope(None, self._extract_features_scope,
                                        [preprocessed_inputs]):
-                    feature_maps = self._feature_extractor.extract_features(  # todo
+                    feature_maps = self._feature_extractor.extract_features(
                         preprocessed_inputs)
         self._add_histogram_summaries()
         feature_map_spatial_dims = self._get_feature_map_spatial_dims(
@@ -382,7 +382,12 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             'anchors': self._anchors.get()
         }
         # grid maps augmentation
-        predictor_augm_dict = self._augm_predictor.predict(feature_maps)
+        print("-------------------------------------feature_maps")
+        print(feature_maps)
+        print("-------------------------------------preprocessed_inputs")
+        print(preprocessed_inputs)
+
+        predictor_augm_dict = self._augm_predictor.predict(feature_maps, preprocessed_inputs)
 
         if self._box_predictor.is_keras_model:
             predictor_results_dict = self._box_predictor(feature_maps)
@@ -397,13 +402,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         # augmentation
         for prediction_augm_key, prediction_augm_list in iter(predictor_augm_dict.items()):
             predictions_dict[prediction_augm_key] = prediction_augm_list
-            # todo FRAGEN
-        ''' 
-        [prediction_augm_key]  are:
-        predictions[BELIEF_O_PREDICTION] = pred_bel_O_clamped 
-        predictions[BELIEF_F_PREDICTION] = pred_bel_F_clamped
-        in u_net_predictor
-        '''  # todo try the clamp function
+
         for prediction_key, prediction_list in iter(predictor_results_dict.items()):
             prediction = tf.concat(prediction_list, axis=1)
             if (prediction_key == 'box_3d_encodings' and prediction.shape.ndims == 6 and
@@ -755,6 +754,8 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             }
 
         return loss_dict
+
+
 
     def _my_weights_label_cert(self, labels, factor):
 

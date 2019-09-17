@@ -12,6 +12,7 @@ BELIEF_F_PREDICTION = beliefs_predictor.BELIEF_F_PREDICTION
 Z_MAX_DETECTIONS_PREDICTION = beliefs_predictor.Z_MAX_DETECTIONS_PREDICTION
 Z_MIN_OBSERVATIONS_PREDICTION = beliefs_predictor.Z_MIN_OBSERVATIONS_PREDICTION
 
+
 class HTPredictor(beliefs_predictor.BeliefPredictor):  #
     """U Net Predictor with weight sharing."""
 
@@ -32,13 +33,13 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
         x = tf.layers.conv2d(x, filters=filters, kernel_size=ksize, strides=stride, padding='same')
         if self._layer_norm:
             x = clayer.layer_norm(x, scale=False)
-        else:
-            x = tf.layers.batch_normalization(x)
+        # else:
+        #     x = tf.layers.batch_normalization(x)
         x = tf.nn.relu(x)
 
         return x
 
-    def _unet_block(self, x, filters, training, ksize, stack_size, name):
+    def _conv_block(self, x, filters, training, ksize, stack_size, name):
         with tf.variable_scope("block_%s" % name):
             for i in range(stack_size):
                 with tf.variable_scope('conv_%i' % i):
@@ -46,13 +47,13 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
             return x
 
     def _4conv3x3_net(self, x, ksize, filter_num_start, outputs_channels):
-        x = self._unet_block(x, filters=filter_num_start, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start, stack_size=1, ksize=ksize,
                              training=self._is_training, name='conv3x3_1')
-        x = self._unet_block(x, filters=filter_num_start/2, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start / 2, stack_size=1, ksize=ksize,
                              training=self._is_training, name='conv3x3_2')
-        x = self._unet_block(x, filters=filter_num_start/4, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start / 4, stack_size=1, ksize=ksize,
                              training=self._is_training, name='conv3x3_3')
-        x = self._unet_block(x, filters=filter_num_start/8, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start / 8, stack_size=1, ksize=ksize,
                              training=self._is_training, name='conv3x3_4')
         x = tf.Print(x, [x], 'after_4x_conv_3x3', summarize=15)
         #
@@ -63,19 +64,11 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
 
         return x
 
-    def _create_upsampling_net(self, x, total_upsampling_level): #outputs_channels
-        # x = tf.Print(x, [x], 'img_features[0]:', summarize=15)
-        # for level in range(total_upsampling_level):
-        #     x = tf.layers.conv2d_transpose(x, filters=int(self._filters / pow(2, level + 2)), kernel_size=3, strides=2,
-        #                                    padding='same', name='level%d_aug_transpose%d' % (total_upsampling_level, level))
-        #     # x = tf.Print(x, [x], 'after_1_conv2dTranspose:', summarize=15)
-        #     # x = tf.layers.conv2d(x, filters=int(self._filters / 4), kernel_size=1, training=self._is_training, name='aug_1x1_1')
-        #     # x = tf.Print(x, [x], 'after_1_%dstacked_%dx%dconv:first10:' % (self._stack_size, self._filters, self._filters)
-        #     #              , summarize=15)
-        #     x = tf.nn.relu(x)
+    def _create_upsampling_net(self, x, total_upsampling_level):  # outputs_channels
 
-        x = tf.layers.conv2d_transpose(x, filters=int(self._filters / pow(2, total_upsampling_level)), kernel_size=3, strides=pow(2,total_upsampling_level),
-                                   padding='same', name='aug_level%d_transpose' % total_upsampling_level)
+        x = tf.layers.conv2d_transpose(x, filters=int(self._filters / pow(2, total_upsampling_level)), kernel_size=3,
+                                       strides=pow(2, total_upsampling_level),
+                                       padding='same', name='aug_level%d_transpose' % total_upsampling_level)
         x = tf.nn.relu(x)
 
         # with tf.variable_scope("end"):
@@ -83,13 +76,20 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
         # x = tf.nn.relu(x)
         return x
 
-    def _predict(self, image_features):
+    def _predict(self, image_features, preprocessed_input=None, scope=None):
         upsampled_level1 = self._create_upsampling_net(image_features[0], 1)
+        print('shape_utils.combined_static_and_dynamic_shape(upsampled_level1)')
+        print(shape_utils.combined_static_and_dynamic_shape(upsampled_level1))
         upsampled_level2 = self._create_upsampling_net(image_features[1], 2)
         upsampled_level3 = self._create_upsampling_net(image_features[2], 3)
         upsampled_level4 = self._create_upsampling_net(image_features[3], 4)
-        concatenated = tf.concat([upsampled_level1, upsampled_level2, upsampled_level3, upsampled_level4], ksize=3,
+        print('shape_utils.combined_static_and_dynamic_shape(upsampled_level4)')
+        print(shape_utils.combined_static_and_dynamic_shape(upsampled_level4))
+
+        concatenated = tf.concat([upsampled_level1, upsampled_level2, upsampled_level3, upsampled_level4], 3,
                                  name='concatenated')
+        print('shape_utils.combined_static_and_dynamic_shape(concatenated)')
+        print(shape_utils.combined_static_and_dynamic_shape(concatenated))
 
         output = self._4conv3x3_net(concatenated, ksize=3, filter_num_start=32, outputs_channels=4)
 
@@ -129,4 +129,3 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
         predictions[Z_MIN_OBSERVATIONS_PREDICTION] = pred_z_min_observations
 
         return predictions
-

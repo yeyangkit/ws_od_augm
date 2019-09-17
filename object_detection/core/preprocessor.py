@@ -471,6 +471,10 @@ def _rot_boxes(box_inclined, angle_rot, rows, cols):
 def random_horizontal_flip(image,
                            boxes=None,
                            boxes_3d=None,
+                           groundtruth_bel_O=None,
+                           groundtruth_bel_F=None,
+                           groundtruth_z_max_detections=None,
+                           groundtruth_z_min_observations=None,
                            seed=None,
                            preprocess_vars_cache=None):
   """Randomly flips the image and detections horizontally.
@@ -546,6 +550,26 @@ def random_horizontal_flip(image,
         boxes_3d = tf.cond(do_a_flip_random, lambda: _flip_boxes_3d_left_right(boxes_3d),
                            lambda: boxes_3d)
         result.append(boxes_3d)
+
+    if groundtruth_bel_O is not None:
+      groundtruth_bel_O = tf.cond(do_a_flip_random, lambda: _flip_image(groundtruth_bel_O),
+                            lambda: groundtruth_bel_O)
+      result.append(groundtruth_bel_O)
+
+    if groundtruth_bel_F is not None:
+      groundtruth_bel_F = tf.cond(do_a_flip_random, lambda: _flip_image(groundtruth_bel_F),
+                            lambda: groundtruth_bel_F)
+      result.append(groundtruth_bel_F)
+
+    if groundtruth_z_max_detections is not None:
+      groundtruth_z_max_detections = tf.cond(do_a_flip_random, lambda: _flip_image(groundtruth_z_max_detections),
+                            lambda: groundtruth_z_max_detections)
+      result.append(groundtruth_z_max_detections)
+
+    if groundtruth_z_min_observations is not None:
+      groundtruth_z_min_observations = tf.cond(do_a_flip_random, lambda: _flip_image(groundtruth_z_min_observations),
+                            lambda: groundtruth_z_min_observations)
+      result.append(groundtruth_z_min_observations)
 
     return tuple(result)
 
@@ -700,6 +724,10 @@ def random_rotation90(image,
 def random_rotation(image,
                     boxes_aligned=None,
                     boxes_inclined=None,
+                    groundtruth_bel_O=None,
+                    groundtruth_bel_F=None,
+                    groundtruth_z_max_detections=None,
+                    groundtruth_z_min_observations=None,
                     seed=None):
 
   def _rot_image(image):
@@ -725,6 +753,22 @@ def random_rotation(image,
       result.append(boxes_aligned)
       boxes_inclined = tf.cond(all_boxes_in_image, lambda: boxes_inclined_rot, lambda: boxes_inclined)
       result.append(boxes_inclined)
+      if groundtruth_bel_O is not None:
+        groundtruth_bel_O = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_bel_O),
+                                    lambda: groundtruth_bel_O)
+        result.append(groundtruth_bel_O)
+      if groundtruth_bel_F is not None:
+        groundtruth_bel_F = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_bel_F),
+                                    lambda: groundtruth_bel_F)
+        result.append(groundtruth_bel_F)
+      if groundtruth_z_max_detections is not None:
+        groundtruth_z_max_detections = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_z_max_detections),
+                                               lambda: groundtruth_z_max_detections)
+        result.append(groundtruth_z_max_detections)
+      if groundtruth_z_min_observations is not None:
+        groundtruth_z_min_observations = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_z_min_observations),
+                                                   lambda: groundtruth_z_min_observations)
+        result.append(groundtruth_z_min_observations)
 
     return tuple(result)
 
@@ -3216,6 +3260,10 @@ def get_default_func_arg_map(include_label_weights=True,
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
+          fields.InputDataFields.groundtruth_bel_O,
+          fields.InputDataFields.groundtruth_bel_F,
+          fields.InputDataFields.groundtruth_z_max_detections,
+          fields.InputDataFields.groundtruth_z_min_observations,
       ),
       random_vertical_flip: (
           fields.InputDataFields.image,
@@ -3229,6 +3277,10 @@ def get_default_func_arg_map(include_label_weights=True,
           fields.InputDataFields.image,
           fields.InputDataFields.groundtruth_boxes,
           fields.InputDataFields.groundtruth_boxes_3d,
+          fields.InputDataFields.groundtruth_bel_O,
+          fields.InputDataFields.groundtruth_bel_F,
+          fields.InputDataFields.groundtruth_z_max_detections,
+          fields.InputDataFields.groundtruth_z_min_observations,
       ),
       random_pixel_value_scale: (fields.InputDataFields.image,),
       random_image_scale: (
@@ -3384,10 +3436,22 @@ def preprocess(tensor_dict,
   # receive rank 3 tensor for image
   if fields.InputDataFields.image in tensor_dict:
     images = tensor_dict[fields.InputDataFields.image]
+    groundtruth_bel_O = tensor_dict[fields.InputDataFields.groundtruth_bel_O]
+    groundtruth_bel_F = tensor_dict[fields.InputDataFields.groundtruth_bel_F]
+    groundtruth_z_max_detections = tensor_dict[fields.InputDataFields.groundtruth_z_max_detections]
+    groundtruth_z_min_observations = tensor_dict[fields.InputDataFields.groundtruth_z_min_observations]
     if len(images.get_shape()) != 4:
       raise ValueError('images in tensor_dict should be rank 4')
     image = tf.squeeze(images, axis=0)
     tensor_dict[fields.InputDataFields.image] = image
+    groundtruth_bel_O = tf.squeeze(groundtruth_bel_O, axis=0)
+    tensor_dict[fields.InputDataFields.groundtruth_bel_O] = groundtruth_bel_O
+    groundtruth_bel_F = tf.squeeze(groundtruth_bel_F, axis=0)
+    tensor_dict[fields.InputDataFields.groundtruth_bel_F] = groundtruth_bel_F
+    groundtruth_z_max_detections = tf.squeeze(groundtruth_z_max_detections, axis=0)
+    tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = groundtruth_z_max_detections
+    groundtruth_z_min_observations = tf.squeeze(groundtruth_z_min_observations, axis=0)
+    tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = groundtruth_z_min_observations
 
   # Preprocess inputs based on preprocess_options
   for option in preprocess_options:
@@ -3423,5 +3487,21 @@ def preprocess(tensor_dict,
     image = tensor_dict[fields.InputDataFields.image]
     images = tf.expand_dims(image, 0)
     tensor_dict[fields.InputDataFields.image] = images
+  if fields.InputDataFields.groundtruth_bel_O in tensor_dict:
+    groundtruth_bel_O = tensor_dict[fields.InputDataFields.groundtruth_bel_O]
+    groundtruth_bel_O = tf.expand_dims(groundtruth_bel_O, 0)
+    tensor_dict[fields.InputDataFields.groundtruth_bel_O] = groundtruth_bel_O
+  if fields.InputDataFields.groundtruth_bel_F in tensor_dict:
+    groundtruth_bel_F = tensor_dict[fields.InputDataFields.groundtruth_bel_F]
+    groundtruth_bel_F = tf.expand_dims(groundtruth_bel_F, 0)
+    tensor_dict[fields.InputDataFields.groundtruth_bel_F] = groundtruth_bel_F
+  if fields.InputDataFields.groundtruth_z_max_detections in tensor_dict:
+    groundtruth_z_max_detections = tensor_dict[fields.InputDataFields.groundtruth_z_max_detections]
+    groundtruth_z_max_detections = tf.expand_dims(groundtruth_z_max_detections, 0)
+    tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = groundtruth_z_max_detections
+  if fields.InputDataFields.groundtruth_z_min_observations in tensor_dict:
+    groundtruth_z_min_observations = tensor_dict[fields.InputDataFields.groundtruth_z_min_observations]
+    groundtruth_z_min_observations = tf.expand_dims(groundtruth_z_min_observations, 0)
+    tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = groundtruth_z_min_observations
 
   return tensor_dict

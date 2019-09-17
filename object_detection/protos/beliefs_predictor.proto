@@ -8,10 +8,9 @@ import "object_detection/protos/hyperparams.proto";
 message BeliefsPredictor {
     optional Hyperparams conv_hyperparams = 1;
 
-    optional bool layer_norm = 2 [default = false];
-    optional int32 stack_size = 3 [default = 4];
-    optional int32 kernel_size = 4 [default = 3];
-    optional int32 filters = 5 [default = 128];
-
-
+    optional string predictor = 2 [default = "u_net"]; // "u_net", "upsampling", "hybrid_task_cascade"
+    optional bool layer_norm = 3 [default = false];
+    optional int32 stack_size = 4 [default = 4];
+    optional int32 kernel_size = 5 [default = 3];
+    optional int32 filters = 6 [default = 128];
 }
