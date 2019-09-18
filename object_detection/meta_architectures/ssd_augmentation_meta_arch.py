@@ -735,8 +735,9 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                        + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.)
                 L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
 
-                augmentation_loss = L1
-                augmentation_loss_print = tf.Print(L1, [L1], message="AUGMENTATION Loss L1")
+                augmentation_loss = L1 * self._factor_loss_augm
+                augmentation_loss = tf.Print(augmentation_loss, [augmentation_loss],
+                                             message="AUGMENTATION Loss L1 * factor_loss_augm %f  :" % self._factor_loss_augm)
 
             tf.summary.image('pred_bel_O', pred_bel_O)
             tf.summary.image('pred_bel_F', pred_bel_F)
@@ -750,12 +751,10 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             loss_dict = {
                 'Loss/localization_loss': localization_loss,
                 'Loss/classification_loss': classification_loss,
-                'Loss/augmentation_loss': augmentation_loss * self._factor_loss_augm
+                'Loss/augmentation_loss': augmentation_loss
             }
 
         return loss_dict
-
-
 
     def _my_weights_label_cert(self, labels, factor):
 

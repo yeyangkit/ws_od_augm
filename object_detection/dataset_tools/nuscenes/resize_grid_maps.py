@@ -1,7 +1,7 @@
 import glob
 import sys
-sys.path.remove('/opt/mrtsoftware/release/lib/python2.7/dist-packages')
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+# sys.path.remove('/opt/mrtsoftware/release/lib/python2.7/dist-packages')
+# sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 import os
 

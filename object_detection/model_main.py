@@ -130,7 +130,7 @@ def main(unused_argv):
 
     copyfile(
         '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
-        os.path.join(FLAGS.model_dir + '/.py'))
+        os.path.join(FLAGS.model_dir + '/u_net_predictor.py'))
     copyfile(
         '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
         os.path.join(FLAGS.model_dir + '/upsampling_predictor.py'))

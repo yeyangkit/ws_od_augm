@@ -47,7 +47,7 @@ class UNetPredictor(beliefs_predictor.BeliefPredictor):
             return x
 
     def _create_net(self, x, short_cut, outputs_channels):
-        x = tf.Print(x, [x], 'img_features[0]:', summarize=15)
+        # x = tf.Print(x, [x], 'img_features[0]:', summarize=15)
 
         x = self._conv_block(x, filters=int(self._filters / 2), stack_size=1, ksize=1,
                              name="augm_conv_relu_before_transpose")

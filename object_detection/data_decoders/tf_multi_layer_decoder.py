@@ -259,7 +259,7 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         del use_display_name
         self.keys_to_features = {
             'id': tf.FixedLenFeature((), tf.string, default_value=''),
-            'image/format': tf.FixedLenFeature((), tf.string, default_value='png')
+            'image/format': tf.FixedLenFeature((), tf.string, default_value='png'),
             'image/filename':
                 tf.FixedLenFeature((), tf.string, default_value=''),
             'image/key/sha256':
@@ -473,7 +473,7 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         is_crowd = fields.InputDataFields.groundtruth_is_crowd
         tensor_dict[is_crowd] = tf.cast(tensor_dict[is_crowd], dtype=tf.bool)
         tensor_dict[fields.InputDataFields.image].set_shape([None, None, self._num_input_channels])
-        print("shape is () = " + str(tensor_dict[fields.InputDataFields.groundtruth_bel_O].shape))n
+        print("shape is () = " + str(tensor_dict[fields.InputDataFields.groundtruth_bel_O].shape))
         '''ValueError: Can't concatenate scalars (use tf.stack instead) for 'concat_10' (op: 'ConcatV2') with input shapes: [], [], [].'''
         # tensor_dict[fields.InputDataFields.groundtruth_bel_O].set_shape([None, None, self._num_input_channels]) #   augmentation label
         # tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, self._num_input_channels]) #   augmentation label
