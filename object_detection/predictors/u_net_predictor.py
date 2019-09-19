@@ -68,6 +68,59 @@ class UNetPredictor(beliefs_predictor.BeliefPredictor):
 
         return x
 
+    # # Custom loss layer
+    # class CustomMultiLossLayer(Layer):
+    #     def __init__(self, nb_outputs=2, **kwargs):
+    #         self.nb_outputs = nb_outputs
+    #         self.is_placeholder = True
+    #         super(CustomMultiLossLayer, self).__init__(**kwargs)
+    #
+    #     def build(self, input_shape=None):
+    #         # initialise log_vars
+    #         self.log_vars = []
+    #         for i in range(self.nb_outputs):
+    #             self.log_vars += [self.add_weight(name='log_var' + str(i), shape=(1,),
+    #                                               initializer=Constant(0.), trainable=True)]
+    #         super(CustomMultiLossLayer, self).build(input_shape)
+    #
+    #     def multi_loss(self, ys_true, ys_pred):
+    #         assert len(ys_true) == self.nb_outputs and len(ys_pred) == self.nb_outputs
+    #         loss = 0
+    #         for y_true, y_pred, log_var in zip(ys_true, ys_pred, self.log_vars):
+    #             precision = K.exp(-log_var[0])
+    #             loss += K.sum(precision * (y_true - y_pred) ** 2. + log_var[0], -1)
+    #         return K.mean(loss)
+    #
+    #     def call(self, inputs):
+    #         ys_true = inputs[:self.nb_outputs]
+    #         ys_pred = inputs[self.nb_outputs:]
+    #         loss = self.multi_loss(ys_true, ys_pred)
+    #         self.add_loss(loss, inputs=inputs)
+    #         # We won't actually use the output.
+    #         return K.concatenate(inputs, -1)
+    #
+    # def get_prediction_model():
+    #     inp = Input(shape=(Q,), name='inp')
+    #     x = Dense(nb_features, activation='relu')(inp)
+    #     y1_pred = Dense(D1)(x)
+    #     y2_pred = Dense(D2)(x)
+    #     return Model(inp, [y1_pred, y2_pred])
+    #
+    # def get_trainable_model(prediction_model):
+    #     inp = Input(shape=(Q,), name='inp')
+    #     y1_pred, y2_pred = prediction_model(inp)
+    #     y1_true = Input(shape=(D1,), name='y1_true')
+    #     y2_true = Input(shape=(D2,), name='y2_true')
+    #     out = CustomMultiLossLayer(nb_outputs=2)([y1_true, y2_true, y1_pred, y2_pred])
+    #     return Model([inp, y1_true, y2_true], out)
+    #
+    # prediction_model = get_prediction_model()
+    # trainable_model = get_trainable_model(prediction_model)
+    # trainable_model.compile(optimizer='adam', loss=None)
+    # assert len(trainable_model.layers[-1].trainable_weights) == 2  # two log_vars, one for each output
+    # assert len(trainable_model.losses) == 1
+
+
     def _predict(self, image_features, preprocessed_input, scope=None):
 
         input = image_features[0]

@@ -706,10 +706,6 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                                               name='classification_loss')
 
             # augmentation
-            # todo fragen why enum
-            '''            flow_enum = enumerate(zip(prediction_dict['flow_pyramid_fw'],
-                                      prediction_dict['flow_pyramid_bw']))
-            '''
             pred_z_max_detections = prediction_dict['z_max_detections_prediction']
             pred_z_min_observations = prediction_dict['z_min_observations_prediction']
             pred_bel_F = prediction_dict['belief_F_prediction']
