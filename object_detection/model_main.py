@@ -188,7 +188,7 @@ def main(unused_argv):
         # Currently only a single Eval Spec is allowed.
         tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
 
-    email_sender = EmailSender()
+    # email_sender = EmailSender()
 
 
 if __name__ == '__main__':

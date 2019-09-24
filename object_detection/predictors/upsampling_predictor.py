@@ -48,7 +48,7 @@ class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
             return x
 
     def _create_net(self, x, outputs_channels):
-        x = tf.Print(x, [x], 'img_features[0]:', summarize=15)
+        # x = tf.Print(x, [x], 'img_features[0]:', summarize=15)
         x = self._unet_block(x, filters=int(self._filters / 2), stack_size=1, ksize=1, training=self._is_training,
                              name="augm_conv_block1")
         x = tf.layers.conv2d_transpose(x, filters=int(self._filters / 4), kernel_size=self._kernel_size, strides=2,
@@ -84,30 +84,19 @@ class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
     def _predict(self, image_features, preprocessed_input=None, scope=None):
 
         input = image_features[0]
-        tf.summary.image('image_feature_maps[0]', input)
-        print(shape_utils.combined_static_and_dynamic_shape(image_features[0]))
 
         output = self._create_net(input, outputs_channels=4)
         # pred_bel_F = tf.slice(output, begin=[0, 0, 0, 0], size=[-1, -1, -1, 1])
         # pred_bel_O = tf.slice(output, begin=[0, 0, 0, 1], size=[-1, -1, -1, 1])
-        print('shape_utils.combined_static_and_dynamic_shape(output)')
-        print(shape_utils.combined_static_and_dynamic_shape(output))
+        # print('shape_utils.combined_static_and_dynamic_shape(output)')
+        # print(shape_utils.combined_static_and_dynamic_shape(output))
 
         pred_bel_F = tf.expand_dims(output[:, :, :, 0], axis=3)
         pred_bel_O = tf.expand_dims(output[:, :, :, 1], axis=3)
-        print('shape_utils.combined_static_and_dynamic_shape(pred_bel_O)')
-        print(shape_utils.combined_static_and_dynamic_shape(pred_bel_O))
+
         pred_z_max_detections = tf.expand_dims(output[:, :, :, 2], axis=3)
         pred_z_min_observations = tf.expand_dims(output[:, :, :, 3], axis=3)
-        # tf.summary.image('predicted_bel_F_before_clamping', pred_bel_F)
-        # with tf.name_scope("clamping"):
-        #     pred_bel_F_clamped = tf.maximum(tf.minimum(pred_bel_F, 1), 0)
-        #     pred_bel_O_clamped = tf.maximum(tf.minimum(pred_bel_O, 1), 0)
-        # pred_bel_F_clamped = tf.clamp
-        # pred_bel_F, 1), 0)
-        # pred_bel_O_clamped = tf.maximum(tf.minimum(pred_bel_O, 1), 0)
-        # predictions[BELIEF_O_PREDICTION] = pred_bel_O_clamped
-        # predictions[BELIEF_F_PREDICTION] = pred_bel_F_clamped
+
 
         predictions = {
             BELIEF_O_PREDICTION: [],
