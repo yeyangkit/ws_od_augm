@@ -97,10 +97,10 @@ FLAGS = flags.FLAGS
 #         server.sendmail(sender_email, receiver_email, message)
 
 def main(unused_argv):
-    # sys.path.append('/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map')
-    # sys.path.append('/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/slim')
+    # sys.path.append('/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map')
+    # sys.path.append('/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/slim')
     os.system(
-        'export PYTHONPATH=/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map:/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/slim')
+        'export PYTHONPATH=/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map:/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/slim')
     print("=================    system path     =================\n" + str(
         sys.path) + "\n=================       ===================\n")
     # sleep(15000)
@@ -125,17 +125,17 @@ def main(unused_argv):
     copyfile(FLAGS.pipeline_config_path, os.path.join(FLAGS.model_dir + '/correspondingPipelineConfig.config'))
 
     copyfile(
-        '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
+        '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
         os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
 
     copyfile(
-        '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
+        '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
         os.path.join(FLAGS.model_dir + '/u_net_predictor.py'))
     copyfile(
-        '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
+        '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
         os.path.join(FLAGS.model_dir + '/upsampling_predictor.py'))
     copyfile(
-        '/mrtstorage/users/students/yeyang/ws/ws_od/tensorflow_grid_map/object_detection/predictors/ht_predictor.py',
+        '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/ht_predictor.py',
         os.path.join(FLAGS.model_dir + '/ht_predictor.py'))
 
     sess_config = tf.ConfigProto()

@@ -52,7 +52,7 @@ class TargetAssigner(object):
                box_coder,
                negative_class_weight=1.0,
                increse_small_object_size=False,
-               specific_threshold=True, # todo question
+               specific_threshold=False,
                threshold_offset=0.2):
     """Construct Object Detection Target Assigner.
 
