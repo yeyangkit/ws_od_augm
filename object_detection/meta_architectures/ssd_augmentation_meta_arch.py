@@ -384,9 +384,9 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             'anchors': self._anchors.get()
         }
         # grid maps augmentation
-        print("-------------------------------------feature_maps")
+        print("\n-------------------------------------feature_maps:")
         print(feature_maps)
-        print("-------------------------------------preprocessed_inputs")
+        print("\n-------------------------------------preprocessed_inputs:")
         print(preprocessed_inputs)
 
         predictor_augm_dict = self._augm_predictor.predict(feature_maps, preprocessed_inputs)

@@ -63,8 +63,8 @@ class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
         #              , summarize=15)
 
 
-        # x = tf.layers.conv2d_transpose(x, filters=int(self._filters / 8), kernel_size=self._kernel_size, strides=2,
-        #                                padding='same')
+        x = tf.layers.conv2d_transpose(x, filters=int(self._filters / 8), kernel_size=self._kernel_size, strides=2,
+                                       padding='same')
         # x = tf.Print(x, [x], 'after_2_conv2dTranspose:', summarize=15)
 
 

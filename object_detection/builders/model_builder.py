@@ -155,6 +155,23 @@ def _build_ssd_feature_extractor(feature_extractor_config,
     store_non_strided_activations = feature_extractor_config.store_non_strided_activations
     recompute_grad = feature_extractor_config.recompute_grad
 
+    # Check validity of fpn levels
+    fpn_min_level = feature_extractor_config.fpn.min_level
+    # root_downsampling_rate = feature_extractor_config.root_downsampling_rate
+    # store_non_strided_activations = feature_extractor_config.store_non_strided_activations
+    if root_downsampling_rate not in [1, 2]:
+        raise ValueError('Root downampling rate must be 1 or 2.')
+    if fpn_min_level == 0:
+        if root_downsampling_rate != 1 or not store_non_strided_activations:
+            raise ValueError('Configuration of FPN levels is invalid')
+    elif fpn_min_level == 1:
+        if (root_downsampling_rate == 2 and not store_non_strided_activations) or (root_downsampling_rate == 1 and
+                                                                                   store_non_strided_activations):
+            raise ValueError('Configuration of FPN levels is invalid')
+    elif fpn_min_level == 2:
+        if root_downsampling_rate != 2 or store_non_strided_activations:
+            raise ValueError('Configuration of FPN levels is invalid')
+
     if is_keras_extractor:
         conv_hyperparams = hyperparams_builder.KerasLayerHyperparams(
             feature_extractor_config.conv_hyperparams)

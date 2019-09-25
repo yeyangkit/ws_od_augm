@@ -46,20 +46,22 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
                     x = self._conv_bn_relu(x, filters=filters, ksize=ksize, stride=1)
             return x
 
-    def _4conv3x3_net(self, x, ksize, filter_num_start, outputs_channels):
-        x = self._conv_block(x, filters=filter_num_start, stack_size=1, ksize=ksize,
+    def _conv3x3_net(self, x, ksize, stackSize, filter_num_start, outputs_channels):
+        x = self._conv_block(x, filters=filter_num_start, stack_size=stackSize, ksize=ksize,
                              training=self._is_training, name='conv3x3_1')
-        x = self._conv_block(x, filters=filter_num_start / 2, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start / 2, stack_size=stackSize, ksize=ksize,
                              training=self._is_training, name='conv3x3_2')
-        x = self._conv_block(x, filters=filter_num_start / 4, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start / 4, stack_size=stackSize, ksize=ksize,
                              training=self._is_training, name='conv3x3_3')
-        x = self._conv_block(x, filters=filter_num_start / 8, stack_size=1, ksize=ksize,
+        x = self._conv_block(x, filters=filter_num_start / 8, stack_size=stackSize, ksize=ksize,
                              training=self._is_training, name='conv3x3_4')
-        x = tf.Print(x, [x], 'after_4x_conv_3x3', summarize=15)
+        x = self._conv_block(x, filters=filter_num_start / 16, stack_size=stackSize, ksize=ksize,
+                             training=self._is_training, name='conv3x3_5')
+        # x = tf.Print(x, [x], 'after_4x_conv_3x3', summarize=15)
         #
         # End
         with tf.variable_scope("end"):
-            x = tf.layers.conv2d(x, filters=outputs_channels, kernel_size=self._kernel_size, strides=1, padding='same')
+            x = tf.layers.conv2d(x, filters=outputs_channels, kernel_size=1, strides=1, padding='same')
             x = tf.nn.relu(x)
 
         return x
@@ -76,31 +78,31 @@ class HTPredictor(beliefs_predictor.BeliefPredictor):  #
         # x = tf.nn.relu(x)
         return x
 
-    def _predict(self, image_features, preprocessed_input=None, scope=None):
+    def _predict(self, image_features, preprocessed_input, scope=None):
         upsampled_level1 = self._create_upsampling_net(image_features[0], 1)
-        print('shape_utils.combined_static_and_dynamic_shape(upsampled_level1)')
-        print(shape_utils.combined_static_and_dynamic_shape(upsampled_level1))
+        # print('shape_utils.combined_static_and_dynamic_shape(upsampled_level1)')
+        # print(shape_utils.combined_static_and_dynamic_shape(upsampled_level1))
         upsampled_level2 = self._create_upsampling_net(image_features[1], 2)
         upsampled_level3 = self._create_upsampling_net(image_features[2], 3)
         upsampled_level4 = self._create_upsampling_net(image_features[3], 4)
-        print('shape_utils.combined_static_and_dynamic_shape(upsampled_level4)')
-        print(shape_utils.combined_static_and_dynamic_shape(upsampled_level4))
+        # print('shape_utils.combined_static_and_dynamic_shape(upsampled_level4)')
+        # print(shape_utils.combined_static_and_dynamic_shape(upsampled_level4))
 
-        concatenated = tf.concat([upsampled_level1, upsampled_level2, upsampled_level3, upsampled_level4], 3,
+        concatenated = tf.concat([preprocessed_input, upsampled_level1, upsampled_level2, upsampled_level3, upsampled_level4], 3,
                                  name='concatenated')
         print('shape_utils.combined_static_and_dynamic_shape(concatenated)')
         print(shape_utils.combined_static_and_dynamic_shape(concatenated))
 
-        output = self._4conv3x3_net(concatenated, ksize=3, filter_num_start=32, outputs_channels=4)
+        output = self._conv3x3_net(concatenated, ksize=3, stackSize=3, filter_num_start=128, outputs_channels=4)
 
-        print('shape_utils.combined_static_and_dynamic_shape(output)')
-        print(shape_utils.combined_static_and_dynamic_shape(output))
+        # print('shape_utils.combined_static_and_dynamic_shape(output)')
+        # print(shape_utils.combined_static_and_dynamic_shape(output))
 
         pred_bel_F = tf.expand_dims(output[:, :, :, 0], axis=3)
         pred_bel_O = tf.expand_dims(output[:, :, :, 1], axis=3)
 
-        print('shape_utils.combined_static_and_dynamic_shape(pred_bel_O)')
-        print(shape_utils.combined_static_and_dynamic_shape(pred_bel_O))
+        # print('shape_utils.combined_static_and_dynamic_shape(pred_bel_O)')
+        # print(shape_utils.combined_static_and_dynamic_shape(pred_bel_O))
 
         pred_z_max_detections = tf.expand_dims(output[:, :, :, 2], axis=3)
         pred_z_min_observations = tf.expand_dims(output[:, :, :, 3], axis=3)
