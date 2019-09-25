@@ -310,7 +310,7 @@ class Box3dList(object):
 
 
   def convert_to_boxlist(self, scope=None):
-    with tf.name_scope(scope, 'convert_to_boxlist_2d'):
+    with tf.name_scope(scope, 'convert_to_boxlist'): # todo sep24 delete 2d
       x, y, w, h, sin_angle, cos_angle = tf.split(value=self.get(), num_or_size_splits=6, axis=1)
       angle = tf.atan2(sin_angle, cos_angle) / 2
 

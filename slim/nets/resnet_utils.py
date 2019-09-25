@@ -137,11 +137,60 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
     return slim.conv2d(inputs, num_outputs, kernel_size, stride=stride,
                        rate=rate, padding='VALID', scope=scope)
 
+def conv2d_same_act(inputs, num_outputs, kernel_size, stride, rate=1, activation_fn=None, scope=None):
+  """Strided 2-D convolution with 'SAME' padding and variable activation function.
+
+  When stride > 1, then we do explicit zero-padding, followed by conv2d with
+  'VALID' padding.
+
+  Note that
+
+     net = conv2d_same(inputs, num_outputs, 3, stride=stride)
+
+  is equivalent to
+
+     net = slim.conv2d(inputs, num_outputs, 3, stride=1, padding='SAME')
+     net = subsample(net, factor=stride)
+
+  whereas
+
+     net = slim.conv2d(inputs, num_outputs, 3, stride=stride, padding='SAME')
+
+  is different when the input's height or width is even, which is why we add the
+  current function. For more details, see ResnetUtilsTest.testConv2DSameEven().
+
+  Args:
+    inputs: A 4-D tensor of size [batch, height_in, width_in, channels].
+    num_outputs: An integer, the number of output filters.
+    kernel_size: An int with the kernel_size of the filters.
+    stride: An integer, the output stride.
+    rate: An integer, rate for atrous convolution.
+    scope: Scope.
+
+  Returns:
+    output: A 4-D tensor of size [batch, height_out, width_out, channels] with
+      the convolution output.
+  """
+  if stride == 1:
+    return slim.conv2d(inputs, num_outputs, kernel_size, stride=1, rate=rate,
+                       padding='SAME', activation_fn=activation_fn, scope=scope)
+  else:
+    kernel_size_effective = kernel_size + (kernel_size - 1) * (rate - 1)
+    pad_total = kernel_size_effective - 1
+    pad_beg = pad_total // 2
+    pad_end = pad_total - pad_beg
+    inputs = tf.pad(inputs,
+                    [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]])
+    return slim.conv2d(inputs, num_outputs, kernel_size, stride=stride,
+                       rate=rate, padding='VALID', activation_fn=activation_fn, scope=scope)
+
+
 
 @slim.add_arg_scope
 def stack_blocks_dense(net, blocks, output_stride=None,
                        store_non_strided_activations=False,
                        max_pool_subsample=False,
+                       recompute_grad=False,
                        outputs_collections=None):
   """Stacks ResNet `Blocks` and controls output feature density.
 
@@ -209,11 +258,11 @@ def stack_blocks_dense(net, blocks, output_stride=None,
           # atrous convolution with stride=1 and multiply the atrous rate by the
           # current unit's stride for use in subsequent layers.
           if output_stride is not None and current_stride == output_stride:
-            net = block.unit_fn(net, rate=rate, **dict(unit, stride=1))
+            net = block.unit_fn(net, rate=rate, recompute_grad=recompute_grad, **dict(unit, stride=1))
             rate *= unit.get('stride', 1)
 
           else:
-            net = block.unit_fn(net, rate=1, **unit)
+            net = block.unit_fn(net, rate=1, recompute_grad=recompute_grad, **unit)
             current_stride *= unit.get('stride', 1)
             if output_stride is not None and current_stride > output_stride:
               raise ValueError('The target output_stride cannot be reached.')

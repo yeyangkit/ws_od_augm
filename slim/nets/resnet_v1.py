@@ -81,6 +81,7 @@ def bottleneck(inputs,
                depth_bottleneck,
                stride,
                rate=1,
+               recompute_grad=False,
                outputs_collections=None,
                scope=None,
                use_bounded_activations=False):
@@ -145,6 +146,7 @@ def building_block(inputs,
                    rate=1,
                    outputs_collections=None,
                    scope=None,
+                   recompute_grad=False,
                    use_bounded_activations=False):
   """Bottleneck residual unit variant with BN after convolutions.
 
@@ -171,28 +173,35 @@ def building_block(inputs,
     The ResNet unit's output.
   """
   with tf.variable_scope(scope, 'block_v1', [inputs]) as sc:
-    depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank=4)
-    if depth == depth_in:
-      shortcut = resnet_utils.subsample(inputs, stride, 'shortcut')
-    else:
-      shortcut = slim.conv2d(
-          inputs,
-          depth, [1, 1],
-          stride=stride,
-          activation_fn=tf.nn.relu6 if use_bounded_activations else None,
-          scope='shortcut')
 
-    residual = resnet_utils.conv2d_same(inputs, depth, 3, stride=1, rate=rate,
-                                        scope='conv1')
-    residual = resnet_utils.conv2d_same(residual, depth, 3, stride=stride, rate=rate,
-                                        scope='conv2')
+    def _building_block(inputs):
+      depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank=4)
+      if depth == depth_in:
+        shortcut = resnet_utils.subsample(inputs, stride, 'shortcut')
+      else:
+        shortcut = slim.conv2d(
+            inputs,
+            depth, [1, 1],
+            stride=stride,
+            activation_fn=tf.nn.relu6 if use_bounded_activations else None,
+            scope='shortcut')
 
-    if use_bounded_activations:
-      # Use clip_by_value to simulate bandpass activation.
-      residual = tf.clip_by_value(residual, -6.0, 6.0)
-      output = tf.nn.relu6(shortcut + residual)
-    else:
-      output = tf.nn.relu(shortcut + residual)
+      residual = resnet_utils.conv2d_same(inputs, depth, 3, stride=1, rate=rate,
+                                          scope='conv1')
+      residual = resnet_utils.conv2d_same_act(residual, depth, 3, stride=stride, rate=rate,
+                                              scope='conv2')
+
+      if use_bounded_activations:
+        # Use clip_by_value to simulate bandpass activation.
+        residual = tf.clip_by_value(residual, -6.0, 6.0)
+        output = tf.nn.relu6(shortcut + residual)
+      else:
+        output = tf.nn.relu(shortcut + residual)
+      return output
+
+    if recompute_grad:
+      _building_block = tf.contrib.layers.recompute_grad(_building_block)
+    output = _building_block(inputs)
 
     return slim.utils.collect_named_outputs(outputs_collections,
                                             sc.name,
@@ -206,7 +215,8 @@ def resnet_v1(inputs,
               sparse_dense_branch=False,
               global_pool=True,
               output_stride=None,
-              include_root_block=True,
+              # include_root_block=True,
+              recompute_grad=False,
               spatial_squeeze=True,
               store_non_strided_activations=False,
               max_pool_subsample=False,
@@ -282,7 +292,7 @@ def resnet_v1(inputs,
   Raises:
     ValueError: If the target output_stride is not valid.
   """
-  with tf.variable_scope(scope, 'resnet_v1', [inputs], reuse=reuse) as sc:
+  with tf.variable_scope(scope, 'resnet_v1', [inputs], reuse=reuse, use_resource=True) as sc:
     end_points_collection = sc.original_name_scope + '_end_points'
     with slim.arg_scope([slim.conv2d, bottleneck,
                          resnet_utils.stack_blocks_dense],
@@ -290,43 +300,44 @@ def resnet_v1(inputs,
       with (slim.arg_scope([slim.batch_norm], is_training=is_training)
             if is_training is not None else NoOpScope()):
         net = inputs
-        if include_root_block:
-          if output_stride is not None:
-            if output_stride % 4 != 0:
-              raise ValueError('The output_stride needs to be a multiple of 4.')
-            output_stride /= 4
-          net = resnet_utils.conv2d_same(net, 64, 7, stride=2, scope='conv1')
-          net = slim.max_pool2d(net, [3, 3], stride=2, scope='pool1')
-        else:
-          if root_downsampling_rate not in [1, 2]:
-            raise ValueError('If the original root block is not used, the root downampling rate must be 1 or 2.')
+        if output_stride is not None:
+          if output_stride % 4 != 0:
+            raise ValueError('The output_stride needs to be a multiple of 4.')
+          output_stride /= 4
+
+        def _root_block(net):
           if depthwise_convolution:
             if sparse_dense_branch:
               sparse_list = []
               dense_list = []
               for i, sparsity in enumerate(sparsity_type):
-                subnet = net[:, :, :, i:(i+1)]
+                subnet = net[:, :, :, i:(i + 1)]
                 if sparsity:
                   sparse_list.append(subnet)
                 else:
                   dense_list.append(subnet)
-              sparse_net = tf.concat(sparse_list, axis=3)
-              dense_net = tf.concat(dense_list, axis=3)
-              sparse_net = resnet_utils.conv2d_same(sparse_net, 32, 3, stride=1, scope='sparse_conv1')
-              dense_net = resnet_utils.conv2d_same(dense_net, 16, 3, stride=1, scope='dense_conv1')
-              net = tf.concat([sparse_net, dense_net], axis=3)
-              net = resnet_utils.conv2d_same(net, 64, 3, stride=1, scope='conv3')
-              net = resnet_utils.conv2d_same(net, 64, 3, stride=root_downsampling_rate, scope='conv4')
+                sparse_net = tf.concat(sparse_list, axis=3)
+                dense_net = tf.concat(dense_list, axis=3)
+                sparse_net = resnet_utils.conv2d_same(sparse_net, 32, 3, stride=1, scope='sparse_conv1')
+                dense_net = resnet_utils.conv2d_same(dense_net, 16, 3, stride=1, scope='dense_conv1')
+                net = tf.concat([sparse_net, dense_net], axis=3)
+                net = resnet_utils.conv2d_same(net, 64, 3, stride=1, scope='conv3')
+                net = resnet_utils.conv2d_same(net, 64, 3, stride=root_downsampling_rate, scope='conv4')
             else:
               net = slim.separable_conv2d(net, num_outputs=64, kernel_size=3, depth_multiplier=8, scope='conv1_1')
               net = resnet_utils.conv2d_same(net, 64, 3, stride=root_downsampling_rate, scope='conv1_2')
           else:
             net = resnet_utils.conv2d_same(net, 32, 3, stride=1, scope='conv1_1')
             net = resnet_utils.conv2d_same(net, 64, 3, stride=root_downsampling_rate, scope='conv1_2')
+          return net
 
+        if recompute_grad:
+          _root_block = tf.contrib.layers.recompute_grad(_root_block)
+        net = _root_block(net)
         net = resnet_utils.stack_blocks_dense(net, blocks, output_stride,
                                               store_non_strided_activations,
-                                              max_pool_subsample)
+                                              max_pool_subsample,
+                                              recompute_grad)
         # Convert end_points_collection into a dictionary of end_points.
         end_points = slim.utils.convert_collection_to_dict(
             end_points_collection)
@@ -371,7 +382,7 @@ def resnet_v1_block(scope, base_depth, num_units, stride):
   }])
 
 def resnet_v1_base_block(scope, base_depth, num_units, stride):
-  """Helper function for creating a resnet_v1 bottleneck block.
+  """Helper function for creating a resnet_v1 base block.
 
   Args:
     scope: The scope of the block.
@@ -381,7 +392,7 @@ def resnet_v1_base_block(scope, base_depth, num_units, stride):
       All other units have stride=1.
 
   Returns:
-    A resnet_v1 bottleneck block.
+    A resnet_v1 base block.
   """
 
   return resnet_utils.Block(scope, building_block, [{
@@ -398,14 +409,19 @@ def resnet_v1_18(inputs,
                  global_pool=True,
                  output_stride=None,
                  spatial_squeeze=True,
-                 include_root_block=True,
+                 # include_root_block=True,
                  store_non_strided_activations=False,
                  max_pool_subsample=False,
                  depthwise_convolution=False,
                  root_downsampling_rate=2,
+                 recompute_grad=False,
                  reuse=None,
                  scope='resnet_v1_18'):
   """ResNet-18 model of [1]. See resnet_v1() for arg and return description."""
+  # depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_base_block('block1', base_depth=64, num_units=2, stride=2),
       resnet_v1_base_block('block2', base_depth=128, num_units=2, stride=2),
@@ -414,11 +430,12 @@ def resnet_v1_18(inputs,
   ]
   return resnet_v1(inputs, blocks, num_classes, is_training,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=include_root_block,
+                   # include_root_block=include_root_block,
                    depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    max_pool_subsample=max_pool_subsample,
                    root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_18.default_image_size = resnet_v1.default_image_size
 
@@ -428,7 +445,8 @@ def resnet_v1_34(inputs,
                  global_pool=True,
                  output_stride=None,
                  spatial_squeeze=True,
-                 include_root_block=True,
+                 # include_root_block=True,
+                 recompute_grad=False,
                  store_non_strided_activations=False,
                  max_pool_subsample=False,
                  depthwise_convolution=False,
@@ -436,19 +454,23 @@ def resnet_v1_34(inputs,
                  reuse=None,
                  scope='resnet_v1_34'):
   """ResNet-34 model of [1]. See resnet_v1() for arg and return description."""
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_base_block('block1', base_depth=64, num_units=3, stride=2),
       resnet_v1_base_block('block2', base_depth=128, num_units=4, stride=2),
       resnet_v1_base_block('block3', base_depth=256, num_units=6, stride=2),
-      resnet_v1_base_block('block4', base_depth=512, num_units=3, stride=1),
+      resnet_v1_base_block('block4', base_depth=512, num_units=3, stride=last_block_stride),
   ]
   return resnet_v1(inputs, blocks, num_classes, is_training,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=include_root_block,
+                   # include_root_block=include_root_block,
                    depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    max_pool_subsample=max_pool_subsample,
                    root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_34.default_image_size = resnet_v1.default_image_size
 
@@ -460,17 +482,19 @@ def resnet_v1_50(inputs,
                  global_pool=True,
                  output_stride=None,
                  spatial_squeeze=True,
-                 include_root_block=True,
+                 # include_root_block=True,
                  store_non_strided_activations=False,
                  max_pool_subsample=False,
                  depthwise_convolution=False,
                  root_downsampling_rate=2,
-                 min_base_depth=8,
-                 depth_multiplier=1,
+                 recompute_grad=False,
                  reuse=None,
                  scope='resnet_v1_50'):
   """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
-  depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  # depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_block('block1', base_depth=depth_func(64), num_units=3,
                       stride=2),
@@ -479,16 +503,17 @@ def resnet_v1_50(inputs,
       resnet_v1_block('block3', base_depth=depth_func(256), num_units=6,
                       stride=2),
       resnet_v1_block('block4', base_depth=depth_func(512), num_units=3,
-                      stride=1),
+                      stride=last_block_stride),
   ]
   return resnet_v1(inputs, sparsity_type, blocks, num_classes, is_training,
                    sparse_dense_branch=sparse_dense_branch,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=include_root_block,
+                   # include_root_block=include_root_block,
                    depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    max_pool_subsample=max_pool_subsample,
                    root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_50.default_image_size = resnet_v1.default_image_size
 
@@ -507,10 +532,14 @@ def resnet_v1_50_late_downsample(inputs,
                                  root_downsampling_rate=2,
                                  min_base_depth=8,
                                  depth_multiplier=1,
+                                 recompute_grad=False,
                                  reuse=None,
                                  scope='resnet_v1_50'):
   """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
   depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_block('block1', base_depth=depth_func(64), num_units=3,
                       stride=1),
@@ -519,15 +548,16 @@ def resnet_v1_50_late_downsample(inputs,
       resnet_v1_block('block3', base_depth=depth_func(256), num_units=6,
                       stride=2),
       resnet_v1_block('block4', base_depth=depth_func(512), num_units=3,
-                      stride=1),
+                      stride=last_block_stride),
   ]
   return resnet_v1(inputs, sparsity_type, blocks, num_classes, is_training,
                    sparse_dense_branch=sparse_dense_branch,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=include_root_block,
+                   # include_root_block=include_root_block,
                    depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    max_pool_subsample=max_pool_subsample,
+                   recompute_grad=recompute_grad,
                    root_downsampling_rate=root_downsampling_rate,
                    reuse=reuse, scope=scope)
 resnet_v1_50_late_downsample.default_image_size = resnet_v1.default_image_size
@@ -540,83 +570,95 @@ def resnet_v1_50_lightweight(inputs,
                              global_pool=True,
                              output_stride=None,
                              spatial_squeeze=True,
-                             include_root_block=True,
+                             # include_root_block=True,
                              store_non_strided_activations=False,
                              max_pool_subsample=False,
                              depthwise_convolution=False,
                              root_downsampling_rate=2,
-                             min_base_depth=8,
-                             depth_multiplier=1,
+                             # min_base_depth=8,
+                             # depth_multiplier=1,
+                             recompute_grad=False,
                              reuse=None,
                              scope='resnet_v1_50'):
   """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
-  depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  # depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
   last_stride = 1
   if not store_non_strided_activations:
     last_stride = 2
+  # blocks = [
+  #     resnet_v1_block('block1', base_depth=depth_func(32), num_units=3,
+  #                     stride=2),
+  #     resnet_v1_block('block2', base_depth=depth_func(64), num_units=4,
+  #                     stride=2),
+  #     resnet_v1_block('block3', base_depth=depth_func(96), num_units=6,
+  #                     stride=2),
+  #     resnet_v1_block('block4', base_depth=depth_func(128), num_units=3,
+  #                     stride=last_stride),
+  # ]
   blocks = [
-      resnet_v1_block('block1', base_depth=depth_func(32), num_units=3,
+      resnet_v1_block('block1', base_depth=32, num_units=3,
                       stride=2),
-      resnet_v1_block('block2', base_depth=depth_func(64), num_units=4,
+      resnet_v1_block('block2', base_depth=64, num_units=4,
                       stride=2),
-      resnet_v1_block('block3', base_depth=depth_func(96), num_units=6,
+      resnet_v1_block('block3', base_depth=96, num_units=6,
                       stride=2),
-      resnet_v1_block('block4', base_depth=depth_func(128), num_units=3,
+      resnet_v1_block('block4', base_depth=128, num_units=3,
                       stride=last_stride),
   ]
   return resnet_v1(inputs, sparsity_type, blocks, num_classes, is_training,
                    sparse_dense_branch=sparse_dense_branch,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=include_root_block,
+                   # include_root_block=include_root_block,
                    depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    max_pool_subsample=max_pool_subsample,
                    root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_50_lightweight.default_image_size = resnet_v1.default_image_size
 
-def resnet_v1_50_lightlightweight(inputs,
-                                  sparsity_type,
-                                  sparse_dense_branch=False,
-                                  num_classes=None,
-                                  is_training=True,
-                                  global_pool=True,
-                                  output_stride=None,
-                                  spatial_squeeze=True,
-                                  include_root_block=True,
-                                  store_non_strided_activations=False,
-                                  max_pool_subsample=False,
-                                  depthwise_convolution=False,
-                                  root_downsampling_rate=2,
-                                  min_base_depth=8,
-                                  depth_multiplier=1,
-                                  reuse=None,
-                                  scope='resnet_v1_50'):
-  """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
-  depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
-  last_stride = 1
-  if not store_non_strided_activations:
-    last_stride = 2
-  blocks = [
-      resnet_v1_block('block1', base_depth=depth_func(16), num_units=3,
-                      stride=2),
-      resnet_v1_block('block2', base_depth=depth_func(32), num_units=4,
-                      stride=2),
-      resnet_v1_block('block3', base_depth=depth_func(48), num_units=6,
-                      stride=2),
-      resnet_v1_block('block4', base_depth=depth_func(64), num_units=3,
-                      stride=last_stride),
-  ]
-  return resnet_v1(inputs, sparsity_type, blocks, num_classes, is_training,
-                   sparse_dense_branch=sparse_dense_branch,
-                   global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=include_root_block,
-                   depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
-                   store_non_strided_activations=store_non_strided_activations,
-                   max_pool_subsample=max_pool_subsample,
-                   root_downsampling_rate=root_downsampling_rate,
-                   reuse=reuse, scope=scope)
-resnet_v1_50_lightlightweight.default_image_size = resnet_v1.default_image_size
+# def resnet_v1_50_lightlightweight(inputs,
+#                                   sparsity_type,
+#                                   sparse_dense_branch=False,
+#                                   num_classes=None,
+#                                   is_training=True,
+#                                   global_pool=True,
+#                                   output_stride=None,
+#                                   spatial_squeeze=True,
+#                                   include_root_block=True,
+#                                   store_non_strided_activations=False,
+#                                   max_pool_subsample=False,
+#                                   depthwise_convolution=False,
+#                                   root_downsampling_rate=2,
+#                                   min_base_depth=8,
+#                                   depth_multiplier=1,
+#                                   reuse=None,
+#                                   scope='resnet_v1_50'):
+#   """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
+#   depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+#   last_stride = 1
+#   if not store_non_strided_activations:
+#     last_stride = 2
+#   blocks = [
+#       resnet_v1_block('block1', base_depth=depth_func(16), num_units=3,
+#                       stride=2),
+#       resnet_v1_block('block2', base_depth=depth_func(32), num_units=4,
+#                       stride=2),
+#       resnet_v1_block('block3', base_depth=depth_func(48), num_units=6,
+#                       stride=2),
+#       resnet_v1_block('block4', base_depth=depth_func(64), num_units=3,
+#                       stride=last_stride),
+#   ]
+#   return resnet_v1(inputs, sparsity_type, blocks, num_classes, is_training,
+#                    sparse_dense_branch=sparse_dense_branch,
+#                    global_pool=global_pool, output_stride=output_stride,
+#                    include_root_block=include_root_block,
+#                    depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
+#                    store_non_strided_activations=store_non_strided_activations,
+#                    max_pool_subsample=max_pool_subsample,
+#                    root_downsampling_rate=root_downsampling_rate,
+#                    reuse=reuse, scope=scope)
+# resnet_v1_50_lightlightweight.default_image_size = resnet_v1.default_image_size
 
 def resnet_v1_101(inputs,
                   num_classes=None,
@@ -625,12 +667,19 @@ def resnet_v1_101(inputs,
                   output_stride=None,
                   spatial_squeeze=True,
                   store_non_strided_activations=False,
+                  max_pool_subsample=False,
+                  depthwise_convolution=False,
+                  root_downsampling_rate=2,
                   min_base_depth=8,
                   depth_multiplier=1,
+                  recompute_grad=False,
                   reuse=None,
                   scope='resnet_v1_101'):
   """ResNet-101 model of [1]. See resnet_v1() for arg and return description."""
   depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_block('block1', base_depth=depth_func(64), num_units=3,
                       stride=2),
@@ -639,12 +688,16 @@ def resnet_v1_101(inputs,
       resnet_v1_block('block3', base_depth=depth_func(256), num_units=23,
                       stride=2),
       resnet_v1_block('block4', base_depth=depth_func(512), num_units=3,
-                      stride=1),
+                      stride=last_block_stride),
   ]
   return resnet_v1(inputs, blocks, num_classes, is_training,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=True, spatial_squeeze=spatial_squeeze,
+                   depthwise_convolution=depthwise_convolution,
+                   spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
+                   max_pool_subsample=max_pool_subsample,
+                   root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_101.default_image_size = resnet_v1.default_image_size
 
@@ -655,13 +708,20 @@ def resnet_v1_152(inputs,
                   global_pool=True,
                   output_stride=None,
                   store_non_strided_activations=False,
+                  max_pool_subsample=False,
+                  depthwise_convolution=False,
+                  root_downsampling_rate=2,
                   spatial_squeeze=True,
                   min_base_depth=8,
                   depth_multiplier=1,
+                  recompute_grad=False,
                   reuse=None,
                   scope='resnet_v1_152'):
   """ResNet-152 model of [1]. See resnet_v1() for arg and return description."""
   depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_block('block1', base_depth=depth_func(64), num_units=3,
                       stride=2),
@@ -670,12 +730,15 @@ def resnet_v1_152(inputs,
       resnet_v1_block('block3', base_depth=depth_func(256), num_units=36,
                       stride=2),
       resnet_v1_block('block4', base_depth=depth_func(512), num_units=3,
-                      stride=1),
+                      stride=last_block_stride),
   ]
   return resnet_v1(inputs, blocks, num_classes, is_training,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=True, spatial_squeeze=spatial_squeeze,
+                   depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
+                   max_pool_subsample=max_pool_subsample,
+                   root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_152.default_image_size = resnet_v1.default_image_size
 
@@ -686,13 +749,20 @@ def resnet_v1_200(inputs,
                   global_pool=True,
                   output_stride=None,
                   store_non_strided_activations=False,
+                  max_pool_subsample=False,
+                  depthwise_convolution=False,
+                  root_downsampling_rate=2,
                   spatial_squeeze=True,
                   min_base_depth=8,
                   depth_multiplier=1,
+                  recompute_grad=False,
                   reuse=None,
                   scope='resnet_v1_200'):
   """ResNet-200 model of [2]. See resnet_v1() for arg and return description."""
   depth_func = lambda d: max(int(d * depth_multiplier), min_base_depth)
+  last_block_stride = 1
+  if not store_non_strided_activations:
+    last_block_stride = 2
   blocks = [
       resnet_v1_block('block1', base_depth=depth_func(64), num_units=3,
                       stride=2),
@@ -701,11 +771,14 @@ def resnet_v1_200(inputs,
       resnet_v1_block('block3', base_depth=depth_func(256), num_units=36,
                       stride=2),
       resnet_v1_block('block4', base_depth=depth_func(512), num_units=3,
-                      stride=1),
+                      stride=last_block_stride),
   ]
   return resnet_v1(inputs, blocks, num_classes, is_training,
                    global_pool=global_pool, output_stride=output_stride,
-                   include_root_block=True, spatial_squeeze=spatial_squeeze,
+                   depthwise_convolution=depthwise_convolution, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
+                   max_pool_subsample=max_pool_subsample,
+                   root_downsampling_rate=root_downsampling_rate,
+                   recompute_grad=recompute_grad,
                    reuse=reuse, scope=scope)
 resnet_v1_200.default_image_size = resnet_v1.default_image_size

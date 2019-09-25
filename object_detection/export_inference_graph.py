@@ -108,8 +108,8 @@ flags = tf.app.flags
 flags.DEFINE_string('input_type', 'image_tensor', 'Type of input node. Can be '
                     'one of [`image_tensor`, `encoded_image_string_tensor`, '
                     '`tf_example`]')
-flags.DEFINE_boolean('use_mask', None, 'If True, use occupancy mask to filter '
-                                      'prediction results.')
+# flags.DEFINE_boolean('use_mask', None, 'If True, use occupancy mask to filter '
+#                                       'prediction results.')
 flags.DEFINE_string('input_shape', None,
                     'If input_type is `image_tensor`, this can explicitly set '
                     'the shape of this input tensor to a fixed size. The '
@@ -117,7 +117,7 @@ flags.DEFINE_string('input_shape', None,
                     'of integers. A value of -1 can be used for unknown '
                     'dimensions. If not specified, for an `image_tensor, the '
                     'default shape will be partially specified as '
-                    '`[None, None, None, 3]`.')
+                    '`[None, None, None, None]`.')  # todo sep24 [None, None, None, 3]
 flags.DEFINE_string('pipeline_config_path', None,
                     'Path to a pipeline_pb2.TrainEvalPipelineConfig config '
                     'file.')

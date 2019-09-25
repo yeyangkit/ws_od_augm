@@ -54,10 +54,10 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                is_training,
                num_classes,
                box_prediction_head,
-               box_3d_prediction_head,
+               # box_3d_prediction_head, # todo sep24
                class_prediction_head,
                other_heads,
-               kernel_size,
+               # kernel_size,  # todo sep24
                conv_hyperparams_fn,
                num_layers_before_predictor,
                min_depth,
@@ -89,10 +89,10 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
     """
     super(ConvolutionalBoxPredictor, self).__init__(is_training, num_classes)
     self._box_prediction_head = box_prediction_head
-    self._box_3d_prediction_head = box_3d_prediction_head
+    # self._box_3d_prediction_head = box_3d_prediction_head
     self._class_prediction_head = class_prediction_head
     self._other_heads = other_heads
-    self._kernel_size = kernel_size
+    # self._kernel_size = kernel_size
     self._conv_hyperparams_fn = conv_hyperparams_fn
     self._min_depth = min_depth
     self._max_depth = max_depth
@@ -125,7 +125,7 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
         (optional) Predictions from other heads.
     """
     predictions = {
-        BOX_ENCODINGS: [],
+        # BOX_ENCODINGS: [],
         BOX_3D_ENCODINGS: [],
         CLASS_PREDICTIONS_WITH_BACKGROUND: [],
     }
@@ -158,17 +158,19 @@ class ConvolutionalBoxPredictor(box_predictor.BoxPredictor):
               for i in range(self._num_layers_before_predictor):
                 net = slim.conv2d(
                     net,
-                    depth, [self._kernel_size, self._kernel_size],
+                    depth, [1, 1], # depth, [self._kernel_size, self._kernel_size],
                     reuse=tf.AUTO_REUSE,
                     scope='Conv2d_%d_1x1_%d' % (i, depth))
             sorted_keys = sorted(self._other_heads.keys())
-            sorted_keys.append(BOX_ENCODINGS)
+            sorted_keys.append(BOX_3D_ENCODINGS) # sorted_keys.append(BOX_ENCODINGS)
             sorted_keys.append(CLASS_PREDICTIONS_WITH_BACKGROUND)
             for head_name in sorted_keys:
-              if head_name == BOX_ENCODINGS:
-                head_obj = self._box_prediction_head
-              elif head_name == BOX_3D_ENCODINGS:
-                head_obj = self._box_3d_prediction_head
+              # if head_name == BOX_ENCODINGS:
+              #   head_obj = self._box_prediction_head
+              # elif head_name == BOX_3D_ENCODINGS:
+              #   head_obj = self._box_3d_prediction_head
+              if head_name == BOX_3D_ENCODINGS:
+                  head_obj = self._box_prediction_head
               elif head_name == CLASS_PREDICTIONS_WITH_BACKGROUND:
                 head_obj = self._class_prediction_head
               else:
@@ -206,7 +208,7 @@ class WeightSharedConvolutionalBoxPredictor(box_predictor.BoxPredictor):
   def __init__(self,
                is_training,
                num_classes,
-               box_3d_prediction_head,
+               box_prediction_head, # box_3d_prediction_head,
                class_prediction_head,
                other_heads,
                conv_hyperparams_fn,
@@ -243,7 +245,7 @@ class WeightSharedConvolutionalBoxPredictor(box_predictor.BoxPredictor):
     """
     super(WeightSharedConvolutionalBoxPredictor, self).__init__(is_training,
                                                                 num_classes)
-    self._box_3d_prediction_head = box_3d_prediction_head
+    self._box_prediction_head = box_prediction_head # = box_3d_prediction_head
     self._class_prediction_head = class_prediction_head
     self._other_heads = other_heads
     self._conv_hyperparams_fn = conv_hyperparams_fn
@@ -399,7 +401,7 @@ class WeightSharedConvolutionalBoxPredictor(box_predictor.BoxPredictor):
                 tower_name_scope=box_tower_scope,
                 image_feature=image_feature,
                 feature_index=feature_index)
-          box_3d_encodings = self._box_3d_prediction_head.predict(
+          box_3d_encodings = self._box_prediction_head.predict( # _box_3d_prediction_head.predict(
               features=box_tower_feature,
               num_predictions_per_location=num_predictions_per_location)
           predictions[BOX_3D_ENCODINGS].append(box_3d_encodings)

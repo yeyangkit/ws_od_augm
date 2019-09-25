@@ -29,8 +29,9 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
   """Generate a grid of anchors for multiple CNN layers of different scale."""
 
   def __init__(self, min_level, max_level, anchor_scale, aspect_ratios,
-               scales_per_octave, normalize_coordinates=True, include_root_block=True,
-               root_downsampling_rate=2, late_downsample=False, store_non_strided_activations=True):
+               scales_per_octave, normalize_coordinates=True):
+      # include_root_block=True, root_downsampling_rate=2, late_downsample=False, store_non_strided_activations=True
+      #                todo sep24
     """Constructs a MultiscaleGridAnchorGenerator.
 
     To construct anchors, at multiple scale resolutions, one must provide a
@@ -63,19 +64,19 @@ class MultiscaleGridAnchorGenerator(anchor_generator.AnchorGenerator):
     aspects = list(aspect_ratios)
 
     for level in range(min_level, max_level + 1):
-      ## Instead of downsampling rate 4 of root block, the new block has downsampling rate 2
-      if not include_root_block:
-        if root_downsampling_rate == 2:
-          level = level - 1
-        elif root_downsampling_rate == 1:
-          if store_non_strided_activations:
-            level = level - 2
-          else:
-            level = level - 1
-        else:
-          raise ValueError('If the original root block is not used, the root downampling rate must be 1 or 2.')
-      if late_downsample:
-        level = level - 1
+      # ## Instead of downsampling rate 4 of root block, the new block has downsampling rate 2
+      # if not include_root_block:
+      #   if root_downsampling_rate == 2:
+      #     level = level - 1
+      #   elif root_downsampling_rate == 1:
+      #     if store_non_strided_activations:
+      #       level = level - 2
+      #     else:
+      #       level = level - 1
+      #   else:
+      #     raise ValueError('If the original root block is not used, the root downampling rate must be 1 or 2.')
+      # if late_downsample:
+      #   level = level - 1
 
       anchor_stride = [2**level, 2**level]
       base_anchor_size = [2**level * anchor_scale, 2**level * anchor_scale]

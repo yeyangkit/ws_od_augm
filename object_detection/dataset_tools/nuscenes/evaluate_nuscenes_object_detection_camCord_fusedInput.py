@@ -52,8 +52,8 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     image_path_occ = os.path.join(data_dir, prefix + '_z_max_occlusions_cartesian.png')
     image_path_ground = os.path.join(data_dir, prefix + '_ground_surface_cartesian.png')
 
-    # image_path_fused_zmax_det = os.path.join(data_dir, prefix + '_z_max_detections_FUSED_cartesian.png')
-    # image_path_fused_obs_zmin = os.path.join(data_dir, prefix + '_observations_z_min_FUSED_cartesian.png')
+    image_path_fused_zmax_det = os.path.join(data_dir, prefix + '_z_max_detections_FUSED_cartesian.png')
+    image_path_fused_obs_zmin = os.path.join(data_dir, prefix + '_observations_z_min_FUSED_cartesian.png')
     image_path_fused_bel_F = os.path.join(data_beliefs_dir, prefix + '_bel_F_FUSED_cartesian.png')
     image_path_fused_bel_O = os.path.join(data_beliefs_dir, prefix + '_bel_O_FUSED_cartesian.png')
     image_path_fused_bel_U = os.path.join(data_beliefs_dir, prefix + '_bel_U_FUSED_cartesian.png')

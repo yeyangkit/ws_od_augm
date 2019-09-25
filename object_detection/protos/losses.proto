@@ -61,6 +61,9 @@ message Loss {
   // Only applies if expected_loss_weights is not NONE.
   // TODO(birdbrain): Move under ExpectedLossWeights.
   optional float desired_negative_sampling_ratio = 20 [default=3];
+
+  // Augmentation loss to use
+  optional bool use_uncertainty_weighting_loss = 21 [default = false];
 }
 
 // Configuration for bounding box localization loss function.

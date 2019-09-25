@@ -128,7 +128,9 @@ class DetectionResultFields(object):
   detection_scores = 'detection_scores'
   detection_multiclass_scores = 'detection_multiclass_scores'
   detection_classes = 'detection_classes'
+  detection_masks = 'detection_masks'
   detection_boundaries = 'detection_boundaries'
+  detection_keypoints = 'detection_keypoints'
   num_detections = 'num_detections'
   raw_detection_boxes = 'raw_detection_boxes'
   raw_detection_scores = 'raw_detection_scores'
@@ -156,6 +158,7 @@ class BoxListFields(object):
   weights = 'weights'
   confidences = 'confidences'
   objectness = 'objectness'
+  masks = 'masks'
   boundaries = 'boundaries'
   is_crowd = 'is_crowd'
 
@@ -204,6 +207,14 @@ class TfExampleFields(object):
     detection_score: detection score for the class label and box.
   """
   image_encoded = 'image/encoded'
+  layer_detections_encoded = 'layers/detections/encoded'
+  layer_observations_encoded = 'layers/observations/encoded'
+  layer_decay_rate_encoded = 'layers/decay_rate/encoded'
+  layer_intensity_encoded = 'layers/intensity/encoded'
+  layer_zmin_encoded = 'layers/zmin/encoded'
+  layer_zmax_encoded = 'layers/zmax/encoded'
+  layer_occlusions_encoded = 'layers/occlusions/encoded'
+  layer_rgb_encoded = 'layers/rgb/encoded'
   image_format = 'image/format'  # format is reserved keyword
   filename = 'image/filename'
   channels = 'image/channels'

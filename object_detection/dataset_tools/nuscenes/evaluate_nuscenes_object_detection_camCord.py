@@ -25,11 +25,11 @@ flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1
 # flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/output0815NuScenes_singleBeliefs_keyFrame_train', 'Directory to evidential grid maps.')
 flags.DEFINE_string('param', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml', 'Directory to grid map parameter file.')
 flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
-flags.DEFINE_string('nuscenes', None, 'Directory to nuscenes data.')
+flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
 flags.DEFINE_string('output', '/tmp/', 'Output directory of json file.')
 flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt',
                     'Path to label map proto')
-flags.DEFINE_integer('range', None, 'The range of ROI. None if ranges of x and y are 100m.')
+flags.DEFINE_integer('range', 100, 'The range of ROI. None if ranges of x and y are 100m.')
 
 
 def read_params(param_dir):

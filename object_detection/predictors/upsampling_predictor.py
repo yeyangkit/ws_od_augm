@@ -68,7 +68,7 @@ class UpsamplingPredictor(beliefs_predictor.BeliefPredictor):  #
         # x = tf.Print(x, [x], 'after_2_conv2dTranspose:', summarize=15)
 
 
-        x = self._unet_block(x, filters=int(self._filters / 16), stack_size=4, ksize=3, training=self._is_training,
+        x = self._unet_block(x, filters=int(self._filters / 16), stack_size=4, ksize=1, training=self._is_training,
                              name="augm_conv_block2_2")
         # x = tf.Print(x, [x], 'after_2_%dstacked_%dx%dconv:' % (self._stack_size, self._filters, self._filters)
         #              , summarize=15)

@@ -52,6 +52,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                  image_resizer_fn,
                  non_max_suppression_fn,
                  score_conversion_fn,
+                 use_uncertainty_weighting_loss,
                  classification_loss,
                  localization_loss,
                  classification_loss_weight,
@@ -196,6 +197,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
 
         self._target_assigner = target_assigner_instance
 
+        self._use_uncertainty_weighting_loss = use_uncertainty_weighting_loss
         self._classification_loss = classification_loss
         self._localization_loss = localization_loss
         self._classification_loss_weight = classification_loss_weight
@@ -205,7 +207,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         self._hard_example_miner = hard_example_miner
         self._random_example_sampler = random_example_sampler
         self._parallel_iterations = 16
-
+        # self._fpn_levels = fpn_levels # todo sep24 hestitate to use this
         self._image_resizer_fn = image_resizer_fn
         self._non_max_suppression_fn = non_max_suppression_fn
         self._score_conversion_fn = score_conversion_fn
@@ -318,7 +320,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             ],
             axis=1)
 
-    def predict(self, preprocessed_inputs, true_image_shapes):
+    def predict(self, preprocessed_inputs, true_image_shapes):  # features todo sep24 hestitate to use
         """Predicts unpostprocessed tensors from input tensor.
 
         This function takes an input batch of images and runs it through the forward
@@ -497,7 +499,8 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             box_3d_encodings = tf.identity(box_3d_encodings, 'raw_box_3d_encodings')
             class_predictions_with_background = (
                 prediction_dict['class_predictions_with_background'])
-            detection_boxes_3d = self._batch_decode_3d(box_3d_encodings)
+            detection_boxes_3d = self._batch_decode_3d(box_3d_encodings, prediction_dict[
+                'anchors'])  # todo sep24 added, prediction_dict['anchors']
             detection_boxes = tf.identity(detection_boxes_3d, 'box_3d_to_convert')
             boxes_shape = shape_utils.combined_static_and_dynamic_shape(detection_boxes)
             detection_boxes = tf.reshape(detection_boxes, [-1, 6])
@@ -697,12 +700,19 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             localization_loss_normalizer = normalizer
             if self._normalize_loc_loss_by_codesize:
                 localization_loss_normalizer *= self._box_coder.code_size_3d
-            localization_loss = tf.multiply((self._localization_loss_weight /
-                                             localization_loss_normalizer),
-                                            localization_loss_3d,
-                                            name='localization_loss')
-            classification_loss = tf.multiply((self._classification_loss_weight /
-                                               normalizer), classification_loss,
+
+                loc_loss_weight = self._localization_loss_weight
+                cls_loss_weight = self._classification_loss_weight
+                if self._use_uncertainty_weighting_loss:
+                    log_var_loc = tf.Variable(0.0, name='log_variance_localization', dtype=tf.float32)
+                    loc_loss_weight *= tf.exp(-log_var_loc) + log_var_loc
+                    log_var_cls = tf.Variable(0.0, name='classification_loss_weight', dtype=tf.float32)
+                    cls_loss_weight *= tf.exp(-log_var_cls) + log_var_cls
+
+                localization_loss = tf.multiply((loc_loss_weight / localization_loss_normalizer),
+                                                localization_loss_3d,
+                                                name='localization_loss')
+            classification_loss = tf.multiply((cls_loss_weight / normalizer), classification_loss,
                                               name='classification_loss')
 
             # augmentation
@@ -731,9 +741,27 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                        + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.)
                 L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
 
-                augmentation_loss = L1 * self._factor_loss_augm
-                augmentation_loss = tf.Print(augmentation_loss, [augmentation_loss],
-                                             message="AUGMENTATION Loss L1 * factor_loss_augm %f  :" % self._factor_loss_augm)
+                augm_combined_loss = L1
+                # augm_combined_loss = tf.Print(augm_combined_loss, [augm_combined_loss],
+                #                               message="augm_combined_loss L1 : ")
+
+            augm_loss_weight = self._factor_loss_augm
+            if self._use_uncertainty_weighting_loss:
+                log_var_augm = tf.Variable(0.0, name='log_variance_augm', dtype=tf.float32)
+                augm_loss_weight *= tf.exp(-log_var_augm) + log_var_augm
+            augm_loss = tf.multiply(augm_loss_weight,
+                                    augm_combined_loss,
+                                    name='augm_loss')
+
+            # localization_loss = tf.Print(localization_loss, [localization_loss], 'localization loss:')
+            # classification_loss = tf.Print(classification_loss, [classification_loss], 'classification loss:')
+            augm_loss = tf.Print(augm_loss, [augm_loss], 'augm_loss:')
+
+            loss_dict = {
+                'Loss/localization_loss': localization_loss,
+                'Loss/classification_loss': classification_loss,
+                'Loss/augmentation_loss': augm_loss
+            }
 
             tf.summary.image('pred_bel_O', pred_bel_O)
             tf.summary.image('pred_bel_F', pred_bel_F)
@@ -743,13 +771,6 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             tf.summary.image('label_bel_O', label_bel_O)
             tf.summary.image('label_z_min_observations', label_z_min_observations)
             tf.summary.image('label_z_max_detections', label_z_max_detections)
-
-            loss_dict = {
-                'Loss/localization_loss': localization_loss,
-                'Loss/classification_loss': classification_loss,
-                'Loss/augmentation_loss': augmentation_loss
-            }
-
         return loss_dict
 
     def _my_weights_label_cert(self, labels, factor):
@@ -1167,7 +1188,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             [combined_shape[0], combined_shape[1], 4]))
         return decoded_boxes
 
-    def _batch_decode_3d(self, box_encodings):
+    def _batch_decode_3d(self, box_encodings, anchors):  # todo sep24
         """Decodes a batch of box encodings with respect to the anchors.
 
         Args:
@@ -1185,7 +1206,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             box_encodings)
         batch_size = combined_shape[0]
         tiled_anchor_boxes = tf.tile(
-            tf.expand_dims(self.anchors.get(), 0), [batch_size, 1, 1])
+            tf.expand_dims(anchors, 0), [batch_size, 1, 1])
         tiled_anchors_boxlist = box_list.BoxList(
             tf.reshape(tiled_anchor_boxes, [-1, 4]))
         decoded_boxes = self._box_coder.decode_3d(

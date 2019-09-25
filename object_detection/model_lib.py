@@ -101,7 +101,7 @@ def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
   groundtruth = {
       input_data_fields.groundtruth_boxes: groundtruth_boxes,
       input_data_fields.groundtruth_boxes_3d: groundtruth_boxes_3d,
-      input_data_fields.groundtruth_classes: groundtruth_classes  # todo
+      input_data_fields.groundtruth_classes: groundtruth_classes
   }
 
   if detection_model.groundtruth_has_field(fields.BoxListFields.is_crowd):

@@ -164,6 +164,7 @@ from object_detection.protos import anchor_generator_pb2
 
 
 def build(anchor_generator_config):
+    # include_root_block, root_downsampling_rate, feature_extractor_type, store_non_strided_activations
   """Builds an anchor generator based on the config.
 
   Args:

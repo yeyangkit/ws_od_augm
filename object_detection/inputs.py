@@ -51,7 +51,7 @@ def transform_input_data(tensor_dict,
                          model_preprocess_fn,
                          image_resizer_fn,
                          num_classes,
-                         data_augmentation_fn=None, # todo
+                         data_augmentation_fn=None,
                          merge_multiple_boxes=False,
                          retain_original_image=False,
                          use_multiclass_scores=False):
@@ -553,7 +553,7 @@ def train_input(train_config, train_input_config,
         spatial_image_shape=config_util.get_spatial_image_size(
             image_resizer_config),
         num_channels=sum(model_config.input_channels))
-    return (_get_features_dict(tensor_dict), _get_labels_dict(tensor_dict)) # todo question
+    return (_get_features_dict(tensor_dict), _get_labels_dict(tensor_dict)) #
   """ValueError: slice index 0 of dimension 0 out of bounds. 
   for 'strided_slice_30' (op: 'StridedSlice') 
   with input shapes: [0], [1], [1], [1] 
@@ -719,8 +719,8 @@ def create_predict_input_fn(model_config, predict_input_config):
     decoder = tf_multi_layer_decoder.TfMultiLayerDecoder(
         ['x_c', 'y_c', 'w', 'h', 'sin_angle', 'cos_angle'],
         input_features=model_config.input_features,
-        input_channels=model_config.input_channels,
-        num_additional_channels=predict_input_config.num_additional_channels)
+        input_channels=model_config.input_channels)
+        # ,num_additional_channels=predict_input_config.num_additional_channels)
     input_dict = transform_fn(decoder.decode(example))
     images = tf.cast(input_dict[fields.InputDataFields.image], dtype=tf.float32)
     images = tf.expand_dims(images, axis=0)

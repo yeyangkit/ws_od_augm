@@ -421,7 +421,7 @@ class SSDMetaArch(model.DetectionModel):
     self._score_conversion_fn = score_conversion_fn
 
     self._anchors = None
-    self._indicators = None
+    # self._indicators = None # todo sep24
     self._add_summaries = add_summaries
     self._batched_prediction_tensor_names = []
     self._expected_loss_weights_fn = expected_loss_weights_fn
@@ -601,7 +601,7 @@ class SSDMetaArch(model.DetectionModel):
     }
     for prediction_key, prediction_list in iter(predictor_results_dict.items()):
       prediction = tf.concat(prediction_list, axis=1)
-      if (prediction_key == 'box_3d_encodings' and prediction.shape.ndims == 6 and
+      if (prediction_key == 'box_3d_encodings' and prediction.shape.ndims == 4 and # todo sep24????????????? 4
           prediction.shape[2] == 1):
         prediction = tf.squeeze(prediction, axis=2)
       predictions_dict[prediction_key] = prediction
@@ -990,10 +990,8 @@ class SSDMetaArch(model.DetectionModel):
         box_list.BoxList(boxes) for boxes in groundtruth_boxes_list
     ]
     groundtruth_boxlists_3d = [
-        box_list.Box3dList(boxes) for boxes in groundtruth_boxes_3d_list
+        box_list.Box3dList(boxes_3d) for boxes_3d in groundtruth_boxes_3d_list
     ]
-    anchors = self.anchors
-
     train_using_confidences = (self._is_training and
                                self._use_confidences_as_targets)
     if self._add_background_class:
@@ -1012,7 +1010,7 @@ class SSDMetaArch(model.DetectionModel):
     if train_using_confidences:
       return target_assigner.batch_assign_confidences(
           self._target_assigner,
-          anchors,
+          self.anchors,
           groundtruth_boxlists,
           groundtruth_boxlists_3d,
           groundtruth_confidences_with_background_list,
@@ -1023,7 +1021,7 @@ class SSDMetaArch(model.DetectionModel):
     else:
       return target_assigner.batch_assign_targets(
           self._target_assigner,
-          anchors,
+          self.anchors,
           groundtruth_boxlists,
           groundtruth_boxlists_3d,
           groundtruth_classes_with_background_list,

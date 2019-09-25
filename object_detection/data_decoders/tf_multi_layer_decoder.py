@@ -317,7 +317,7 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         }
         for param in box_params:
             self.keys_to_features['boxes/inclined/' + param] = tf.VarLenFeature(tf.float32)
-
+        # todo sep24 ??????????????????    filename   ,   if load_multiclass_scores:
         self._num_input_channels = sum(input_channels)
         image_keys = ['layers/' + input_feature + '/encoded' for input_feature in
                       input_features]

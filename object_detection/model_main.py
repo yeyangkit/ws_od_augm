@@ -89,7 +89,7 @@ FLAGS = flags.FLAGS
 #     sender_email = "likunleo@gmail.com"  # Enter your address
 #     receiver_email = "likunleo@gmail.com"  # Enter receiver address
 #     password = ""
-#     message = str(epoch) + " " + str(logs.get('loss')) # todo
+#     message = str(epoch) + " " + str(logs.get('loss'))
 #
 #     context = ssl.create_default_context()
 #     with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:

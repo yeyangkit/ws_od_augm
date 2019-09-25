@@ -401,7 +401,8 @@ def _rot90_boxes(boxes):
   return rotated_boxes
 
 def _rotate_point_counterclockwise(x, y, phi, offset_x, offset_y):
-  return ((x - offset_x) * tf.cos(-phi) - (y - offset_y) * tf.sin(-phi)) + offset_x, ((x - offset_x) * tf.sin(-phi) + (y - offset_y) * tf.cos(-phi)) + offset_y
+  return ((x - offset_x) * tf.cos(-phi) - (y - offset_y) * tf.sin(-phi)) + offset_x,\
+         ((x - offset_x) * tf.sin(-phi) + (y - offset_y) * tf.cos(-phi)) + offset_y
 
 # def _calculate_box_corner(x_c, y_c, w, l, phi):
 #   return (l * tf.cos(phi) - w * tf.sin(phi)) + x_c, (l * tf.sin(phi) + w * tf.cos(phi)) + y_c

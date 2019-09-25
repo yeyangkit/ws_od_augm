@@ -57,7 +57,7 @@ class ConvolutionalBoxHead(head.Head):
     self._kernel_size = kernel_size
     self._use_depthwise = use_depthwise
     self._box_encodings_clip_range = box_encodings_clip_range
-    self._scope = scope
+    # self._scope = scope # todo sep24
 
   def predict(self, features, num_predictions_per_location):
     """Predicts boxes.
@@ -78,14 +78,14 @@ class ConvolutionalBoxHead(head.Head):
       box_encodings = slim.separable_conv2d(
           net, None, [self._kernel_size, self._kernel_size],
           padding='SAME', depth_multiplier=1, stride=1,
-          rate=1, scope=self._scope+'_depthwise')
+          rate=1, scope='BoxEncodingPredictor_depthwise')#      rate=1, scope=self._scope+'_depthwise')
       box_encodings = slim.conv2d(
           box_encodings,
           num_predictions_per_location * self._box_code_size, [1, 1],
           activation_fn=None,
           normalizer_fn=None,
           normalizer_params=None,
-          scope=self._scope)
+          scope='BoxEncodingPredictor')#      scope=self._scope)
     else:
       box_encodings = slim.conv2d(
           net, num_predictions_per_location * self._box_code_size,
@@ -93,7 +93,7 @@ class ConvolutionalBoxHead(head.Head):
           activation_fn=None,
           normalizer_fn=None,
           normalizer_params=None,
-          scope=self._scope)
+          scope='BoxEncodingPredictor') #  scope=self._scope)
     batch_size = features.get_shape().as_list()[0]
     if batch_size is None:
       batch_size = tf.shape(features)[0]
@@ -103,11 +103,11 @@ class ConvolutionalBoxHead(head.Head):
           box_encodings, self._box_encodings_clip_range.min,
           self._box_encodings_clip_range.max)
 
-    # Todo: Why [batch_size, num_anchors, q, code_size] but not [batch_size, num_anchors, code_size]?
+    # # Todo sep24: Why [batch_size, num_anchors, q, code_size] but not [batch_size, num_anchors, code_size]?
+    # box_encodings = tf.reshape(box_encodings,
+    #                            [batch_size, -1, self._box_code_size])
     box_encodings = tf.reshape(box_encodings,
-                               [batch_size, -1, self._box_code_size])
-    #box_encodings = tf.reshape(box_encodings,
-    #                           [batch_size, -1, 1, self._box_code_size])
+                              [batch_size, -1, 1, self._box_code_size])
     return box_encodings
 
 
@@ -125,8 +125,7 @@ class WeightSharedConvolutionalBoxHead(head.Head):
                kernel_size=3,
                use_depthwise=False,
                box_encodings_clip_range=None,
-               return_flat_predictions=True,
-               scope='BoxPredictor'):
+               return_flat_predictions=True): # , scope='BoxPredictor'
     """Constructor.
 
     Args:
@@ -147,7 +146,7 @@ class WeightSharedConvolutionalBoxHead(head.Head):
     self._use_depthwise = use_depthwise
     self._box_encodings_clip_range = box_encodings_clip_range
     self._return_flat_predictions = return_flat_predictions
-    self._scope = scope
+    # self._scope = scope
 
   def predict(self, features, num_predictions_per_location):
     """Predicts boxes.
@@ -176,7 +175,7 @@ class WeightSharedConvolutionalBoxHead(head.Head):
         [self._kernel_size, self._kernel_size],
         activation_fn=None, stride=1, padding='SAME',
         normalizer_fn=None,
-        scope=self._scope)
+        scope='BoxPredictor') # scope=self._scope)
     batch_size = features.get_shape().as_list()[0]
     if batch_size is None:
       batch_size = tf.shape(features)[0]

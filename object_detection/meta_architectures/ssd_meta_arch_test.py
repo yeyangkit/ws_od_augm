@@ -418,7 +418,7 @@ class SsdMetaArchTest(ssd_meta_arch_test_lib.SSDMetaArchTestBase,
                                           normalize_loc_loss_by_codesize=True,
                                           use_keras=use_keras)
       model.provide_groundtruth(groundtruth_boxes_list,
-                                groundtruth_classes_list) ## todo
+                                groundtruth_classes_list)
       prediction_dict = model.predict(preprocessed_tensor,
                                       true_image_shapes=None)
       loss_dict = model.loss(prediction_dict, true_image_shapes=None)

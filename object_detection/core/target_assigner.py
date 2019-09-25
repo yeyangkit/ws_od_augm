@@ -50,10 +50,11 @@ class TargetAssigner(object):
                similarity_calc,
                matcher,
                box_coder,
-               negative_class_weight=1.0,
-               increse_small_object_size=False,
-               specific_threshold=False,
-               threshold_offset=0.2):
+               negative_class_weight=1.0):
+      # todo sep24
+      # ,increse_small_object_size = False,
+      # specific_threshold = False,
+      # threshold_offset = 0.2
     """Construct Object Detection Target Assigner.
 
     Args:
@@ -80,12 +81,12 @@ class TargetAssigner(object):
     self._box_coder = box_coder
     self._negative_class_weight = negative_class_weight
 
-    self._increse_small_object_size = increse_small_object_size
-    self._specific_threshold = specific_threshold
-    self._threshold_offset = threshold_offset
-    self._similarity_calc_small_obj = None
-    if self._increse_small_object_size:
-      self._similarity_calc_small_obj = region_similarity_calculator.RelativeDistanceSimilarity(1.0, 1.0)
+    # self._increse_small_object_size = increse_small_object_size
+    # self._specific_threshold = specific_threshold
+    # self._threshold_offset = threshold_offset
+    # self._similarity_calc_small_obj = None
+    # if self._increse_small_object_size:
+    #   self._similarity_calc_small_obj = region_similarity_calculator.RelativeDistanceSimilarity(1.0, 1.0)
 
 
   @property
@@ -96,6 +97,7 @@ class TargetAssigner(object):
   def assign(self,
              anchors,
              groundtruth_boxes,
+             groundtruth_boxes_3d, # todo sep24
              groundtruth_labels=None,
              unmatched_class_label=None,
              groundtruth_weights=None):
@@ -155,79 +157,79 @@ class TargetAssigner(object):
       raise ValueError('anchors must be an BoxList')
     if not isinstance(groundtruth_boxes, box_list.BoxList):
       raise ValueError('groundtruth_boxes must be an BoxList')
-
-    if unmatched_class_label is None:
-      unmatched_class_label = tf.constant([0], tf.float32)
-
-    if groundtruth_labels is None:
-      groundtruth_labels = tf.ones(tf.expand_dims(groundtruth_boxes.num_boxes(),
-                                                  0))
-      groundtruth_labels = tf.expand_dims(groundtruth_labels, -1)
-
-    unmatched_shape_assert = shape_utils.assert_shape_equal(
-        shape_utils.combined_static_and_dynamic_shape(groundtruth_labels)[1:],
-        shape_utils.combined_static_and_dynamic_shape(unmatched_class_label))
-    labels_and_box_shapes_assert = shape_utils.assert_shape_equal(
-        shape_utils.combined_static_and_dynamic_shape(
-            groundtruth_labels)[:1],
-        shape_utils.combined_static_and_dynamic_shape(
-            groundtruth_boxes.get())[:1])
-
-    if groundtruth_weights is None:
-      num_gt_boxes = groundtruth_boxes.num_boxes_static()
-      if not num_gt_boxes:
-        num_gt_boxes = groundtruth_boxes.num_boxes()
-      groundtruth_weights = tf.ones([num_gt_boxes], dtype=tf.float32)
-
-    # set scores on the gt boxes
-    scores = 1 - groundtruth_labels[:, 0]
-    groundtruth_boxes.add_field(fields.BoxListFields.scores, scores)
-
-    with tf.control_dependencies(
-        [unmatched_shape_assert, labels_and_box_shapes_assert]):
-      match_quality_matrix = self._similarity_calc.compare(groundtruth_boxes,
-                                                           anchors)
-      match = self._matcher.match(match_quality_matrix,
-                                  valid_rows=tf.greater(groundtruth_weights, 0))
-      reg_targets = self._create_regression_targets(anchors,
-                                                    groundtruth_boxes,
-                                                    match)
-      cls_targets = self._create_classification_targets(groundtruth_labels,
-                                                        unmatched_class_label,
-                                                        match)
-      reg_weights = self._create_regression_weights(match, groundtruth_weights)
-
-      cls_weights = self._create_classification_weights(match,
-                                                        groundtruth_weights)
-      # convert cls_weights from per-anchor to per-class.
-      class_label_shape = tf.shape(cls_targets)[1:]
-      weights_shape = tf.shape(cls_weights)
-      weights_multiple = tf.concat(
-          [tf.ones_like(weights_shape), class_label_shape],
-          axis=0)
-      for _ in range(len(cls_targets.get_shape()[1:])):
-        cls_weights = tf.expand_dims(cls_weights, -1)
-      cls_weights = tf.tile(cls_weights, weights_multiple)
-
-    num_anchors = anchors.num_boxes_static()
-    if num_anchors is not None:
-      reg_targets = self._reset_target_shape(reg_targets, num_anchors)
-      cls_targets = self._reset_target_shape(cls_targets, num_anchors)
-      reg_weights = self._reset_target_shape(reg_weights, num_anchors)
-      cls_weights = self._reset_target_shape(cls_weights, num_anchors)
-
-    return (cls_targets, cls_weights, reg_targets, reg_weights,
-            match.match_results)
-
-  def assign_3d(self,
-                anchors,
-                groundtruth_boxes,
-                groundtruth_boxes_3d,
-                groundtruth_labels=None,
-                unmatched_class_label=None,
-                groundtruth_weights=None):
-    if not isinstance(anchors, box_list.BoxList):
-      raise ValueError('anchors must be an BoxList')
+  #
+  #   if unmatched_class_label is None:
+  #     unmatched_class_label = tf.constant([0], tf.float32)
+  #
+  #   if groundtruth_labels is None:
+  #     groundtruth_labels = tf.ones(tf.expand_dims(groundtruth_boxes.num_boxes(),
+  #                                                 0))
+  #     groundtruth_labels = tf.expand_dims(groundtruth_labels, -1)
+  #
+  #   unmatched_shape_assert = shape_utils.assert_shape_equal(
+  #       shape_utils.combined_static_and_dynamic_shape(groundtruth_labels)[1:],
+  #       shape_utils.combined_static_and_dynamic_shape(unmatched_class_label))
+  #   labels_and_box_shapes_assert = shape_utils.assert_shape_equal(
+  #       shape_utils.combined_static_and_dynamic_shape(
+  #           groundtruth_labels)[:1],
+  #       shape_utils.combined_static_and_dynamic_shape(
+  #           groundtruth_boxes.get())[:1])
+  #
+  #   if groundtruth_weights is None:
+  #     num_gt_boxes = groundtruth_boxes.num_boxes_static()
+  #     if not num_gt_boxes:
+  #       num_gt_boxes = groundtruth_boxes.num_boxes()
+  #     groundtruth_weights = tf.ones([num_gt_boxes], dtype=tf.float32)
+  #
+  #   # set scores on the gt boxes
+  #   scores = 1 - groundtruth_labels[:, 0]
+  #   groundtruth_boxes.add_field(fields.BoxListFields.scores, scores)
+  #
+  #   with tf.control_dependencies(
+  #       [unmatched_shape_assert, labels_and_box_shapes_assert]):
+  #     match_quality_matrix = self._similarity_calc.compare(groundtruth_boxes,
+  #                                                          anchors)
+  #     match = self._matcher.match(match_quality_matrix,
+  #                                 valid_rows=tf.greater(groundtruth_weights, 0))
+  #     reg_targets = self._create_regression_targets(anchors,
+  #                                                   groundtruth_boxes,
+  #                                                   match)
+  #     cls_targets = self._create_classification_targets(groundtruth_labels,
+  #                                                       unmatched_class_label,
+  #                                                       match)
+  #     reg_weights = self._create_regression_weights(match, groundtruth_weights)
+  #
+  #     cls_weights = self._create_classification_weights(match,
+  #                                                       groundtruth_weights)
+  #     # convert cls_weights from per-anchor to per-class.
+  #     class_label_shape = tf.shape(cls_targets)[1:]
+  #     weights_shape = tf.shape(cls_weights)
+  #     weights_multiple = tf.concat(
+  #         [tf.ones_like(weights_shape), class_label_shape],
+  #         axis=0)
+  #     for _ in range(len(cls_targets.get_shape()[1:])):
+  #       cls_weights = tf.expand_dims(cls_weights, -1)
+  #     cls_weights = tf.tile(cls_weights, weights_multiple)
+  #
+  #   num_anchors = anchors.num_boxes_static()
+  #   if num_anchors is not None:
+  #     reg_targets = self._reset_target_shape(reg_targets, num_anchors)
+  #     cls_targets = self._reset_target_shape(cls_targets, num_anchors)
+  #     reg_weights = self._reset_target_shape(reg_weights, num_anchors)
+  #     cls_weights = self._reset_target_shape(cls_weights, num_anchors)
+  #
+  #   return (cls_targets, cls_weights, reg_targets, reg_weights,
+  #           match.match_results)
+  #
+  # def assign_3d(self,
+  #               anchors,
+  #               groundtruth_boxes,
+  #               groundtruth_boxes_3d,
+  #               groundtruth_labels=None,
+  #               unmatched_class_label=None,
+  #               groundtruth_weights=None):
+  #   if not isinstance(anchors, box_list.BoxList):
+  #     raise ValueError('anchors must be an BoxList')
     if not isinstance(groundtruth_boxes_3d, box_list.Box3dList):
       raise ValueError('groundtruth_boxes must be an Box3dList')
 
@@ -261,30 +263,30 @@ class TargetAssigner(object):
     with tf.control_dependencies(
         [unmatched_shape_assert, labels_and_box_shapes_assert]):
 
-      if self._increse_small_object_size:
-        pedestrian_indices = tf.cast(groundtruth_labels[:, 2], dtype=tf.bool)
-        cyclist_indices = tf.cast(groundtruth_labels[:, 3], dtype=tf.bool)
-        small_objects_indices = tf.logical_or(pedestrian_indices, cyclist_indices)
-
-        match_quality_matrix_car = self._similarity_calc.compare(groundtruth_boxes,
-                                                                 anchors)
-        match_quality_matrix_small_obj = self._similarity_calc_small_obj.compare(groundtruth_boxes,
-                                                                                 anchors)
-        match_quality_matrix = tf.where(small_objects_indices,
-                                        match_quality_matrix_small_obj,
-                                        match_quality_matrix_car)
-
-      else:
-        match_quality_matrix = self._similarity_calc.compare(groundtruth_boxes,
+      # if self._increse_small_object_size:
+      #   pedestrian_indices = tf.cast(groundtruth_labels[:, 2], dtype=tf.bool)
+      #   cyclist_indices = tf.cast(groundtruth_labels[:, 3], dtype=tf.bool)
+      #   small_objects_indices = tf.logical_or(pedestrian_indices, cyclist_indices)
+      #
+      #   match_quality_matrix_car = self._similarity_calc.compare(groundtruth_boxes,
+      #                                                            anchors)
+      #   match_quality_matrix_small_obj = self._similarity_calc_small_obj.compare(groundtruth_boxes,
+      #                                                                            anchors)
+      #   match_quality_matrix = tf.where(small_objects_indices,
+      #                                   match_quality_matrix_small_obj,
+      #                                   match_quality_matrix_car)
+      #
+      # else:
+      match_quality_matrix = self._similarity_calc.compare(groundtruth_boxes,
                                                            anchors)
-      if self._specific_threshold:
-        pedestrian_indices = tf.cast(groundtruth_labels[:, 2], dtype=tf.bool)
-        cyclist_indices = tf.cast(groundtruth_labels[:, 3], dtype=tf.bool)
-        small_objects_indices = tf.cast(tf.logical_or(pedestrian_indices, cyclist_indices), dtype=tf.float32)
-        match_quality_matrix_shape = shape_utils.combined_static_and_dynamic_shape(match_quality_matrix)
-        offset_indices_matrix = tf.tile(tf.expand_dims(small_objects_indices, axis=1), [1, match_quality_matrix_shape[1]])
-        offset_matrix = tf.multiply(offset_indices_matrix, self._threshold_offset)
-        match_quality_matrix = tf.minimum(tf.add(offset_matrix, match_quality_matrix), 1.0)
+      # if self._specific_threshold:
+      #   pedestrian_indices = tf.cast(groundtruth_labels[:, 2], dtype=tf.bool)
+      #   cyclist_indices = tf.cast(groundtruth_labels[:, 3], dtype=tf.bool)
+      #   small_objects_indices = tf.cast(tf.logical_or(pedestrian_indices, cyclist_indices), dtype=tf.float32)
+      #   match_quality_matrix_shape = shape_utils.combined_static_and_dynamic_shape(match_quality_matrix)
+      #   offset_indices_matrix = tf.tile(tf.expand_dims(small_objects_indices, axis=1), [1, match_quality_matrix_shape[1]])
+      #   offset_matrix = tf.multiply(offset_indices_matrix, self._threshold_offset)
+      #   match_quality_matrix = tf.minimum(tf.add(offset_matrix, match_quality_matrix), 1.0)
 
       match = self._matcher.match(match_quality_matrix,
                                   valid_rows=tf.greater(groundtruth_weights, 0))
@@ -494,7 +496,7 @@ class TargetAssigner(object):
     """
     return self._box_coder
 
-def batch_assign_3d(target_assigner,
+def batch_assign(target_assigner, # _3d todo sep24
                     anchors_batch,
                     gt_box_batch,
                     gt_box_3d_batch,
@@ -558,7 +560,7 @@ def batch_assign_3d(target_assigner,
   for anchors, gt_boxes, gt_3d_boxes, gt_class_targets, gt_weights in zip(
       anchors_batch, gt_box_batch, gt_box_3d_batch, gt_class_targets_batch, gt_weights_batch):
     (cls_targets, cls_weights,
-     reg_targets_3d, reg_weights, match) = target_assigner.assign_3d(
+     reg_targets_3d, reg_weights, match) = target_assigner.assign( # _3d todo sep24
          anchors, gt_boxes, gt_3d_boxes, gt_class_targets, unmatched_class_label, gt_weights)
     cls_targets_list.append(cls_targets)
     cls_weights_list.append(cls_weights)
@@ -574,7 +576,7 @@ def batch_assign_3d(target_assigner,
           batch_reg_weights, batch_match)
 
 # Assign an alias to avoid large refactor of existing users.
-batch_assign_targets = batch_assign_3d
+batch_assign_targets = batch_assign # _3d todo sep24
 
 
 def batch_get_targets(batch_match, groundtruth_tensor_list,
@@ -622,6 +624,7 @@ def batch_get_targets(batch_match, groundtruth_tensor_list,
 def batch_assign_confidences(target_assigner,
                              anchors_batch,
                              gt_box_batch,
+                             gt_box_3d_batch, # todo sep24
                              gt_class_confidences_batch,
                              gt_weights_batch=None,
                              unmatched_class_label=None,
@@ -699,13 +702,13 @@ def batch_assign_confidences(target_assigner,
 
   cls_targets_list = []
   cls_weights_list = []
-  reg_targets_list = []
+  reg_targets_3d_list = []
   reg_weights_list = []
   match_list = []
   if gt_weights_batch is None:
     gt_weights_batch = [None] * len(gt_class_confidences_batch)
-  for anchors, gt_boxes, gt_class_confidences, gt_weights in zip(
-      anchors_batch, gt_box_batch, gt_class_confidences_batch,
+  for anchors, gt_boxes_3d, gt_class_confidences, gt_weights in zip( # _3d todo sep24
+      anchors_batch, gt_box_batch, gt_box_3d_batch, gt_class_confidences_batch,
       gt_weights_batch):
 
     if (gt_class_confidences is not None and
@@ -713,8 +716,8 @@ def batch_assign_confidences(target_assigner,
       raise ValueError('The shape of the class target is not supported. ',
                        gt_class_confidences.get_shape())
 
-    cls_targets, _, reg_targets, _, match = target_assigner.assign(
-        anchors, gt_boxes, gt_class_confidences, unmatched_class_label,
+    cls_targets, _, reg_targets_3d, _, match = target_assigner.assign(
+        anchors, gt_boxes, gt_boxes_3d, gt_class_confidences, unmatched_class_label,
         groundtruth_weights=gt_weights)
 
     if include_background_class:
@@ -729,8 +732,8 @@ def batch_assign_confidences(target_assigner,
     positive_anchors = tf.reduce_any(positive_mask, axis=-1)
 
     regression_weights = tf.cast(positive_anchors, dtype=tf.float32)
-    regression_targets = (
-        reg_targets * tf.expand_dims(regression_weights, axis=-1))
+    regression_targets_3d = (
+        reg_targets_3d * tf.expand_dims(regression_weights, axis=-1))
     regression_weights_expanded = tf.expand_dims(regression_weights, axis=-1)
 
     cls_targets_without_background = (
@@ -754,13 +757,13 @@ def batch_assign_confidences(target_assigner,
 
     cls_targets_list.append(classification_targets)
     cls_weights_list.append(classification_weights)
-    reg_targets_list.append(regression_targets)
+    reg_targets_3d_list.append(regression_targets_3d)
     reg_weights_list.append(regression_weights)
     match_list.append(match)
   batch_cls_targets = tf.stack(cls_targets_list)
   batch_cls_weights = tf.stack(cls_weights_list)
-  batch_reg_targets = tf.stack(reg_targets_list)
+  batch_reg_targets_3d = tf.stack(reg_targets_3d_list)
   batch_reg_weights = tf.stack(reg_weights_list)
   batch_match = tf.stack(match_list)
-  return (batch_cls_targets, batch_cls_weights, batch_reg_targets,
+  return (batch_cls_targets, batch_cls_weights, batch_reg_targets_3d,
           batch_reg_weights, batch_match)

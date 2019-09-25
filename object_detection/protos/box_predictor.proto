@@ -8,10 +8,10 @@ import "object_detection/protos/hyperparams.proto";
 message BoxPredictor {
   oneof box_predictor_oneof {
     ConvolutionalBoxPredictor convolutional_box_predictor = 1;
-    MaskRCNNBoxPredictor mask_rcnn_box_predictor = 2;
-    RfcnBoxPredictor rfcn_box_predictor = 3;
+//    MaskRCNNBoxPredictor mask_rcnn_box_predictor = 2;
+//    RfcnBoxPredictor rfcn_box_predictor = 3;
     WeightSharedConvolutionalBoxPredictor
-        weight_shared_convolutional_box_predictor = 4;
+        weight_shared_convolutional_box_predictor = 2;
   }
 }
 
