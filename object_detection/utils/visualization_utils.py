@@ -767,7 +767,7 @@ def visualize_boxes_and_labels_on_image_array(
           thickness=line_thickness,
           use_normalized_coordinates=use_normalized_coordinates
       )
-    draw_bounding_box_on_image_array(
+    draw_bounding_box_on_image_array( # bounding box optional sep26
         image,
         ymin,
         xmin,

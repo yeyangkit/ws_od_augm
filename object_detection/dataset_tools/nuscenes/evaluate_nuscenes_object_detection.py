@@ -156,9 +156,9 @@ def evaluate(split):
             for scene in nusc.scene:
                 if scene['name'] not in scene_splits[split]:
                     continue
-                current_sample_token = scene['first_sample_token']
                 last_sample_token = scene['last_sample_token']
                 sample_in_scene = True
+                skip_first_sample_mode = True
                 while sample_in_scene:
                     if current_sample_token == last_sample_token:
                         sample_in_scene = False

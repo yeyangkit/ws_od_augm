@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 # flags.DEFINE_string('data', None, 'Directory to grid maps.')
 # flags.DEFINE_string('param', None, 'Directory to grid map parameter file.')
 flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1.0-trainval_meta', 'Directory to grid maps.')
-# flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/output0815NuScenes_singleBeliefs_keyFrame_train', 'Directory to evidential grid maps.')
+flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/processed0904NuScenes_fused7Layers_keyFrame_trainval', 'Directory to evidential grid maps.')
 flags.DEFINE_string('param', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml', 'Directory to grid map parameter file.')
 flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
 flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
@@ -37,7 +37,7 @@ def read_params(param_dir):
     params = yaml.load(stream)
     return params
 
-def read_images(data_dir, prefix):
+def read_images(data_dir,data_beliefs_dir, prefix):
     image_path_det = os.path.join(data_dir, prefix + '_detections_cartesian.png')
     image_path_obs = os.path.join(data_dir, prefix + '_observations_cartesian.png')
     image_path_int = os.path.join(data_dir, prefix + '_intensity_cartesian.png')
@@ -46,13 +46,11 @@ def read_images(data_dir, prefix):
     image_path_occ = os.path.join(data_dir, prefix + '_z_max_occlusions_cartesian.png')
     image_path_ground = os.path.join(data_dir, prefix + '_ground_surface_cartesian.png')
 
-    # image_path_fused_zmax_det = os.path.join(data_dir, prefix + '_z_max_detections_FUSED_cartesian.png')
-    # image_path_fused_obs_zmin = os.path.join(data_dir, prefix + '_observations_z_min_FUSED_cartesian.png')
-
-    # image_path_fused_bel_F = os.path.join(data_dir, prefix + '_bel_F_FUSED_cartesian.png')
-    # image_path_fused_bel_O = os.path.join(data_dir, prefix + '_bel_O_FUSED_cartesian.png')
-    # image_path_fused_bel_U = os.path.join(data_dir, prefix + '_bel_U_FUSED_cartesian.png')
-
+    image_path_fused_zmax_det = os.path.join(data_dir, prefix + '_z_max_detections_FUSED_cartesian.png')
+    image_path_fused_obs_zmin = os.path.join(data_dir, prefix + '_observations_z_min_FUSED_cartesian.png')
+    image_path_fused_bel_F = os.path.join(data_beliefs_dir, prefix + '_bel_F_FUSED_cartesian.png')
+    image_path_fused_bel_O = os.path.join(data_beliefs_dir, prefix + '_bel_O_FUSED_cartesian.png')
+    image_path_fused_bel_U = os.path.join(data_beliefs_dir, prefix + '_bel_U_FUSED_cartesian.png')
 
     image_det = cv2.imread(image_path_det, 0)
     image_obs = cv2.imread(image_path_obs, 0)
@@ -62,12 +60,12 @@ def read_images(data_dir, prefix):
     image_occ = cv2.imread(image_path_occ, 0)
     image_ground = cv2.imread(image_path_ground, 0)
 
-    # image_fused_zmax_det = cv2.imread(image_path_fused_zmax_det, 0)
-    # image_fused_obs_zmin = cv2.imread(image_path_fused_obs_zmin, 0)
+    image_fused_zmax_det = cv2.imread(image_path_fused_zmax_det, 0)
+    image_fused_obs_zmin = cv2.imread(image_path_fused_obs_zmin, 0)
 
-    # image_fused_bel_F = cv2.imread(image_path_fused_bel_F, 0)
-    # image_fused_bel_O = cv2.imread(image_path_fused_bel_O, 0)
-    # image_fused_bel_U = cv2.imread(image_path_fused_bel_U, 0)
+    image_fused_bel_F = cv2.imread(image_path_fused_bel_F, 0)
+    image_fused_bel_O = cv2.imread(image_path_fused_bel_O, 0)
+    image_fused_bel_U = cv2.imread(image_path_fused_bel_U, 0)
 
     # print('image_fused_bel_U.shape')
     # print(image_fused_bel_U.shape)
@@ -167,7 +165,9 @@ def evaluate(split):
         'use_map': False,
         'use_external': False,
     }
-    results = {}
+    results = {
+        # "sample_token_first_key_frame": [],
+    }
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
@@ -181,7 +181,10 @@ def evaluate(split):
             tf.import_graph_def(od_graph_def, name='')
 
     with detection_graph.as_default():
-        with tf.Session(graph=detection_graph) as sess:
+        sess_config = tf.ConfigProto()
+        # sess_config.gpu_options.per_process_gpu_memory_fraction = 0.5
+        sess_config.gpu_options.allow_growth = True
+        with tf.Session(graph=detection_graph, config=sess_config) as sess:
             image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
             detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
             detection_boxes_inclined = detection_graph.get_tensor_by_name('detection_boxes_3d:0')
@@ -195,10 +198,16 @@ def evaluate(split):
                 current_sample_token = scene['first_sample_token']
                 last_sample_token = scene['last_sample_token']
                 sample_in_scene = True
+                skip_first_sample_mode = False
                 while sample_in_scene:
                     if current_sample_token == last_sample_token:
                         sample_in_scene = False
                     sample = nusc.get('sample', current_sample_token)
+                    if skip_first_sample_mode:
+                        if current_sample_token == scene['first_sample_token']:
+                            results[current_sample_token] = [] ## skip first scan which is missed in my maps
+                            current_sample_token = sample['next']
+                            continue
                     lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
                     # Get global pose and calibration data
                     ego_pose = nusc.get('ego_pose', lidar_top_data['ego_pose_token'])
@@ -208,7 +217,8 @@ def evaluate(split):
 
                     # Read input data
                     filename_prefix = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
-                    image_stacked, det_mask, image_ground, image_zmax = read_images(FLAGS.data, filename_prefix)
+                    image_stacked, det_mask, image_ground, image_zmax = read_images(FLAGS.data, FLAGS.data_beliefs,
+                                                                                    filename_prefix)
                     print(image_stacked.shape)
                     # Inference
                     start_time = time.time()
@@ -227,6 +237,7 @@ def evaluate(split):
                     scores = np.squeeze(scores)
                     for i in range(scores.shape[0]):
                         if scores[i] > .3:
+                            print("object detected")
                             object_class = category_index[int(np.squeeze(classes)[i])]['name']
                             box = calculate_object_box(tuple(np.squeeze(boxes_aligned)[i]),
                                                        tuple(np.squeeze(boxes_inclined)[i]), image_ground, image_zmax,
