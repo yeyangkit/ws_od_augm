@@ -205,6 +205,9 @@ def _provide_groundtruth(model, labels):
     gt_bel_F_list = labels[fields.InputDataFields.groundtruth_bel_F]  # augmentation labels
     gt_z_max_detections_list = labels[fields.InputDataFields.groundtruth_z_max_detections]  # augmentation labels
     gt_z_min_observations_list = labels[fields.InputDataFields.groundtruth_z_min_observations]  # augmentation labels
+    gt_z_min_detections_list = labels[fields.InputDataFields.groundtruth_z_min_detections]  # augmentation labels
+    gt_detections_drivingCorridor_list = labels[fields.InputDataFields.groundtruth_detections_drivingCorridor]  # augmentation labels
+    gt_bel_U_list = labels[fields.InputDataFields.groundtruth_bel_U]  # augmentation labels
     if fields.InputDataFields.groundtruth_weights in labels:
         gt_weights_list = labels[fields.InputDataFields.groundtruth_weights]
     gt_confidences_list = None
@@ -224,7 +227,11 @@ def _provide_groundtruth(model, labels):
         groundtruth_bel_F_list=gt_bel_F_list,
         groundtruth_bel_O_list=gt_bel_O_list,
         groundtruth_z_max_detections_list=gt_z_max_detections_list,
-        groundtruth_z_min_observations_list=gt_z_min_observations_list)
+        groundtruth_z_min_observations_list=gt_z_min_observations_list,
+        groundtruth_bel_U_list=gt_bel_U_list,
+        groundtruth_z_min_detections_list=gt_z_min_detections_list,
+        groundtruth_detections_drivingCorridor_list=gt_detections_drivingCorridor_list)
+
 
 
 def create_model_fn(detection_model_fn, configs, hparams,

@@ -89,6 +89,9 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     image_path_fused_bel_O = os.path.join(data_beliefs_dir, prefix + '_bel_O_FUSED_cartesian.png')
     image_path_fused_bel_U = os.path.join(data_beliefs_dir, prefix + '_bel_U_FUSED_cartesian.png')
 
+    image_path_fused_zmin_det = os.path.join(data_beliefs_dir, prefix + '_z_min_detections_FUSED_cartesian.png')
+    image_path_fused_det_zmin = os.path.join(data_beliefs_dir, prefix + '_detections_drivingCorridor_FUSED_cartesian.png')
+
     image_det = cv2.imread(image_path_det, 0)
     image_obs = cv2.imread(image_path_obs, 0)
     image_int = cv2.imread(image_path_int, 0)

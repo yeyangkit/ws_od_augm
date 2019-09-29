@@ -330,6 +330,15 @@ class DetectionModel(_BaseClass):
     if  groundtruth_z_max_detections_list:
       self._groundtruth_lists[
           fields.InputDataFields. groundtruth_z_max_detections] =  groundtruth_z_max_detections_list
+    if groundtruth_bel_U_list:
+      self._groundtruth_lists[
+        fields.InputDataFields.groundtruth_detections_drivingCorridor] = groundtruth_detections_drivingCorridor_list
+    if groundtruth_detections_drivingCorridor_list:
+      self._groundtruth_lists[
+        fields.InputDataFields.groundtruth_bel_U] = groundtruth_bel_U_list
+    if groundtruth_bel_U_list:
+      self._groundtruth_lists[
+        fields.InputDataFields.groundtruth_z_min_detections] = groundtruth_z_min_detections_list
 
   @abc.abstractmethod
   def regularization_losses(self):

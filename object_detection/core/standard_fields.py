@@ -99,6 +99,9 @@ class InputDataFields(object):
   groundtruth_bel_F = 'groundtruth_bel_F'
   groundtruth_z_max_detections = 'groundtruth_z_max_detections'  # augmentation labels
   groundtruth_z_min_observations = 'groundtruth_z_min_observations' # augmentation labels
+  groundtruth_bel_U = 'groundtruth_bel_U'
+  groundtruth_z_min_detections = 'groundtruth_z_min_detections'  # augmentation labels
+  groundtruth_detections_drivingCorridor = 'groundtruth_detections_drivingCorridor'  # augmentation labels
 
 
 class DetectionResultFields(object):

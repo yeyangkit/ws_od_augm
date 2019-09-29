@@ -326,7 +326,10 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         augm_map = tf.concat([prediction_dict['belief_F_prediction'],
                               prediction_dict['belief_O_prediction'],
                               prediction_dict['z_max_detections_prediction'],
-                              prediction_dict['z_min_observations_prediction']], axis=3)
+                              prediction_dict['z_min_observations_prediction'],
+                              prediction_dict['belief_U_prediction'],
+                              prediction_dict['z_min_detections_prediction'],
+                              prediction_dict['detections_drivingCorridor_prediction']], axis=3)
         # print(augm_map)
         # augm_map = tf.expand_dims(tf.squeeze(augm_map, axis=2), axis=0)
         for idx in range(4):
@@ -738,10 +741,17 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                                               name='classification_loss')
 
             # augmentation
+            pred_z_min_detections = prediction_dict['z_min_detections_prediction']
+            pred_detections_drivingCorridor = prediction_dict['detections_drivingCorridor_prediction']
+            pred_bel_U = prediction_dict['belief_U_prediction']
             pred_z_max_detections = prediction_dict['z_max_detections_prediction']
             pred_z_min_observations = prediction_dict['z_min_observations_prediction']
             pred_bel_F = prediction_dict['belief_F_prediction']
             pred_bel_O = prediction_dict['belief_O_prediction']
+
+            label_z_min_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_detections)
+            label_detections_drivingCorridor = self.groundtruth_lists(fields.InputDataFields.groundtruth_detections_drivingCorridor)
+            label_bel_U = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_U)
             label_z_max_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_max_detections)
             label_z_min_observations = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_observations)
             label_bel_F = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
@@ -757,7 +767,13 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                      + self._my_loss_L1(pred_z_min_observations, label_z_min_observations,
                                         xBiggerY=1.) * self._factor_loss_fused_obs_zmin \
                      + self._my_loss_L1(pred_z_max_detections, label_z_max_detections,
-                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det
+                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det  \
+                     + self._my_loss_L1(pred_z_min_detections, label_z_min_detections,
+                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det  \
+                     + self._my_loss_L1(pred_detections_drivingCorridor, label_detections_drivingCorridor,
+                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det  \
+                     + self._my_loss_L1(pred_bel_U, label_bel_U,
+                                        xBiggerY=1.) * self._factor_loss_fused_bel_F
 
                 L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) \
                        + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.)
@@ -793,13 +809,21 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 (pred_z_min_observations[0, :, :, :], tf.cast(label_z_min_observations[0], dtype=float)), axis=1),0)
             z_max_detections = tf.expand_dims(tf.concat(
                 (pred_z_max_detections[0, :, :, :], tf.cast(label_z_max_detections[0], dtype=float)), axis=1),0)
+            bel_u = tf.expand_dims(tf.concat((pred_bel_U[0, :, :, :], tf.cast(label_bel_U[0], dtype=float)), axis=1),0)
+            detections_drivingCorridor = tf.expand_dims(tf.concat(
+                (pred_detections_drivingCorridor[0, :, :, :], tf.cast(label_detections_drivingCorridor[0], dtype=float)), axis=1),0)
+            z_min_detections = tf.expand_dims(tf.concat(
+                (pred_z_min_detections[0, :, :, :], tf.cast(label_z_min_detections[0], dtype=float)), axis=1),0)
             # z_min_observations = tf.squeeze(tf.concat(pred_z_min_observations, label_z_min_observations), axis=1)
             # z_max_detections = tf.squeeze(tf.concat(pred_z_max_detections, label_z_max_detections), axis=1)
 
-            tf.summary.image('bel_O:  left_pred vs right_label', bel_o)
-            tf.summary.image('bel_F:  left_pred vs right_label', bel_f)
-            tf.summary.image('z_min_observations:  left_pred vs right_label', z_min_observations)
-            tf.summary.image('z_max_detections:  left_pred vs right_label', z_max_detections)
+            tf.summary.image('bel_O: left_pred vs right_label', bel_o)
+            tf.summary.image('bel_F: left_pred vs right_label', bel_f)
+            tf.summary.image('z_min_observations: left_pred vs right_label', z_min_observations)
+            tf.summary.image('z_max_detections: left_pred vs right_label', z_max_detections)
+            tf.summary.image('bel_U: left_pred vs right_label', bel_u)
+            tf.summary.image('detections_drivingCorridor: left_pred vs right_label', detections_drivingCorridor)
+            tf.summary.image('z_min_detections: left_pred vs right_label', z_min_detections)
 
             # todo metrics und scalar for augmentation
 
