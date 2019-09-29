@@ -320,6 +320,26 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             ],
             axis=1)
 
+    def _concat_augm_pyramid(self, prediction_dict, feature_maps):
+        feature_maps_augm = []
+        augm_maps = []
+        augm_map = tf.concat([prediction_dict['belief_F_prediction'],
+                              prediction_dict['belief_O_prediction'],
+                              prediction_dict['z_max_detections_prediction'],
+                              prediction_dict['z_min_observations_prediction']], axis=3)
+        # print(augm_map)
+        # augm_map = tf.expand_dims(tf.squeeze(augm_map, axis=2), axis=0)
+        for idx in range(4):
+            # _, resized_augm_map, _ = self._image_resizer_fn(augm_map,feature_maps[idx])
+            resized_augm_map = tf.image.resize_bicubic(augm_map,
+                                                       (tf.shape(feature_maps[idx])[1], tf.shape(feature_maps[idx])[2]))
+            augm_maps.append(resized_augm_map)
+        # print("augm_maps.append(resized_augm_map):")
+        # print(augm_maps)
+        for idx, augm_level in enumerate(augm_maps):
+            feature_maps_augm.append(tf.concat([feature_maps[idx], augm_level], axis=-1))
+        return feature_maps_augm
+
     def predict(self, preprocessed_inputs, true_image_shapes):  # features todo sep24 hestitate to use
         """Predicts unpostprocessed tensors from input tensor.
 
@@ -390,6 +410,8 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         print(preprocessed_inputs)
 
         predictor_augm_dict = self._augm_predictor.predict(feature_maps, preprocessed_inputs)
+
+        # feature_maps = self._concat_augm_pyramid(predictor_augm_dict, feature_maps)
 
         if self._box_predictor.is_keras_model:
             predictor_results_dict = self._box_predictor(feature_maps)
@@ -762,15 +784,25 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 'Loss/classification_loss': classification_loss,
                 'Loss/augmentation_loss': augm_loss
             }
+            # print("label_bel_O---------------------------------------------")
+            # print(label_bel_O)
+            bel_o = tf.expand_dims(tf.concat((pred_bel_O[0, :, :, :], tf.cast(label_bel_O[0], dtype=float)), axis=1),0)
+            # print(bel_o)
+            bel_f = tf.expand_dims(tf.concat((pred_bel_F[0, :, :, :], tf.cast(label_bel_F[0], dtype=float)), axis=1),0)
+            z_min_observations = tf.expand_dims(tf.concat(
+                (pred_z_min_observations[0, :, :, :], tf.cast(label_z_min_observations[0], dtype=float)), axis=1),0)
+            z_max_detections = tf.expand_dims(tf.concat(
+                (pred_z_max_detections[0, :, :, :], tf.cast(label_z_max_detections[0], dtype=float)), axis=1),0)
+            # z_min_observations = tf.squeeze(tf.concat(pred_z_min_observations, label_z_min_observations), axis=1)
+            # z_max_detections = tf.squeeze(tf.concat(pred_z_max_detections, label_z_max_detections), axis=1)
 
-            tf.summary.image('pred_bel_O', pred_bel_O)
-            tf.summary.image('pred_bel_F', pred_bel_F)
-            tf.summary.image('pred_z_min_observations', pred_z_min_observations)
-            tf.summary.image('pred_z_max_detections', pred_z_max_detections)
-            tf.summary.image('label_bel_F', label_bel_F)
-            tf.summary.image('label_bel_O', label_bel_O)
-            tf.summary.image('label_z_min_observations', label_z_min_observations)
-            tf.summary.image('label_z_max_detections', label_z_max_detections)
+            tf.summary.image('bel_O:  left_pred vs right_label', bel_o)
+            tf.summary.image('bel_F:  left_pred vs right_label', bel_f)
+            tf.summary.image('z_min_observations:  left_pred vs right_label', z_min_observations)
+            tf.summary.image('z_max_detections:  left_pred vs right_label', z_max_detections)
+
+            # todo metrics und scalar for augmentation
+
         return loss_dict
 
     def _my_weights_label_cert(self, labels, factor):

@@ -235,6 +235,18 @@ def visualize(split):
                     #         image_vis[v, u] = 255
                     #         image_vis_inv[v, u] = 0
 
+
+
+                    # image_vis = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3), dtype=np.uint8)
+                    # for (v, u), val in np.ndenumerate(observation_mask):
+                    #     if val:
+                    #         image_vis[v, u, :] = 50
+                    # image_vis_inv = cv2.bitwise_not(image_vis)
+                    # for (v, u), val in np.ndenumerate(det_mask):
+                    #     if val:
+                    #         image_vis[v, u] = 255
+                    #         image_vis_inv[v, u] = 0
+
                     # Draw inclined detection box
                     vis_util.visualize_boxes_and_labels_on_image_array(
                         image_vis,
