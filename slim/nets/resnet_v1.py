@@ -134,6 +134,11 @@ def bottleneck(inputs,
       output = tf.nn.relu6(shortcut + residual)
     else:
       output = tf.nn.relu(shortcut + residual)
+    return output
+
+    if recompute_grad:
+      _building_block = tf.contrib.layers.recompute_grad(bottleneck)
+    output = bottleneck(inputs)
 
     return slim.utils.collect_named_outputs(outputs_collections,
                                             sc.name,

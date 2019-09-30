@@ -29,6 +29,7 @@ from object_detection.core import target_assigner
 from object_detection.utils import ops
 from object_detection.utils import shape_utils
 from object_detection.utils import visualization_utils
+from tensorflow import shape
 
 slim = tf.contrib.slim
 
@@ -752,30 +753,51 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             label_z_min_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_detections)
             label_detections_drivingCorridor = self.groundtruth_lists(
                 fields.InputDataFields.groundtruth_detections_drivingCorridor)
-            label_bel_U = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_U)
+            label_bel_U_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_U)
             label_z_max_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_max_detections)
             label_z_min_observations = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_observations)
-            label_bel_F = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
-            label_bel_O = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
+            label_bel_F_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
+            label_bel_O_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
             # LOSSES TO CHOOSE #
             with tf.name_scope("augm_losses_and_weights"):
-                label_bel_U = tf.concat(
-                    tf.expand_dims([tf.cast(label_bel_U[0], dtype=float), tf.cast(label_bel_U[1], dtype=float)],
-                                   axis=0), axis=0)
-                label_bel_F = tf.concat(
-                    tf.expand_dims([tf.cast(label_bel_F[0], dtype=float), tf.cast(label_bel_F[1], dtype=float)],
-                                   axis=0), axis=0)
-                label_bel_O = tf.concat(
-                    tf.expand_dims([tf.cast(label_bel_O[0], dtype=float), tf.cast(label_bel_O[1], dtype=float)],
-                                   axis=0), axis=0)
-                label_bel_U = tf.squeeze(label_bel_U, axis=0)
-                label_bel_O = tf.squeeze(label_bel_O, axis=0)
-                label_bel_F = tf.squeeze(label_bel_F, axis=0)
+                label_bel_U = tf.expand_dims(tf.cast(label_bel_U_list[0], dtype=float),axis=0)
+                label_bel_O = tf.expand_dims(tf.cast(label_bel_O_list[0], dtype=float), axis=0)
+                label_bel_F = tf.expand_dims(tf.cast(label_bel_F_list[0], dtype=float), axis=0)
+                size_of_batch = len(label_bel_F_list)
+                if size_of_batch >= 2:
+                    for index in range(size_of_batch-1):
 
-                label_bel_U = label_bel_U / 255
-                label_bel_O = label_bel_O / 255
-                label_bel_F = label_bel_F / 255
+                        label_bel_U = tf.concat([label_bel_U,
+                                             tf.expand_dims(tf.cast(label_bel_U_list[index+1], dtype=float), axis=0)],
+                                                axis=0)
+                        label_bel_F = tf.concat([label_bel_F,
+                                            tf.expand_dims(tf.cast(label_bel_F_list[index + 1], dtype=float), axis=0)],
+                                                axis=0)
+                        label_bel_O = tf.concat([label_bel_O,
+                                        tf.expand_dims(tf.cast(label_bel_O_list[index+1], dtype=float),axis=0)],
+                                                axis=0)
+                # label_bel_U = tf.squeeze(label_bel_U, axis=0)
+                # label_bel_O = tf.squeeze(label_bel_O, axis=0)
+                # label_bel_F = tf.squeeze(label_bel_F, axis=0)
+
+                label_bel_U = label_bel_U / 255.
+                label_bel_O = label_bel_O / 255.
+                label_bel_F = label_bel_F / 255.
+
+                print("pred_bel_F")
+                print(pred_bel_F)
+                tf.Print(pred_bel_F,[pred_bel_F],'pred_bel_F',summarize=15)
+                print("pred_bel_U")
+                print(pred_bel_U)
+                tf.Print(pred_bel_U,[pred_bel_U],'pred_bel_U',summarize=15)
+
+                print("label_bel_F")
+                print(label_bel_F)
+                tf.Print(label_bel_F,[label_bel_F],'label_bel_F',summarize=15)
+                print("label_bel_U")
+                print(label_bel_U)
+                tf.Print(label_bel_U,[label_bel_U],'label_bel_U',summarize=15)
 
                 # wLC10 = self._my_weights_label_cert(labels, 10.)
                 #  weights=wLC10
@@ -798,8 +820,8 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 self._summarize_grid_maps_augmentation(metrics_dict)
 
                 bel_cert_mask = 1 - label_bel_U
-                tf.print(" tf.reduce_max(label_bel_U) of all pixels in batch: ", tf.reduce_max(bel_cert_mask))
-                tf.print(" tf.reduce_min(label_bel_U) of all pixels in batch: ", tf.reduce_min(bel_cert_mask))
+                tf.Print(tf.reduce_max(bel_cert_mask),[tf.reduce_max(bel_cert_mask)],'tf.reduce_max(label_bel_U) of all pixels in batch: ',summarize=15)
+                tf.Print( tf.reduce_min(bel_cert_mask),[tf.reduce_min(bel_cert_mask)],'tf.reduce_max(label_bel_U) of all pixels in batch: ',summarize=15)
                 bel_cert_mask_img = tf.expand_dims(
                     tf.concat(((1 - pred_bel_U)[0, :, :, :], tf.cast(bel_cert_mask[0], dtype=float)), axis=1), 0)
                 tf.summary.image('bel_cert_mask: (1-bel_U)', bel_cert_mask_img)
@@ -835,6 +857,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             if self._use_uncertainty_weighting_loss:
                 log_var_augm = tf.Variable(0.0, name='log_variance_augm', dtype=tf.float32)
                 augm_loss_weight *= tf.exp(-log_var_augm) + log_var_augm
+                print("augm_loss WEIGHTED BY UNCERTAINTY KENDAL")
             augm_loss = tf.multiply(augm_loss_weight,
                                     augm_combined_loss,
                                     name='augm_loss')

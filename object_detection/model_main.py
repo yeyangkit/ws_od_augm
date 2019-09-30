@@ -131,9 +131,6 @@ def main(unused_argv):
         # print("FLAGS.model_dir----------------------------")
         # print(FLAGS.model_dir)
 
-
-
-
     if not flags.FLAGS.reload_ckpt:
         flags.mark_flag_as_required('pipeline_config_path')
         copyfile(FLAGS.pipeline_config_path, os.path.join(FLAGS.model_dir + '/correspondingPipelineConfig.config'))
@@ -184,8 +181,6 @@ def main(unused_argv):
             sample_1_of_n_eval_examples=FLAGS.sample_1_of_n_eval_examples,
             sample_1_of_n_eval_on_train_examples=(
                 FLAGS.sample_1_of_n_eval_on_train_examples))
-
-
 
     estimator = train_and_eval_dict['estimator']
     train_input_fn = train_and_eval_dict['train_input_fn']

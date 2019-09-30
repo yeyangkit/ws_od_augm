@@ -146,12 +146,19 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     fused_zmax_det_mask = image_fused_zmax_det > 0.0001
     fused_bel_F_mask = image_fused_bel_F > 0.0001
 
-    return np.expand_dims(image_stacked, axis=0), detection_mask, observation_mask, zmax_mask
+    return np.expand_dims(image_stacked, axis=0), detection_mask, fused_bel_F_mask, zmax_mask
 
 
 def visualize(split):
     nusc = NuScenes(version='v1.0-trainval', dataroot=FLAGS.nuscenes, verbose=True)
     sensor = 'LIDAR_TOP'
+
+    folder_inverse = os.path.join(FLAGS.output, 'inverse')
+    folder_color = os.path.join(FLAGS.output, 'color')
+    folder_color_inverse = os.path.join(FLAGS.output, 'color_inverse')
+    os.system('makdir {}'.format(folder_inverse))
+    os.system('makdir {}'.format(folder_color))
+    os.system('makdir {}'.format(folder_color_inverse))
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
@@ -217,8 +224,13 @@ def visualize(split):
 
                     # Create grid map to visualize
                     image_vis = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
+                                        dtype=np.uint8)
+                    image_vis_inv  = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
+                                        dtype=np.uint8)
+                    image_vis_color = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
                                         dtype=np.uint8) * 255  # todo
-
+                    image_vis_color_inv = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
+                                        dtype=np.uint8) * 255  # todo
                     # for (v, u), val in np.ndenumerate(observation_mask):
                     #     if val:
                     #         image_vis[v, u, :] = 50
@@ -228,29 +240,53 @@ def visualize(split):
                     #         image_vis[v, u] = 255
                     #         image_vis_inv[v, u] = 0
 
+                    print("z_mask")
+                    print(z_mask)
+                    print("observation_mask")
+                    print(observation_mask)
                     for v, u in itertools.product(range(image_stacked.shape[1]), range(image_stacked.shape[2])):
-                        image_vis[v, u, 0] = observation_mask[v, u] * 5
-                        image_vis[v, u, 1] = det_mask[v, u] * 10
-                        image_vis[v, u, 2] = z_mask[v, u]
+                        image_vis_color[v, u, 0] = observation_mask[v, u] * 5
+                        image_vis_color[v, u, 1] = det_mask[v, u] * 10
+                        image_vis_color[v, u, 2] = z_mask[v, u]
+                    image_vis_color_inv = cv2.bitwise_not(image_vis_color)
+
+
+                    for (v, u), val in np.ndenumerate(det_mask):
+                        if val:
+                            image_vis[v, u] = 255
+                            image_vis_inv[v, u] = 0
+
+                    image_vis = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3), dtype=np.uint8)
+                    for (v, u), val in np.ndenumerate(observation_mask):
+                        if val:
+                            image_vis[v, u, :] = 50
                     image_vis_inv = cv2.bitwise_not(image_vis)
-                    # for (v, u), val in np.ndenumerate(det_mask):
-                    #     if val:
-                    #         image_vis[v, u] = 255
-                    #         image_vis_inv[v, u] = 0
-
-
-
-                    # image_vis = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3), dtype=np.uint8)
-                    # for (v, u), val in np.ndenumerate(observation_mask):
-                    #     if val:
-                    #         image_vis[v, u, :] = 50
-                    # image_vis_inv = cv2.bitwise_not(image_vis)
-                    # for (v, u), val in np.ndenumerate(det_mask):
-                    #     if val:
-                    #         image_vis[v, u] = 255
-                    #         image_vis_inv[v, u] = 0
+                    for (v, u), val in np.ndenumerate(det_mask):
+                        if val:
+                            image_vis[v, u] = 255
+                            image_vis_inv[v, u] = 0
 
                     # Draw inclined detection box
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_vis_color,
+                        np.squeeze(boxes_aligned),
+                        np.squeeze(classes).astype(np.int32),
+                        np.squeeze(scores),
+                        category_index,
+                        boxes_3d=np.squeeze(boxes_inclined),
+                        min_score_thresh=0.3,
+                        use_normalized_coordinates=True,
+                        line_thickness=3)
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_vis_color_inv,
+                        np.squeeze(boxes_aligned),
+                        np.squeeze(classes).astype(np.int32),
+                        np.squeeze(scores),
+                        category_index,
+                        boxes_3d=np.squeeze(boxes_inclined),
+                        min_score_thresh=0.3,
+                        use_normalized_coordinates=True,
+                        line_thickness=3)
                     vis_util.visualize_boxes_and_labels_on_image_array(
                         image_vis,
                         np.squeeze(boxes_aligned),
@@ -275,9 +311,16 @@ def visualize(split):
                     # Save image
                     print(filename_prefix.split('/')[-1])
                     output_path = os.path.join(FLAGS.output, filename_prefix.split('/')[-1] + '.png')
-                    output_path_inv = os.path.join(FLAGS.output, 'inverse', filename_prefix.split('/')[-1] + '.png')
                     cv2.imwrite(output_path, image_vis)
+
+
+                    output_path_inv = os.path.join(folder_inverse, filename_prefix.split('/')[-1] + '.png')
+                    output_color_path = os.path.join(folder_color,filename_prefix.split('/')[-1] + '.png')
+                    output_color_path_inv = os.path.join(folder_color_inverse, filename_prefix.split('/')[-1] + '.png')
+
                     cv2.imwrite(output_path_inv, image_vis_inv)
+                    cv2.imwrite(output_color_path, image_vis_color)
+                    cv2.imwrite(output_color_path_inv, image_vis_color_inv)
 
                     current_sample_token = sample['next']
 
