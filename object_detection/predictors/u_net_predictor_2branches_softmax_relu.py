@@ -49,8 +49,10 @@ class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
             return x
 
     def _create_input_conv_net(self, preprocessed_input):
+        x = tf.layers.conv2d(preprocessed_input, filters=self._detectionFM_filters/2, kernel_size=1, strides=1,
+                             padding='same', name='preprocessed_input_start')
 
-        x = self._conv_block(preprocessed_input, filters=int(self._detectionFM_filters / 2), stack_size=self._stack_size, ksize=3,
+        x = self._conv_block(x, filters=int(self._detectionFM_filters / 2), stack_size=self._stack_size, ksize=3,
                              name="augm_input_conv_op_block")
 
         with tf.variable_scope("shortcut"):
@@ -61,8 +63,9 @@ class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
 
     def _create_unet_end(self, image_features, short_cut, bels_outputs_channels, maps_outputs_channels):
         # x = tf.Print(x, [x], 'img_features[0]:', summarize=15)
+        x = tf.layers.conv2d(image_features, filters=self._detectionFM_filters, kernel_size=1, strides=1,padding='same',name='image_features_start')
 
-        x = self._conv_block(image_features, filters=int(self._detectionFM_filters), stack_size=self._stack_size, ksize=3,
+        x = self._conv_block(x, filters=int(self._detectionFM_filters), stack_size=self._stack_size, ksize=3,
                              name="augm_conv_block1_before_transpose")
 
         x = self._conv_block(x, filters=int(self._detectionFM_filters), stack_size=self._stack_size, ksize=3,
