@@ -143,7 +143,7 @@ def main(unused_argv):
             os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
-            os.path.join(FLAGS.model_dir + '/u.py'))
+            os.path.join(FLAGS.model_dir + '/u_net_predictor.py'))
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor_2branches_softmax_relu.py',
             os.path.join(FLAGS.model_dir + '/u_net_predictor_2branches_softmax_relu.py'))

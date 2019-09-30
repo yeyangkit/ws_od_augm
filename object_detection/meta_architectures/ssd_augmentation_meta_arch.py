@@ -944,7 +944,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
 
         with tf.name_scope("uncertainty_system_error"):
             recalculated_pred_uncertainty = 1. - pred_bel_F - pred_bel_O
-            diff_recalculated_predicted_U = self._my_loss_L1_metric(recalculated_pred_uncertainty , pred_bel_U)
+            diff_recalculated_predicted_U = self._my_loss_L1_metric(recalculated_pred_uncertainty, pred_bel_U)
             recalculated_label_uncertainty = 1. - label_bel_F - label_bel_O
             diff_recalculated_label_U = self._my_loss_L1_metric(recalculated_label_uncertainty , label_bel_U)
 
@@ -962,23 +962,41 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 pred_bel_O, label_bel_O,
                 weights=wLC10)
 
+        # metric_ops = {
+        #     "met_false_occ": tf.metrics.mean(false_occ),
+        #     "met_false_free": tf.metrics.mean(false_free),
+        #     "met_false_occ_2": tf.metrics.mean(false_occ_2),
+        #     "met_false_free_2": tf.metrics.mean(false_free_2),
+        #     "met_self_conflict": tf.metrics.mean(self_conflict),
+        #     "met_bel_F_pred": tf.metrics.mean(pred_bel_F),
+        #     "met_bel_O_pred": tf.metrics.mean(pred_bel_O),
+        #     # "met_bel_U_pred": tf.metrics.mean(pred_bel_U),
+        #     "met_diff_recalculated_label_U": diff_recalculated_label_U,
+        #     "met_diff_recalculated_predicted_U": diff_recalculated_predicted_U,
+        #     "met_rel_uncertainty": tf.metrics.mean(rel_uncertainty),
+        #     "met_L1": tf.metrics.mean(L1),
+        #     "met_L2": tf.metrics.mean(L2),
+        #     "met_L1_wLC10": tf.metrics.mean(L1_wLC10),
+        #     "met_L2_wLC10": tf.metrics.mean(L2_wLC10),
+        #     "met_trained_loss": tf.metrics.mean(trained_loss)
+        # }
         metric_ops = {
-            "met_false_occ": tf.metrics.mean(false_occ),
-            "met_false_free": tf.metrics.mean(false_free),
-            "met_false_occ_2": tf.metrics.mean(false_occ_2),
-            "met_false_free_2": tf.metrics.mean(false_free_2),
-            "met_self_conflict": tf.metrics.mean(self_conflict),
-            "met_bel_F_pred": tf.metrics.mean(pred_bel_F),
-            "met_bel_O_pred": tf.metrics.mean(pred_bel_O),
-            "met_bel_U_pred": tf.metrics.mean(pred_bel_U),
-            "met_diff_recalculated_label_U": tf.metrics.mean(diff_recalculated_label_U),
-            "met_diff_recalculated_predicted_U": tf.metrics.mean(diff_recalculated_predicted_U),
-            "met_rel_uncertainty": tf.metrics.mean(rel_uncertainty),
-            "met_L1": tf.metrics.mean(L1),
-            "met_L2": tf.metrics.mean(L2),
-            "met_L1_wLC10": tf.metrics.mean(L1_wLC10),
-            "met_L2_wLC10": tf.metrics.mean(L2_wLC10),
-            "met_trained_loss": tf.metrics.mean(trained_loss)
+            "met_false_occ":  false_occ  ,
+            "met_false_free":  false_free ,
+            "met_false_occ_2":  false_occ_2 ,
+            "met_false_free_2":  false_free_2 ,
+            "met_self_conflict":  self_conflict ,
+            # "met_bel_F_pred":  pred_bel_F ,
+            # "met_bel_O_pred":  pred_bel_O ,
+            # "met_bel_U_pred":  pred_bel_U ,
+            "met_diff_recalculated_label_U": diff_recalculated_label_U,
+            "met_diff_recalculated_predicted_U": diff_recalculated_predicted_U,
+            "met_rel_uncertainty":  rel_uncertainty ,
+            "met_L1":  L1 ,
+            "met_L2":  L2 ,
+            "met_L1_wLC10":  L1_wLC10 ,
+            "met_L2_wLC10":  L2_wLC10 ,
+            "met_trained_loss":  trained_loss
         }
         return metric_ops
 
@@ -989,9 +1007,9 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         tf.summary.scalar("met_false_occ_2", metrics_ops["met_false_occ_2"], family='Augmentation_metics')
         tf.summary.scalar("met_false_free_2", metrics_ops["met_false_free_2"], family='Augmentation_metics')
         tf.summary.scalar("met_self_conflict", metrics_ops["met_self_conflict"], family='Augmentation_metics')
-        tf.summary.scalar("met_bel_F_pred", metrics_ops["met_bel_F_pred"], family='Augmentation_metics')
-        tf.summary.scalar("met_bel_O_pred", metrics_ops["met_bel_O_pred"], family='Augmentation_metics')
-        tf.summary.scalar("met_bel_U_pred", metrics_ops["met_bel_U_pred"], family='Augmentation_metics')
+        # tf.summary.scalar("met_bel_F_pred", metrics_ops["met_bel_F_pred"], family='Augmentation_metics')
+        # tf.summary.scalar("met_bel_O_pred", metrics_ops["met_bel_O_pred"], family='Augmentation_metics')
+        # tf.summary.scalar("met_bel_U_pred", metrics_ops["met_bel_U_pred"], family='Augmentation_metics')
         tf.summary.scalar("met_diff_recalculated_label_U", metrics_ops["met_diff_recalculated_label_U"],
                           family='Augmentation_metics')
         tf.summary.scalar("met_diff_recalculated_predicted_U", metrics_ops["met_diff_recalculated_predicted_U"],
