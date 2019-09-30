@@ -750,7 +750,8 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             pred_bel_O = prediction_dict['belief_O_prediction']
 
             label_z_min_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_detections)
-            label_detections_drivingCorridor = self.groundtruth_lists(fields.InputDataFields.groundtruth_detections_drivingCorridor)
+            label_detections_drivingCorridor = self.groundtruth_lists(
+                fields.InputDataFields.groundtruth_detections_drivingCorridor)
             label_bel_U = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_U)
             label_z_max_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_max_detections)
             label_z_min_observations = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_observations)
@@ -758,28 +759,75 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             label_bel_O = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
             # LOSSES TO CHOOSE #
-            with tf.name_scope("losses_and_weights"):
+            with tf.name_scope("augm_losses_and_weights"):
+                label_bel_U = tf.concat(
+                    tf.expand_dims([tf.cast(label_bel_U[0], dtype=float), tf.cast(label_bel_U[1], dtype=float)],
+                                   axis=0), axis=0)
+                label_bel_F = tf.concat(
+                    tf.expand_dims([tf.cast(label_bel_F[0], dtype=float), tf.cast(label_bel_F[1], dtype=float)],
+                                   axis=0), axis=0)
+                label_bel_O = tf.concat(
+                    tf.expand_dims([tf.cast(label_bel_O[0], dtype=float), tf.cast(label_bel_O[1], dtype=float)],
+                                   axis=0), axis=0)
+                label_bel_U = tf.squeeze(label_bel_U, axis=0)
+                label_bel_O = tf.squeeze(label_bel_O, axis=0)
+                label_bel_F = tf.squeeze(label_bel_F, axis=0)
+
+                label_bel_U = label_bel_U / 255
+                label_bel_O = label_bel_O / 255
+                label_bel_F = label_bel_F / 255
+
                 # wLC10 = self._my_weights_label_cert(labels, 10.)
                 #  weights=wLC10
 
-                L1 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=1.) * self._factor_loss_fused_bel_F \
-                     + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.) * self._factor_loss_fused_bel_O \
-                     + self._my_loss_L1(pred_z_min_observations, label_z_min_observations,
-                                        xBiggerY=1.) * self._factor_loss_fused_obs_zmin \
-                     + self._my_loss_L1(pred_z_max_detections, label_z_max_detections,
-                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det  \
-                     + self._my_loss_L1(pred_z_min_detections, label_z_min_detections,
-                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det  \
-                     + self._my_loss_L1(pred_detections_drivingCorridor, label_detections_drivingCorridor,
-                                        xBiggerY=2.) * self._factor_loss_fused_zmax_det  \
-                     + self._my_loss_L1(pred_bel_U, label_bel_U,
-                                        xBiggerY=1.) * self._factor_loss_fused_bel_F
+                # softmax_cross_entropy_BELS = tf.nn.softmax_cross_entropy_with_logits(label_bel_F, pred_bel_F) \
+                # * self._factor_loss_fused_bel_F  # todo
 
-                L1x2 = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=2.) \
-                       + self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.)
-                L2 = self._my_loss_L2(pred_bel_F, label_bel_F) + self._my_loss_L2(pred_bel_O, label_bel_O)
+                augm_loss_belO = self._my_loss_L1(pred_bel_O, label_bel_O, xBiggerY=2.) * self._factor_loss_fused_bel_O
+                augm_loss_belF = self._my_loss_L1(pred_bel_F, label_bel_F, xBiggerY=1.) * self._factor_loss_fused_bel_F
+                augm_loss_belU = self._my_loss_L1(pred_bel_U, label_bel_U, xBiggerY=1.) * self._factor_loss_fused_bel_F
+                tf.summary.scalar('augm_loss_belO', augm_loss_belO, family="custom_loss")
+                tf.summary.scalar('augm_loss_belF', augm_loss_belF, family="custom_loss")
+                tf.summary.scalar('augm_loss_belU', augm_loss_belU, family="custom_loss")
+                # tf.summary.scalar('augm_metric_falsePositive', augm_loss_belO)
+                # tf.summary.scalar('augm_metric_falseNegative', augm_loss_belF)
+                L1_BELS = augm_loss_belO + augm_loss_belF + augm_loss_belU
 
-                augm_combined_loss = L1
+                metrics_dict = self._get_my_metric_dict(pred_bel_O, pred_bel_F, pred_bel_U, label_bel_F, label_bel_O,
+                                                        label_bel_U, L1_BELS)
+                self._summarize_grid_maps_augmentation(metrics_dict)
+
+                bel_cert_mask = 1 - label_bel_U
+                tf.print(" tf.reduce_max(label_bel_U) of all pixels in batch: ", tf.reduce_max(bel_cert_mask))
+                tf.print(" tf.reduce_min(label_bel_U) of all pixels in batch: ", tf.reduce_min(bel_cert_mask))
+                bel_cert_mask_img = tf.expand_dims(
+                    tf.concat(((1 - pred_bel_U)[0, :, :, :], tf.cast(bel_cert_mask[0], dtype=float)), axis=1), 0)
+                tf.summary.image('bel_cert_mask: (1-bel_U)', bel_cert_mask_img)
+
+                augm_loss_zminObs = self._my_loss_L1(pred_z_min_observations, label_z_min_observations,
+                                                     weights=bel_cert_mask,
+                                                     xBiggerY=1.) * self._factor_loss_fused_obs_zmin
+                augm_loss_zmaxDet = self._my_loss_L1(pred_z_max_detections, label_z_max_detections,
+                                                     weights=bel_cert_mask,
+                                                     xBiggerY=2.) * self._factor_loss_fused_zmax_det
+                augm_loss_zminDet = self._my_loss_L1(pred_z_min_detections, label_z_min_detections,
+                                                     weights=bel_cert_mask,
+                                                     xBiggerY=2.) * self._factor_loss_fused_zmax_det
+                augm_loss_detDC = self._my_loss_L1(pred_detections_drivingCorridor, label_detections_drivingCorridor,
+                                                   weights=bel_cert_mask,
+                                                   xBiggerY=2.) * self._factor_loss_fused_zmax_det
+                tf.summary.scalar('augm_loss_zminObs', augm_loss_zminObs, family="custom_loss")
+                tf.summary.scalar('augm_loss_zmaxDet', augm_loss_zmaxDet, family="custom_loss")
+                tf.summary.scalar('augm_loss_zminDet', augm_loss_zminDet, family="custom_loss")
+                tf.summary.scalar('augm_loss_detDC', augm_loss_detDC, family="custom_loss")
+                L1_MAPS = augm_loss_zminObs + augm_loss_zmaxDet + augm_loss_zminDet + augm_loss_detDC
+
+                # L1x2 = self._my_loss_L1_metric(pred_bel_F, label_bel_F, xBiggerY=2.) \
+                #        + self._my_loss_L1_metric(pred_bel_O, label_bel_O, xBiggerY=2.)
+                # L2 = self._my_loss_L2_metric(pred_bel_F, label_bel_F) + self._my_loss_L2_metric(pred_bel_O, label_bel_O)
+
+                augm_combined_loss = L1_BELS + L1_MAPS
+                tf.summary.scalar('augm_combined_loss', augm_combined_loss)
                 # augm_combined_loss = tf.Print(augm_combined_loss, [augm_combined_loss],
                 #                               message="augm_combined_loss L1 : ")
 
@@ -793,46 +841,56 @@ class SSDAugmentationMetaArch(model.DetectionModel):
 
             # localization_loss = tf.Print(localization_loss, [localization_loss], 'localization loss:')
             # classification_loss = tf.Print(classification_loss, [classification_loss], 'classification loss:')
-            augm_loss = tf.Print(augm_loss, [augm_loss], 'augm_loss:')
-
+            # augm_loss = tf.Print(augm_loss, [augm_loss], 'augm_loss:')
+            tf.summary.scalar('loc_loss_weight', loc_loss_weight, family="custom_loss")
+            tf.summary.scalar('localization_loss', localization_loss, family="custom_loss")
+            tf.summary.scalar('cls_loss_weight', cls_loss_weight, family="custom_loss")
+            tf.summary.scalar('classification_loss', classification_loss, family="custom_loss")
+            tf.summary.scalar('augm_loss_weight', augm_loss_weight, family="custom_loss")
+            tf.summary.scalar('augm_loss', augm_loss, family="custom_loss")
             loss_dict = {
                 'Loss/localization_loss': localization_loss,
                 'Loss/classification_loss': classification_loss,
                 'Loss/augmentation_loss': augm_loss
             }
-            # print("label_bel_O---------------------------------------------")
-            # print(label_bel_O)
-            bel_o = tf.expand_dims(tf.concat((pred_bel_O[0, :, :, :], tf.cast(label_bel_O[0], dtype=float)), axis=1),0)
-            # print(bel_o)
-            bel_f = tf.expand_dims(tf.concat((pred_bel_F[0, :, :, :], tf.cast(label_bel_F[0], dtype=float)), axis=1),0)
+
+
+
+
+            bel_o = tf.expand_dims(tf.concat((pred_bel_O[0, :, :, :], tf.cast(label_bel_O[0], dtype=float)), axis=1), 0)
+            bel_f = tf.expand_dims(tf.concat((pred_bel_F[0, :, :, :], tf.cast(label_bel_F[0], dtype=float)), axis=1), 0)
+            bel_u = tf.expand_dims(tf.concat((pred_bel_U[0, :, :, :], tf.cast(label_bel_U[0], dtype=float)), axis=1), 0)
+
             z_min_observations = tf.expand_dims(tf.concat(
-                (pred_z_min_observations[0, :, :, :], tf.cast(label_z_min_observations[0], dtype=float)), axis=1),0)
+                (pred_z_min_observations[0, :, :, :], tf.cast(label_z_min_observations[0], dtype=float)), axis=1), 0)
             z_max_detections = tf.expand_dims(tf.concat(
-                (pred_z_max_detections[0, :, :, :], tf.cast(label_z_max_detections[0], dtype=float)), axis=1),0)
-            bel_u = tf.expand_dims(tf.concat((pred_bel_U[0, :, :, :], tf.cast(label_bel_U[0], dtype=float)), axis=1),0)
-            detections_drivingCorridor = tf.expand_dims(tf.concat(
-                (pred_detections_drivingCorridor[0, :, :, :], tf.cast(label_detections_drivingCorridor[0], dtype=float)), axis=1),0)
+                (pred_z_max_detections[0, :, :, :], tf.cast(label_z_max_detections[0], dtype=float)), axis=1), 0)
             z_min_detections = tf.expand_dims(tf.concat(
-                (pred_z_min_detections[0, :, :, :], tf.cast(label_z_min_detections[0], dtype=float)), axis=1),0)
+                (pred_z_min_detections[0, :, :, :], tf.cast(label_z_min_detections[0], dtype=float)), axis=1), 0)
+            detections_drivingCorridor = tf.expand_dims(tf.concat(
+                (
+                    pred_detections_drivingCorridor[0, :, :, :],
+                    tf.cast(label_detections_drivingCorridor[0], dtype=float)),
+                axis=1), 0)
+
             # z_min_observations = tf.squeeze(tf.concat(pred_z_min_observations, label_z_min_observations), axis=1)
             # z_max_detections = tf.squeeze(tf.concat(pred_z_max_detections, label_z_max_detections), axis=1)
 
-            tf.summary.image('bel_O: left_pred vs right_label', bel_o)
-            tf.summary.image('bel_F: left_pred vs right_label', bel_f)
-            tf.summary.image('z_min_observations: left_pred vs right_label', z_min_observations)
-            tf.summary.image('z_max_detections: left_pred vs right_label', z_max_detections)
-            tf.summary.image('bel_U: left_pred vs right_label', bel_u)
-            tf.summary.image('detections_drivingCorridor: left_pred vs right_label', detections_drivingCorridor)
-            tf.summary.image('z_min_detections: left_pred vs right_label', z_min_detections)
-
-            # todo metrics und scalar for augmentation
+            tf.summary.image('bel_O: left_pred vs right_label', bel_o * 255, family="augmentated_maps")
+            tf.summary.image('bel_F: left_pred vs right_label', bel_f * 255, family="augmentated_maps")
+            tf.summary.image('z_min_observations: left_pred vs right_label', z_min_observations,
+                             family="augmentated_maps")
+            tf.summary.image('z_max_detections: left_pred vs right_label', z_max_detections, family="augmentated_maps")
+            tf.summary.image('bel_U: left_pred vs right_label', bel_u * 255, family="augmentated_maps")
+            tf.summary.image('detections_drivingCorridor: left_pred vs right_label', detections_drivingCorridor,
+                             family="augmentated_maps")
+            tf.summary.image('z_min_detections: left_pred vs right_label', z_min_detections, family="augmentated_maps")
 
         return loss_dict
 
-    def _my_weights_label_cert(self, labels, factor):
-
+    def _my_weights_label_cert(self, label_bel_F, label_bel_O, factor):
         with tf.variable_scope("weights_label_cert"):
-            cert = labels['img_file_bel_O'] + labels['img_file_bel_F']
+            cert = label_bel_O + label_bel_F
             return (1. / factor) + (1. - (1. / factor)) * cert
 
     def _my_loss_L1(self, pred, label, weights=None, xBiggerY=1., name=None):
@@ -844,7 +902,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             loss = tf.multiply(loss, weights)
         return tf.reduce_mean(loss)
 
-    def _my_loss_L1_originFelix(self, pred, label, weights=None, xBiggerY=1., name=None):
+    def _my_loss_L1_metric(self, pred, label, weights=None, xBiggerY=1., name=None):
         """L1 loss with optional weight and optional assymmetry."""
         # with tf.name_scope(name or "loss_L1"):
         # pred = tf.cast(pred, tf.float32)
@@ -853,7 +911,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             loss = tf.multiply(loss, weights)
         return tf.reduce_mean(loss)
 
-    def _my_loss_L2(self, pred, label, weights=None, name=None):
+    def _my_loss_L2_metric(self, pred, label, weights=None, name=None):
         """L2 loss with optional weight and optional assymmetry."""
         with tf.name_scope(name or "loss_L2"):
             loss = tf.square(pred - label)
@@ -861,41 +919,89 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 loss = tf.multiply(loss, weights)
             return tf.reduce_mean(loss)
 
-    def _summarize_grid_maps_augmentation(self, groundtruth_boxes_list, match_list):
-        """Creates tensorflow summaries for the grid-map-augmentation.
+    def _get_my_metric_dict(self, pred_bel_O, pred_bel_F, pred_bel_U, label_bel_F, label_bel_O, label_bel_U,
+                            trained_loss):
 
-        Args:
+        with tf.name_scope("false_occ"):
+            false_occ = tf.reduce_mean(tf.cast(tf.greater(pred_bel_O + label_bel_F, 1.), dtype=tf.float32))
+        with tf.name_scope("false_free"):
+            false_free = tf.reduce_mean(tf.cast(tf.greater(pred_bel_F + label_bel_O, 1.), dtype=tf.float32))
 
-        """
-        avg_num_gt_boxes = tf.reduce_mean(
-            tf.cast(
-                tf.stack([tf.shape(x)[0] for x in groundtruth_boxes_list]),
-                dtype=tf.float32))
+        with tf.name_scope("false_occ_2"):
+            false_occ_2 = tf.reduce_mean(
+                (pred_bel_O + label_bel_F - 1) * tf.cast(tf.greater(pred_bel_O + label_bel_F, 1.), dtype=tf.float32))
+        with tf.name_scope("false_free_2"):
+            false_free_2 = tf.reduce_mean(
+                (pred_bel_F + label_bel_O - 1) * tf.cast(tf.greater(pred_bel_F + label_bel_O, 1.), dtype=tf.float32))
 
-        # TODO(rathodv): Add a test for these summaries.
-        try:
-            # TODO(kaftan): Integrate these summaries into the v2 style loops
-            with tf.compat.v2.init_scope():
-                if tf.compat.v2.executing_eagerly():
-                    return
-        except AttributeError:
-            pass
+        with tf.name_scope("self_conflict"):
+            self_conflict = tf.reduce_mean(tf.cast(tf.greater(pred_bel_F + pred_bel_O, 1.), dtype=tf.float32))
 
-        tf.summary.scalar('AvgNumGroundtruthBoxesPerImage',
-                          avg_num_gt_boxes,
-                          family='TargetAssignment')
-        tf.summary.scalar('AvgNumGroundtruthBoxesMatchedPerImage',
-                          avg_num_matched_gt_boxes,
-                          family='TargetAssignment')
-        tf.summary.scalar('AvgNumPositiveAnchorsPerImage',
-                          avg_pos_anchors,
-                          family='TargetAssignment')
-        tf.summary.scalar('AvgNumNegativeAnchorsPerImage',
-                          avg_neg_anchors,
-                          family='TargetAssignment')
-        tf.summary.scalar('AvgNumIgnoredAnchorsPerImage',
-                          avg_ignored_anchors,
-                          family='TargetAssignment')
+        with tf.name_scope("rel_uncertainty"):
+            pred_uncertainty = tf.reduce_sum(1. - pred_bel_F - pred_bel_O)
+            label_uncertainty = tf.reduce_sum(1. - label_bel_F - label_bel_O)
+            rel_uncertainty = tf.divide(pred_uncertainty, label_uncertainty)
+
+        with tf.name_scope("uncertainty_system_error"):
+            recalculated_pred_uncertainty = 1. - pred_bel_F - pred_bel_O
+            diff_recalculated_predicted_U = self._my_loss_L1_metric(recalculated_pred_uncertainty , pred_bel_U)
+            recalculated_label_uncertainty = 1. - label_bel_F - label_bel_O
+            diff_recalculated_label_U = self._my_loss_L1_metric(recalculated_label_uncertainty , label_bel_U)
+
+        with tf.name_scope("losses"):
+            L1 = self._my_loss_L1_metric(pred_bel_F, label_bel_F) + self._my_loss_L1_metric(pred_bel_O, label_bel_O)
+            L2 = self._my_loss_L2_metric(pred_bel_F, label_bel_F) + self._my_loss_L2_metric(pred_bel_O, label_bel_O)
+
+        with tf.name_scope("losses_wLC10"):
+            wLC10 = self._my_weights_label_cert(label_bel_F, label_bel_O, 10.)
+
+            L1_wLC10 = self._my_loss_L1_metric(pred_bel_F, label_bel_F, weights=wLC10) + self._my_loss_L1_metric(
+                pred_bel_O, label_bel_O,
+                weights=wLC10)
+            L2_wLC10 = self._my_loss_L2_metric(pred_bel_F, label_bel_F, weights=wLC10) + self._my_loss_L2_metric(
+                pred_bel_O, label_bel_O,
+                weights=wLC10)
+
+        metric_ops = {
+            "met_false_occ": tf.metrics.mean(false_occ),
+            "met_false_free": tf.metrics.mean(false_free),
+            "met_false_occ_2": tf.metrics.mean(false_occ_2),
+            "met_false_free_2": tf.metrics.mean(false_free_2),
+            "met_self_conflict": tf.metrics.mean(self_conflict),
+            "met_bel_F_pred": tf.metrics.mean(pred_bel_F),
+            "met_bel_O_pred": tf.metrics.mean(pred_bel_O),
+            "met_bel_U_pred": tf.metrics.mean(pred_bel_U),
+            "met_diff_recalculated_label_U": tf.metrics.mean(diff_recalculated_label_U),
+            "met_diff_recalculated_predicted_U": tf.metrics.mean(diff_recalculated_predicted_U),
+            "met_rel_uncertainty": tf.metrics.mean(rel_uncertainty),
+            "met_L1": tf.metrics.mean(L1),
+            "met_L2": tf.metrics.mean(L2),
+            "met_L1_wLC10": tf.metrics.mean(L1_wLC10),
+            "met_L2_wLC10": tf.metrics.mean(L2_wLC10),
+            "met_trained_loss": tf.metrics.mean(trained_loss)
+        }
+        return metric_ops
+
+    def _summarize_grid_maps_augmentation(self, metrics_ops):
+        """Creates tensorflow summaries for the grid-map-augmentation."""
+        tf.summary.scalar("met_false_occ", metrics_ops["met_false_occ"], family='Augmentation_metics')
+        tf.summary.scalar("met_false_free", metrics_ops["met_false_free"], family='Augmentation_metics')
+        tf.summary.scalar("met_false_occ_2", metrics_ops["met_false_occ_2"], family='Augmentation_metics')
+        tf.summary.scalar("met_false_free_2", metrics_ops["met_false_free_2"], family='Augmentation_metics')
+        tf.summary.scalar("met_self_conflict", metrics_ops["met_self_conflict"], family='Augmentation_metics')
+        tf.summary.scalar("met_bel_F_pred", metrics_ops["met_bel_F_pred"], family='Augmentation_metics')
+        tf.summary.scalar("met_bel_O_pred", metrics_ops["met_bel_O_pred"], family='Augmentation_metics')
+        tf.summary.scalar("met_bel_U_pred", metrics_ops["met_bel_U_pred"], family='Augmentation_metics')
+        tf.summary.scalar("met_diff_recalculated_label_U", metrics_ops["met_diff_recalculated_label_U"],
+                          family='Augmentation_metics')
+        tf.summary.scalar("met_diff_recalculated_predicted_U", metrics_ops["met_diff_recalculated_predicted_U"],
+                          family='Augmentation_metics')
+        tf.summary.scalar("met_rel_uncertainty", metrics_ops["met_rel_uncertainty"], family='Augmentation_metics')
+        tf.summary.scalar("met_L1", metrics_ops["met_L1"], family='Augmentation_metics')
+        tf.summary.scalar("met_L2", metrics_ops["met_L2"], family='Augmentation_metics')
+        tf.summary.scalar("met_L1_wLC10", metrics_ops["met_L1_wLC10"], family='Augmentation_metics')
+        tf.summary.scalar("met_L2_wLC10", metrics_ops["met_L2_wLC10"], family='Augmentation_metics')
+        tf.summary.scalar("met_trained_loss", metrics_ops["met_trained_loss"], family='Augmentation_metics')
 
     def _minibatch_subsample_fn(self, inputs):
         """Randomly samples anchors for one image.

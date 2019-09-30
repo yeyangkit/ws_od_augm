@@ -352,6 +352,21 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                 format_key='image/format',
                 channels=1,
                 dct_method=dct_method)
+            groundtruth_bel_U = slim_example_decoder.Image(
+                image_key='layers/bel_U_FUSED/encoded',
+                format_key='image/format',
+                channels=1,
+                dct_method=dct_method)
+            groundtruth_z_min_detections = slim_example_decoder.Image(
+                image_key='layers/z_min_detections_FUSED/encoded',
+                format_key='image/format',
+                channels=1,
+                dct_method=dct_method)
+            groundtruth_detections_drivingCorridor = slim_example_decoder.Image(
+                image_key='layers/detections_drivingCorridor_FUSED/encoded',
+                format_key='image/format',
+                channels=1,
+                dct_method=dct_method)
         else:
             image = MultilayerImages(
                 image_keys=image_keys, layer_channels=input_channels, format_key='image/format',
@@ -366,6 +381,18 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                 channels=1)
             groundtruth_z_min_observations = slim_example_decoder.Image(
                 image_key='layers/observations_z_min_FUSED/encoded',
+                format_key='image/format',
+                channels=1)
+            groundtruth_bel_U = slim_example_decoder.Image(
+                image_key='layers/bel_U_FUSED/encoded',
+                format_key='image/format',
+                channels=1)
+            groundtruth_z_min_detections = slim_example_decoder.Image(
+                image_key='layers/z_min_detections_FUSED/encoded',
+                format_key='image/format',
+                channels=1)
+            groundtruth_detections_drivingCorridor = slim_example_decoder.Image(
+                image_key='layers/detections_drivingCorridor_FUSED/encoded',
                 format_key='image/format',
                 channels=1)
 
@@ -397,7 +424,10 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             fields.InputDataFields.groundtruth_bel_O: groundtruth_bel_O,
             fields.InputDataFields.groundtruth_bel_F: groundtruth_bel_F,
             fields.InputDataFields.groundtruth_z_max_detections: groundtruth_z_max_detections,
-            fields.InputDataFields.groundtruth_z_min_observations: groundtruth_z_min_observations
+            fields.InputDataFields.groundtruth_z_min_observations: groundtruth_z_min_observations,
+            fields.InputDataFields.groundtruth_bel_U: groundtruth_bel_U,
+            fields.InputDataFields.groundtruth_z_min_detections: groundtruth_z_min_detections,
+            fields.InputDataFields.groundtruth_detections_drivingCorridor: groundtruth_detections_drivingCorridor
         }
         if load_multiclass_scores:
             self.keys_to_features[

@@ -269,6 +269,9 @@ class DetectionModel(_BaseClass):
                           groundtruth_bel_F_list=None,  # augmentation
                           groundtruth_z_min_observations_list=None,
                           groundtruth_z_max_detections_list=None,
+                          groundtruth_bel_U_list=None,  # augmentation
+                          groundtruth_detections_drivingCorridor_list=None,
+                          groundtruth_z_min_detections_list=None,
                           groundtruth_confidences_list=None,
                           groundtruth_is_crowd_list=None,
                           is_annotated_list=None):

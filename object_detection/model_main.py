@@ -132,32 +132,37 @@ def main(unused_argv):
         # print(FLAGS.model_dir)
 
 
-    flags.mark_flag_as_required('pipeline_config_path')
+
 
     if not flags.FLAGS.reload_ckpt:
+        flags.mark_flag_as_required('pipeline_config_path')
         copyfile(FLAGS.pipeline_config_path, os.path.join(FLAGS.model_dir + '/correspondingPipelineConfig.config'))
 
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
             os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
-
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
-            os.path.join(FLAGS.model_dir + '/u_net_predictor.py'))
+            os.path.join(FLAGS.model_dir + '/u.py'))
+        copyfile(
+            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor_2branches_softmax_relu.py',
+            os.path.join(FLAGS.model_dir + '/u_net_predictor_2branches_softmax_relu.py'))
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
             os.path.join(FLAGS.model_dir + '/upsampling_predictor.py'))
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/ht_predictor.py',
             os.path.join(FLAGS.model_dir + '/ht_predictor.py'))
+    else:
+        FLAGS.pipeline_config_path = "{}/correspondingPipelineConfig.config".format(FLAGS.model_dir)
 
+    sess_config = tf.ConfigProto()
+    sess_config.gpu_options.allow_growth = True
+    config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir,
+                                    session_config=sess_config,
+                                    tf_random_seed=FLAGS.tf_random_seed,
+                                    save_checkpoints_steps=FLAGS.save_checkpoints_steps)
     if not flags.FLAGS.reload_ckpt:
-        sess_config = tf.ConfigProto()
-        sess_config.gpu_options.allow_growth = True
-        config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir,
-                                        session_config=sess_config,
-                                        tf_random_seed=FLAGS.tf_random_seed,
-                                        save_checkpoints_steps=FLAGS.save_checkpoints_steps)
         train_and_eval_dict = model_lib.create_estimator_and_inputs(
             run_config=config,
             hparams=model_hparams.create_hparams(FLAGS.hparams_overrides),
@@ -170,15 +175,8 @@ def main(unused_argv):
         # ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
         # saver = tf.train.import_meta_graph(FLAGS.model_dir + '/model.ckpt-190000.meta')
         # saver.restore(sess, ckpt.model_checkpoint_path)
-        sess_config = tf.ConfigProto()
-        sess_config.gpu_options.allow_growth = True
-        config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir,
-                                        session_config=sess_config,
-                                        tf_random_seed=FLAGS.tf_random_seed,
-                                        save_checkpoints_steps=FLAGS.save_checkpoints_steps)
-
         train_and_eval_dict = model_lib.create_estimator_and_inputs_RELOAD_PRETRAINED(
-            path_RELOAD_PRETRAINED=path_reload_ckpt,
+            path_RELOAD_PRETRAINED=FLAGS.reload_ckpt,
             run_config=config,
             hparams=model_hparams.create_hparams(FLAGS.hparams_overrides),
             pipeline_config_path=FLAGS.pipeline_config_path,

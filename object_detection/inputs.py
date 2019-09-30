@@ -165,7 +165,7 @@ def transform_input_data(tensor_dict,
   _, resized_groundtruth_z_min_detections, _ = image_resizer_fn(image, groundtruth_z_min_detections)
 
   groundtruth_detections_drivingCorridor = tf.expand_dims(tf.squeeze(groundtruth_detections_drivingCorridor, axis=2), axis=0)
-  _, resized_groundtruth_detections_drivingCorridor = image_resizer_fn(image, groundtruth_detections_drivingCorridor)
+  _, resized_groundtruth_detections_drivingCorridor, _ = image_resizer_fn(image, groundtruth_detections_drivingCorridor)
 
   tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.expand_dims(tf.squeeze(
       resized_groundtruth_bel_F, axis=0), axis=2)
@@ -305,7 +305,7 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.groundtruth_bel_O: [height, width, 1],
       fields.InputDataFields.groundtruth_bel_F: [height, width, 1],
       fields.InputDataFields.groundtruth_z_max_detections: [height, width, 1],
-      fields.InputDataFields.groundtruth_z_min_observations: [height, width, 1]
+      fields.InputDataFields.groundtruth_z_min_observations: [height, width, 1],
       fields.InputDataFields.groundtruth_bel_U: [height, width, 1],
       fields.InputDataFields.groundtruth_z_min_detections: [height, width, 1],
       fields.InputDataFields.groundtruth_detections_drivingCorridor: [height, width, 1]
