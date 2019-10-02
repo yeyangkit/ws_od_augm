@@ -110,35 +110,36 @@ def bottleneck(inputs,
     The ResNet unit's output.
   """
   with tf.variable_scope(scope, 'bottleneck_v1', [inputs]) as sc:
-    depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank=4)
-    if depth == depth_in:
-      shortcut = resnet_utils.subsample(inputs, stride, 'shortcut')
-    else:
-      shortcut = slim.conv2d(
-          inputs,
-          depth, [1, 1],
-          stride=stride,
-          activation_fn=tf.nn.relu6 if use_bounded_activations else None,
-          scope='shortcut')
+    def _bottleneck(inputs):
+        depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank=4)
+        if depth == depth_in:
+            shortcut = resnet_utils.subsample(inputs, stride, 'shortcut')
+        else:
+            shortcut = slim.conv2d(
+                inputs,
+                depth, [1, 1],
+                stride=stride,
+                activation_fn=tf.nn.relu6 if use_bounded_activations else None,
+                scope='shortcut')
 
-    residual = slim.conv2d(inputs, depth_bottleneck, [1, 1], stride=1,
-                           scope='conv1')
-    residual = resnet_utils.conv2d_same(residual, depth_bottleneck, 3, stride,
-                                        rate=rate, scope='conv2')
-    residual = slim.conv2d(residual, depth, [1, 1], stride=1,
-                           activation_fn=None, scope='conv3')
+        residual = slim.conv2d(inputs, depth_bottleneck, [1, 1], stride=1,
+                               scope='conv1')
+        residual = resnet_utils.conv2d_same(residual, depth_bottleneck, 3, stride,
+                                            rate=rate, scope='conv2')
+        residual = slim.conv2d(residual, depth, [1, 1], stride=1,
+                               activation_fn=None, scope='conv3')
 
-    if use_bounded_activations:
-      # Use clip_by_value to simulate bandpass activation.
-      residual = tf.clip_by_value(residual, -6.0, 6.0)
-      output = tf.nn.relu6(shortcut + residual)
-    else:
-      output = tf.nn.relu(shortcut + residual)
-    return output
+        if use_bounded_activations:
+            # Use clip_by_value to simulate bandpass activation.
+            residual = tf.clip_by_value(residual, -6.0, 6.0)
+            output = tf.nn.relu6(shortcut + residual)
+        else:
+            output = tf.nn.relu(shortcut + residual)
+        return output
 
     if recompute_grad:
-      _building_block = tf.contrib.layers.recompute_grad(bottleneck)
-    output = bottleneck(inputs)
+      _bottleneck = tf.contrib.layers.recompute_grad(_bottleneck)
+    output = _bottleneck(inputs)
 
     return slim.utils.collect_named_outputs(outputs_collections,
                                             sc.name,

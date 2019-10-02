@@ -279,6 +279,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             resized_inputs = outputs[0]
             true_image_shapes = outputs[1]
 
+
             return (self._feature_extractor.preprocess(resized_inputs),
                     true_image_shapes)
 
