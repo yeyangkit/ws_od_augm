@@ -338,11 +338,108 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             resized_augm_map = tf.image.resize_bicubic(augm_map,
                                                        (tf.shape(feature_maps[idx])[1], tf.shape(feature_maps[idx])[2]))
             augm_maps.append(resized_augm_map)
+            # if idx == 3:
+            #     tf.summary.image("augmented2features_concat_SMALLEST_resized_augm_map0", resized_augm_map[:,:,:0], family="watcher")
         # print("augm_maps.append(resized_augm_map):")
         # print(augm_maps)
+
         for idx, augm_level in enumerate(augm_maps):
             feature_maps_augm.append(tf.concat([feature_maps[idx], augm_level], axis=-1))
         return feature_maps_augm
+
+
+
+    def _conv_augm_pyramid(self, prediction_dict, feature_maps, conv_feature_maps_num):
+
+        def _conv_bn_relu(x, filters, ksize, stride):
+            x = tf.layers.conv2d(x, filters=filters, kernel_size=ksize, strides=stride, padding='same')
+            # if self._layer_norm:
+            #     x = clayer.layer_norm(x, scale=False)
+            # else:
+            # x = tf.layers.BatchNormalization(x)
+            x = tf.nn.relu(x)
+            return x
+
+        def _conv_block(x, filters, training, stack_size, ksize, name):
+            with tf.variable_scope(name):
+                for i in range(stack_size):
+                    with tf.variable_scope('augmented2features_conv_%i' % i):
+                        x = _conv_bn_relu(x, filters=filters, ksize=ksize, stride=1)
+                return x
+
+        def _create_unet(x, f, kernel_size, stack_size, output_channel, depth, training):
+
+            skips = []
+            level_outputs = []
+
+            for i in range(depth):
+                x = _conv_block(x, filters=f * (2 ** i), training=training, stack_size=stack_size, ksize=kernel_size, name="augmented2features_enc_%i" % i)
+                skips.append(x)
+                x = tf.layers.max_pooling2d(x, pool_size=2, strides=2, name='augmented2features_pool_%i' % (i + 1))
+
+            x = _conv_block(x, filters=f * (2 ** (depth - 1)), training=training, stack_size=stack_size, ksize=kernel_size,  name="augmented2features_deep")
+            with tf.variable_scope("augmented2features_deep_end"):
+                x = tf.layers.conv2d(x, filters=output_channel, kernel_size=1, strides=1,
+                                     padding='same')
+            level_outputs.append(x)
+
+            for i in reversed(range(depth-1)):
+
+                with tf.variable_scope('augmented2features_up_conv_%i' % (i + 1)):
+                    x = tf.layers.conv2d_transpose(x, filters=f * (2 ** i), kernel_size=kernel_size, strides=2,
+                                                   padding='same')
+                    # if FLAGS.layer_norm:
+                    #     x = clayer.layer_norm(x, scale=False)
+                    x = tf.nn.relu(x)
+                x = tf.concat([skips.pop(), x], axis=3)
+
+                x = _conv_block(x, filters=f * (2 ** i), training=training, stack_size=stack_size, ksize=kernel_size,  name="augmented2features_dec_%i" % i)
+
+                with tf.variable_scope("augmented2features_end_%i" % i):
+                    x = tf.layers.conv2d(x, filters=output_channel, kernel_size=1, strides=1,
+                                         padding='same')
+                level_outputs.append(x)
+                # if i==0:
+                #     tf.summary.image("augmented2features_LARGEST_fMap", x, family="watcher")
+            print("level_outputs-------------------------------------------------------------------------------")
+            print(level_outputs)
+
+
+            return level_outputs
+
+        # def _downsampling_conv_block(self, x, filters, stack_size, ksize, downsampling_times):
+        #     with tf.variable_scope('conv_augm_pyramid_downsampling_conv_block_%i' % downsampling_times):
+        #         for i in range(downsampling_times):
+        #             with tf.variable_scope('conv_augm_pyramid_downsampling_conv_block_%i_%i' % (downsampling_times,i)):
+        #                 x = self._conv_bn_relu(x, filters=filters, ksize=ksize, stride=1)
+        #
+        #         return x
+
+        feature_maps_augm = []
+        augm_map_dic = tf.concat([prediction_dict['belief_F_prediction'],
+                              prediction_dict['belief_O_prediction'],
+                              prediction_dict['z_max_detections_prediction'],
+                              prediction_dict['z_min_observations_prediction'],
+                              prediction_dict['belief_U_prediction'],
+                              prediction_dict['z_min_detections_prediction'],
+                              prediction_dict['detections_drivingCorridor_prediction']], axis=3)
+
+        level_outputs = _create_unet(augm_map_dic, f=2, kernel_size=3, stack_size=1, output_channel=conv_feature_maps_num, depth=4, training=True)
+
+        for idx, augm_level in enumerate(level_outputs):
+            feature_maps_augm.append(tf.concat([feature_maps[3-idx], augm_level], axis=-1))
+        return feature_maps_augm
+
+    def _concat_augm_preprocessed_inputs(self, prediction_dict, preprocessed_inputs):
+        augm = tf.concat([prediction_dict['belief_F_prediction'],
+                              prediction_dict['belief_O_prediction'],
+                              prediction_dict['z_max_detections_prediction'],
+                              prediction_dict['z_min_observations_prediction'],
+                              prediction_dict['belief_U_prediction'],
+                              prediction_dict['z_min_detections_prediction'],
+                              prediction_dict['detections_drivingCorridor_prediction']], axis=3)
+        concated_inputs = tf.concat([augm, preprocessed_inputs], axis=3)
+        return concated_inputs
 
     def predict(self, preprocessed_inputs, true_image_shapes):  # features todo sep24 hestitate to use
         """Predicts unpostprocessed tensors from input tensor.
@@ -408,14 +505,31 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             'anchors': self._anchors.get()
         }
         # grid maps augmentation
-        print("\n-------------------------------------feature_maps:")
-        print(feature_maps)
+
         print("\n-------------------------------------preprocessed_inputs:")
         print(preprocessed_inputs)
 
         predictor_augm_dict = self._augm_predictor.predict(feature_maps, preprocessed_inputs)
+        # predictor_augm_dict_stop = tf.stop_gradient(predictor_augm_dict)
 
+
+
+
+
+        # USE THE AUGMENTATION MAPS TO HELP THE OBJECT DETECTION
+
+        # feature_maps = self._conv_augm_pyramid(predictor_augm_dict, feature_maps, conv_feature_maps_num=8)
         # feature_maps = self._concat_augm_pyramid(predictor_augm_dict, feature_maps)
+        print("\n-------------------------------------feature_maps:")
+        print(feature_maps)
+        # concated_inputs = self._concat_augm_preprocessed_inputs(predictor_augm_dict, preprocessed_inputs)
+        # concated_inputs_stop = tf.stop_gradient(concated_inputs)
+        # feature_maps = self._feature_extractor.extract_features(concated_inputs_stop)
+
+
+
+
+
 
         if self._box_predictor.is_keras_model:
             predictor_results_dict = self._box_predictor(feature_maps)
@@ -730,9 +844,9 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 loc_loss_weight = self._localization_loss_weight
                 cls_loss_weight = self._classification_loss_weight
                 if self._use_uncertainty_weighting_loss:
-                    log_var_loc = tf.Variable(0.0, name='log_variance_localization', dtype=tf.float32)
+                    log_var_loc = tf.get_variable(name='log_variance_localization',  dtype=tf.float32, initializer=0.0)
                     loc_loss_weight *= tf.exp(-log_var_loc) + log_var_loc
-                    log_var_cls = tf.Variable(0.0, name='classification_loss_weight', dtype=tf.float32)
+                    log_var_cls = tf.get_variable(name='log_variance_classification',  dtype=tf.float32, initializer=0.0)
                     cls_loss_weight *= tf.exp(-log_var_cls) + log_var_cls
 
                 localization_loss = tf.multiply((loc_loss_weight / localization_loss_normalizer),
@@ -759,9 +873,9 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             label_bel_F_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
             label_bel_O_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
 
-            # LOSSES TO CHOOSE #
+            # LOSSES #
             with tf.name_scope("augm_losses_and_weights"):
-                label_bel_U = tf.expand_dims(tf.cast(label_bel_U_list[0], dtype=float),axis=0)
+                label_bel_U = tf.expand_dims(tf.cast(label_bel_U_list[0], dtype=float), axis=0)
                 label_bel_O = tf.expand_dims(tf.cast(label_bel_O_list[0], dtype=float), axis=0)
                 label_bel_F = tf.expand_dims(tf.cast(label_bel_F_list[0], dtype=float), axis=0)
                 size_of_batch = len(label_bel_F_list)
@@ -785,19 +899,26 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 label_bel_O = label_bel_O / 255.
                 label_bel_F = label_bel_F / 255.
 
-                print("pred_bel_F")
-                print(pred_bel_F)
-                tf.Print(pred_bel_F,[pred_bel_F],'pred_bel_F',summarize=15)
-                print("pred_bel_U")
-                print(pred_bel_U)
-                tf.Print(pred_bel_U,[pred_bel_U],'pred_bel_U',summarize=15)
+                # print("pred_bel_F")
+                # print(pred_bel_F)
+                # tf.Print(pred_bel_F,[pred_bel_F],'pred_bel_F')
+                # print("pred_bel_U")
+                # print(pred_bel_U)
+                # pred_bel_U = tf.Print(pred_bel_U,[pred_bel_U],message='pred_bel_U')
+                #
+                # print("label_bel_F")
+                # print(label_bel_F)
+                # tf.Print(label_bel_F,[label_bel_F],'label_bel_F')
+                # print("label_bel_U")
+                # print(label_bel_U)
+                # label_bel_U = tf.Print(label_bel_U,[label_bel_U],message='label_bel_U')
+                # tf.summary.scalar('tf.reduce_min(pred_bel_U)', tf.reduce_min(pred_bel_U), family="watcher")
+                # tf.summary.scalar('tf.reduce_min(label_bel_U)',tf.reduce_min(label_bel_U), family="watcher")
+                # tf.summary.scalar('tf.reduce_max(pred_bel_U)', tf.reduce_max(pred_bel_U), family="watcher")
+                # tf.summary.scalar('tf.reduce_max(label_bel_U)',tf.reduce_max(label_bel_U), family="watcher")
+                # label_bel_U = tf.Print(label_bel_U, [tf.reduce_max(label_bel_U)],  message='tf.reduce_max(label_bel_U)')
+                # label_bel_U = tf.Print(label_bel_U, [tf.reduce_min(label_bel_U)], message='tf.reduce_min(label_bel_U)')
 
-                print("label_bel_F")
-                print(label_bel_F)
-                tf.Print(label_bel_F,[label_bel_F],'label_bel_F',summarize=15)
-                print("label_bel_U")
-                print(label_bel_U)
-                tf.Print(label_bel_U,[label_bel_U],'label_bel_U',summarize=15)
 
                 # wLC10 = self._my_weights_label_cert(labels, 10.)
                 #  weights=wLC10
@@ -820,11 +941,14 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 self._summarize_grid_maps_augmentation(metrics_dict)
 
                 bel_cert_mask = 1 - label_bel_U
-                tf.Print(tf.reduce_max(bel_cert_mask),[tf.reduce_max(bel_cert_mask)],'tf.reduce_max(label_bel_U) of all pixels in batch: ',summarize=15)
-                tf.Print( tf.reduce_min(bel_cert_mask),[tf.reduce_min(bel_cert_mask)],'tf.reduce_max(label_bel_U) of all pixels in batch: ',summarize=15)
+                # bel_cert_mask = tf.Print(bel_cert_mask,[tf.reduce_max(bel_cert_mask)],message='tf.reduce_max(label_bel_U) of all pixels in batch: ')
+                # bel_cert_mask = tf.Print(bel_cert_mask,[tf.reduce_min(bel_cert_mask)],message='tf.reduce_max(label_bel_U) of all pixels in batch: ')
+                # tf.summary.scalar('tf.reduce_min(bel_cert_mask)',tf.reduce_min(bel_cert_mask), family="watcher")
+                # tf.summary.scalar('tf.reduce_max(bel_cert_mask)', tf.reduce_max(bel_cert_mask), family="watcher")
+
                 bel_cert_mask_img = tf.expand_dims(
                     tf.concat(((1 - pred_bel_U)[0, :, :, :], tf.cast(bel_cert_mask[0], dtype=float)), axis=1), 0)
-                tf.summary.image('bel_cert_mask: (1-bel_U)', bel_cert_mask_img)
+                tf.summary.image('bel_cert_mask_1-bel_U', bel_cert_mask_img)
 
                 augm_loss_zminObs = self._my_loss_L1(pred_z_min_observations, label_z_min_observations,
                                                      weights=bel_cert_mask,
@@ -837,7 +961,7 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                                                      xBiggerY=2.) * self._factor_loss_fused_zmax_det
                 augm_loss_detDC = self._my_loss_L1(pred_detections_drivingCorridor, label_detections_drivingCorridor,
                                                    weights=bel_cert_mask,
-                                                   xBiggerY=2.) * self._factor_loss_fused_zmax_det
+                                                   xBiggerY=100.) * self._factor_loss_fused_zmax_det * 5
                 tf.summary.scalar('augm_loss_zminObs', augm_loss_zminObs, family="custom_loss")
                 tf.summary.scalar('augm_loss_zmaxDet', augm_loss_zmaxDet, family="custom_loss")
                 tf.summary.scalar('augm_loss_zminDet', augm_loss_zminDet, family="custom_loss")
@@ -855,9 +979,13 @@ class SSDAugmentationMetaArch(model.DetectionModel):
 
             augm_loss_weight = self._factor_loss_augm
             if self._use_uncertainty_weighting_loss:
-                log_var_augm = tf.Variable(0.0, name='log_variance_augm', dtype=tf.float32)
+                log_var_augm = tf.get_variable( name='log_variance_augm', dtype=tf.float32, initializer=0.0)
+                # log_var_augm = tf.Print(log_var_augm, [log_var_augm],
+                #                         message='augm_loss WEIGHTED BY UNCERTAINTY KENDAL(log_var_augm)')
                 augm_loss_weight *= tf.exp(-log_var_augm) + log_var_augm
-                print("augm_loss WEIGHTED BY UNCERTAINTY KENDAL")
+                augm_loss_weight = tf.Print(augm_loss_weight, [augm_loss_weight],
+                                        message='augm_loss WEIGHTED BY UNCERTAINTY KENDAL(augm_loss_weight)')
+
             augm_loss = tf.multiply(augm_loss_weight,
                                     augm_combined_loss,
                                     name='augm_loss')
@@ -876,9 +1004,6 @@ class SSDAugmentationMetaArch(model.DetectionModel):
                 'Loss/classification_loss': classification_loss,
                 'Loss/augmentation_loss': augm_loss
             }
-
-
-
 
             bel_o = tf.expand_dims(tf.concat((pred_bel_O[0, :, :, :], tf.cast(label_bel_O[0], dtype=float)), axis=1), 0)
             bel_f = tf.expand_dims(tf.concat((pred_bel_F[0, :, :, :], tf.cast(label_bel_F[0], dtype=float)), axis=1), 0)
@@ -899,15 +1024,15 @@ class SSDAugmentationMetaArch(model.DetectionModel):
             # z_min_observations = tf.squeeze(tf.concat(pred_z_min_observations, label_z_min_observations), axis=1)
             # z_max_detections = tf.squeeze(tf.concat(pred_z_max_detections, label_z_max_detections), axis=1)
 
-            tf.summary.image('bel_O: left_pred vs right_label', bel_o * 255, family="augmentated_maps")
-            tf.summary.image('bel_F: left_pred vs right_label', bel_f * 255, family="augmentated_maps")
-            tf.summary.image('z_min_observations: left_pred vs right_label', z_min_observations,
+            tf.summary.image('bel_O_leftPred_rightLabel', bel_o * 255, family="augmentated_maps")
+            tf.summary.image('bel_F_leftPred_rightLabel', bel_f * 255, family="augmentated_maps")
+            tf.summary.image('z_min_observations_leftPred_rightLabel', z_min_observations,
                              family="augmentated_maps")
-            tf.summary.image('z_max_detections: left_pred vs right_label', z_max_detections, family="augmentated_maps")
-            tf.summary.image('bel_U: left_pred vs right_label', bel_u * 255, family="augmentated_maps")
-            tf.summary.image('detections_drivingCorridor: left_pred vs right_label', detections_drivingCorridor,
+            tf.summary.image('z_max_detections_leftPred_rightLabel', z_max_detections, family="augmentated_maps")
+            tf.summary.image('bel_U_leftPred_rightLabel', bel_u * 255, family="augmentated_maps")
+            tf.summary.image('detections_drivingCorridor_leftPred_rightLabel', detections_drivingCorridor,
                              family="augmentated_maps")
-            tf.summary.image('z_min_detections: left_pred vs right_label', z_min_detections, family="augmentated_maps")
+            tf.summary.image('z_min_detections_leftPred_rightLabel', z_min_detections, family="augmentated_maps")
 
         return loss_dict
 

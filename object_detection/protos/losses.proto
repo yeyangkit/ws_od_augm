@@ -63,7 +63,7 @@ message Loss {
   optional float desired_negative_sampling_ratio = 20 [default=3];
 
   // Augmentation loss to use
-  optional bool use_uncertainty_weighting_loss = 21 [default = false];
+  optional bool use_uncertainty_weighting_loss = 21 [default = true];
 }
 
 // Configuration for bounding box localization loss function.
