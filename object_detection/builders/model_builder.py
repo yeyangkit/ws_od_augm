@@ -51,6 +51,7 @@ from object_detection.predictors import u_net_predictor
 from object_detection.predictors import upsampling_predictor
 from object_detection.predictors import ht_predictor
 from object_detection.predictors import u_net_predictor_2branches_softmax_relu
+from object_detection.predictors import sequential_2branches
 from object_detection.protos import model_pb2
 from object_detection.utils import ops
 
@@ -460,6 +461,13 @@ def _build_ssd_augmentation_model(ssd_augm_config, is_training, add_summaries, n
             filters=ssd_augm_config.beliefs_predictor.filters)
     elif ssd_augm_config.beliefs_predictor.predictor == 'u_net_2branches':
         ssd_augmentation_predictor = u_net_predictor_2branches_softmax_relu.UNet2branchesPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'sequential':
+        ssd_augmentation_predictor = sequential_2branches.Sequential2branchesPredictor(
             is_training=is_training,
             layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
             stack_size=ssd_augm_config.beliefs_predictor.stack_size,

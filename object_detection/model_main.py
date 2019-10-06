@@ -145,6 +145,9 @@ def main(unused_argv):
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor_2branches_softmax_relu.py',
             os.path.join(FLAGS.model_dir + '/u_net_predictor_2branches_softmax_relu.py'))
         copyfile(
+            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/sequential_2branches.py',
+            os.path.join(FLAGS.model_dir + '/sequential_2branches.py'))
+        copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
             os.path.join(FLAGS.model_dir + '/upsampling_predictor.py'))
         copyfile(

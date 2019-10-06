@@ -137,6 +137,14 @@ class DetectionResultFields(object):
   raw_detection_boxes = 'raw_detection_boxes'
   raw_detection_scores = 'raw_detection_scores'
 
+  feature_map = 'feature_map'
+  detections_drivingCorridor_prediction = 'detections_drivingCorridor_prediction'
+  z_min_detections_prediction = 'z_min_detections_prediction'
+  z_max_detections_prediction = 'z_max_detections_prediction'
+  z_min_observations_prediction = 'z_min_observations_prediction'
+  belief_F_prediction = 'belief_F_prediction'
+  belief_O_prediction = 'belief_O_prediction'
+  belief_U_prediction = 'belief_U_prediction'
 
 class BoxListFields(object):
   """Naming conventions for BoxLists.

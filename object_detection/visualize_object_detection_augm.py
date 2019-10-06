@@ -28,7 +28,10 @@ flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_
                     'Path to label map proto')
 
 vis_set = [
-    'scene-0003', 'scene-0012', 'scene-0013',
+'scene-0401', 'scene-0252', 'scene-1062','scene-0075', 'scene-0133'
+    ]
+vis_set_full = [
+'scene-0003', 'scene-0012', 'scene-0013',
     'scene-0014',
     'scene-0015', 'scene-0016',
     'scene-0017', 'scene-0018',
@@ -69,8 +72,8 @@ vis_set = [
     'scene-1062', 'scene-1063',
     'scene-1064', 'scene-1065', 'scene-1066', 'scene-1067',
     'scene-1068', 'scene-1069', 'scene-1070', 'scene-1071',
-    'scene-1072', 'scene-1073']
-
+    'scene-1072', 'scene-1073'
+]
 
 def read_images(data_dir, data_beliefs_dir, prefix):
     print(data_beliefs_dir)
@@ -156,9 +159,9 @@ def visualize(split):
     folder_inverse = os.path.join(FLAGS.output, 'inverse')
     folder_color = os.path.join(FLAGS.output, 'color')
     folder_color_inverse = os.path.join(FLAGS.output, 'color_inverse')
-    os.system('makdir {}'.format(folder_inverse))
-    os.system('makdir {}'.format(folder_color))
-    os.system('makdir {}'.format(folder_color_inverse))
+    os.system('mkdir {}'.format(folder_inverse))
+    os.system('mkdir {}'.format(folder_color))
+    os.system('mkdir {}'.format(folder_color_inverse))
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():

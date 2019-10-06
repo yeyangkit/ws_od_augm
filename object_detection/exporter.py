@@ -142,6 +142,7 @@ input_placeholder_fn_map = {
 
 
 def add_output_tensor_nodes(postprocessed_tensors,
+                            feature_config,
                             output_collection_name='inference_op'):
   """Adds output nodes for detection boxes and scores.
 
@@ -191,6 +192,21 @@ def add_output_tensor_nodes(postprocessed_tensors,
   raw_scores = postprocessed_tensors.get(detection_fields.raw_detection_scores)
   classes = postprocessed_tensors.get(
       detection_fields.detection_classes) + label_id_offset
+
+  detections_drivingCorridor_prediction = postprocessed_tensors.get(detection_fields.detections_drivingCorridor_prediction)
+  z_min_detections_prediction = postprocessed_tensors.get(detection_fields.z_min_detections_prediction)
+  z_max_detections_prediction = postprocessed_tensors.get(detection_fields.z_max_detections_prediction)
+  z_min_observations_prediction = postprocessed_tensors.get(detection_fields.z_min_observations_prediction)
+  belief_F_prediction = postprocessed_tensors.get(detection_fields.belief_F_prediction)
+  belief_O_prediction = postprocessed_tensors.get(detection_fields.belief_O_prediction)
+  belief_U_prediction = postprocessed_tensors.get(detection_fields.belief_U_prediction)
+  feature_maps = {}
+  if feature_config is not None:
+    for feat_idx in range(1,5):
+      feature_map = postprocessed_tensors.get(detection_fields.feature_map + '_level_{}'.format(feat_idx))
+      if feature_map is not None:
+        feature_maps[detection_fields.feature_map + '_level_{}'.format(feat_idx)] = feature_map
+
   num_detections = postprocessed_tensors.get(detection_fields.num_detections)
   outputs = {}
   outputs[detection_fields.detection_boxes] = tf.identity(
@@ -206,6 +222,33 @@ def add_output_tensor_nodes(postprocessed_tensors,
       classes, name=detection_fields.detection_classes)
   outputs[detection_fields.num_detections] = tf.identity(
       num_detections, name=detection_fields.num_detections)
+
+  if detections_drivingCorridor_prediction is not None:
+    outputs[detection_fields.detections_drivingCorridor_prediction] = tf.identity(
+        detections_drivingCorridor_prediction, name=detection_fields.detections_drivingCorridor_prediction)
+  if z_min_detections_prediction is not None:
+    outputs[detection_fields.z_min_detections_prediction] = tf.identity(
+        z_min_detections_prediction, name=detection_fields.z_min_detections_prediction)
+  if z_max_detections_prediction is not None:
+    outputs[detection_fields.z_max_detections_prediction] = tf.identity(
+        z_max_detections_prediction, name=detection_fields.z_max_detections_prediction)
+  if z_min_observations_prediction is not None:
+    outputs[detection_fields.z_min_observations_prediction] = tf.identity(
+        z_min_observations_prediction, name=detection_fields.z_min_observations_prediction)
+  if belief_F_prediction is not None:
+    outputs[detection_fields.belief_F_prediction] = tf.identity(
+        belief_F_prediction, name=detection_fields.belief_F_prediction)
+  if belief_O_prediction is not None:
+    outputs[detection_fields.belief_O_prediction] = tf.identity(
+        belief_O_prediction, name=detection_fields.belief_O_prediction)
+  if belief_U_prediction is not None:
+    outputs[detection_fields.belief_U_prediction] = tf.identity(
+        belief_U_prediction, name=detection_fields.belief_U_prediction)
+
+  if feature_maps:
+    for key, value in feature_maps.items():
+      outputs[key] = tf.identity(value, name=key)
+
   if raw_boxes is not None:
     outputs[detection_fields.raw_detection_boxes] = tf.identity(
         raw_boxes, name=detection_fields.raw_detection_boxes)
