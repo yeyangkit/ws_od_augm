@@ -48,6 +48,10 @@ def get_image_resizer_config(model_config):
     return model_config.ssd.image_resizer
   if meta_architecture == "ssd_augmentation":
     return model_config.ssd_augmentation.image_resizer
+  if meta_architecture == "ssd_augmentation_reuse":
+    return model_config.ssd_augmentation_reuse.image_resizer
+  if meta_architecture == "ssd_augmentation_sequential":
+    return model_config.ssd_augmentation_sequential.image_resizer
   raise ValueError("Unknown model type: {}".format(meta_architecture))
 
 
@@ -266,6 +270,10 @@ def get_number_of_classes(model_config):
     return model_config.ssd.num_classes
   if meta_architecture == "ssd_augmentation":
     return model_config.ssd_augmentation.num_classes
+  if meta_architecture == "ssd_augmentation_reuse":
+    return model_config.ssd_augmentation_reuse.num_classes
+  if meta_architecture == "ssd_augmentation_sequential":
+    return model_config.ssd_augmentation_sequential.num_classes
 
   raise ValueError("Expected the model to be one of 'faster_rcnn' or 'ssd'.")
 

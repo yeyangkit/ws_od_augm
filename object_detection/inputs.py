@@ -142,6 +142,7 @@ def transform_input_data(tensor_dict,
   groundtruth_bel_U = tensor_dict[fields.InputDataFields.groundtruth_bel_U]
   groundtruth_z_min_detections = tensor_dict[fields.InputDataFields.groundtruth_z_min_detections]
   groundtruth_detections_drivingCorridor = tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor]
+  groundtruth_intensity = tensor_dict[fields.InputDataFields.groundtruth_intensity]
 
   groundtruth_bel_F = tf.expand_dims(tf.squeeze(groundtruth_bel_F, axis=2), axis=0)
   _, resized_groundtruth_bel_F, _ = image_resizer_fn(image, groundtruth_bel_F)
@@ -167,6 +168,10 @@ def transform_input_data(tensor_dict,
   groundtruth_detections_drivingCorridor = tf.expand_dims(tf.squeeze(groundtruth_detections_drivingCorridor, axis=2), axis=0)
   _, resized_groundtruth_detections_drivingCorridor, _ = image_resizer_fn(image, groundtruth_detections_drivingCorridor)
 
+  groundtruth_intensity = tf.expand_dims(tf.squeeze(groundtruth_intensity, axis=2), axis=0)
+  _, resized_groundtruth_intensity, _ = image_resizer_fn(image, groundtruth_intensity)
+
+
   tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.expand_dims(tf.squeeze(
       resized_groundtruth_bel_F, axis=0), axis=2)
 
@@ -187,6 +192,9 @@ def transform_input_data(tensor_dict,
 
   tensor_dict[fields.InputDataFields.groundtruth_z_min_detections] = tf.expand_dims(tf.squeeze(
       resized_groundtruth_z_min_detections, axis=0), axis=2)
+
+  tensor_dict[fields.InputDataFields.groundtruth_intensity] = tf.expand_dims(tf.squeeze(
+      resized_groundtruth_intensity, axis=0), axis=2)
 
   # Transform groundtruth classes to one hot encodings.
   label_offset = 1
@@ -308,7 +316,8 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.groundtruth_z_min_observations: [height, width, 1],
       fields.InputDataFields.groundtruth_bel_U: [height, width, 1],
       fields.InputDataFields.groundtruth_z_min_detections: [height, width, 1],
-      fields.InputDataFields.groundtruth_detections_drivingCorridor: [height, width, 1]
+      fields.InputDataFields.groundtruth_detections_drivingCorridor: [height, width, 1],
+      fields.InputDataFields.groundtruth_intensity: [height, width, 1]
   }
 
   if fields.InputDataFields.original_image in tensor_dict:
@@ -360,6 +369,8 @@ def augment_input_data(tensor_dict, data_augmentation_options):
       tensor_dict[fields.InputDataFields.groundtruth_z_min_detections], 0)
   tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor], 0)
+  tensor_dict[fields.InputDataFields.groundtruth_intensity] = tf.expand_dims(
+      tensor_dict[fields.InputDataFields.groundtruth_intensity], 0)
 
   include_label_weights = (fields.InputDataFields.groundtruth_weights
                            in tensor_dict)
@@ -389,6 +400,8 @@ def augment_input_data(tensor_dict, data_augmentation_options):
       tensor_dict[fields.InputDataFields.groundtruth_z_min_detections], axis=0)
   tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor], axis=0)
+  tensor_dict[fields.InputDataFields.groundtruth_intensity] = tf.squeeze(
+      tensor_dict[fields.InputDataFields.groundtruth_intensity], axis=0)
   return tensor_dict
 
 
@@ -413,6 +426,7 @@ def _get_labels_dict(input_dict):
       fields.InputDataFields.groundtruth_bel_U,
       fields.InputDataFields.groundtruth_z_min_detections,
       fields.InputDataFields.groundtruth_detections_drivingCorridor,
+      fields.InputDataFields.groundtruth_intensity,
       fields.InputDataFields.groundtruth_confidences,
       fields.InputDataFields.groundtruth_area,
       fields.InputDataFields.groundtruth_is_crowd,

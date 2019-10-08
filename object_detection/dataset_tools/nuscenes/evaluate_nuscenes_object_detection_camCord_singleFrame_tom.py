@@ -13,13 +13,19 @@ from nuscenes.utils.data_classes import Box
 from nuscenes.utils.splits import create_splits_scenes
 from nuscenes.utils.geometry_utils import transform_matrix
 from pyquaternion import Quaternion
-from utils import label_map_util
+from object_detection.utils import label_map_util
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('data', None, 'Directory to grid maps.')
-flags.DEFINE_string('param', None, 'Directory to grid map parameter file.')
+# flags.DEFINE_string('data', None, 'Directory to grid maps.')
+# flags.DEFINE_string('param', None, 'Directory to grid map parameter file.')
+# flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
+# flags.DEFINE_string('nuscenes', None, 'Directory to nuscenes data.')
+flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1.0-trainval_meta', 'Directory to grid maps.')
+flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/processed0904NuScenes_fused7Layers_keyFrame_trainval', 'Directory to evidential grid maps.')
+flags.DEFINE_string('param', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml', 'Directory to grid map parameter file.')
 flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
-flags.DEFINE_string('nuscenes', None, 'Directory to nuscenes data.')
+flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
+
 flags.DEFINE_string('output', '/tmp/', 'Output directory of json file.')
 flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt',
                     'Path to label map proto')

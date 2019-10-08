@@ -30,10 +30,10 @@ flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_
                     'Path to label map proto')
 
 vis_set = [
-'scene-0401', 'scene-0252', 'scene-1062','scene-0075', 'scene-0133'
-    ]
+    'scene-0401', 'scene-0252', 'scene-1062', 'scene-0075', 'scene-0133'
+]
 vis_set_full = [
-'scene-0003', 'scene-0012', 'scene-0013',
+    'scene-0003', 'scene-0012', 'scene-0013',
     'scene-0014',
     'scene-0015', 'scene-0016',
     'scene-0017', 'scene-0018',
@@ -77,6 +77,7 @@ vis_set_full = [
     'scene-1072', 'scene-1073'
 ]
 
+
 def read_images(data_dir, data_beliefs_dir, prefix):
     print(data_beliefs_dir)
     image_path_det = os.path.join(data_dir, prefix + '_detections_cartesian.png')
@@ -95,7 +96,8 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     image_path_fused_bel_U = os.path.join(data_beliefs_dir, prefix + '_bel_U_FUSED_cartesian.png')
 
     image_path_fused_zmin_det = os.path.join(data_beliefs_dir, prefix + '_z_min_detections_FUSED_cartesian.png')
-    image_path_fused_det_zmin = os.path.join(data_beliefs_dir, prefix + '_detections_drivingCorridor_FUSED_cartesian.png')
+    image_path_fused_det_dc = os.path.join(data_beliefs_dir,
+                                             prefix + '_detections_drivingCorridor_FUSED_cartesian.png')
 
     image_det = cv2.imread(image_path_det, 0)
     image_obs = cv2.imread(image_path_obs, 0)
@@ -153,29 +155,89 @@ def read_images(data_dir, data_beliefs_dir, prefix):
 
     return np.expand_dims(image_stacked, axis=0), detection_mask, fused_bel_F_mask, zmax_mask
 
-def augm_to_image_rgb(augm):
-    augm_mag_max = 3.0
-    hsv = np.zeros((augm.shape[0], augm.shape[1], 3), dtype=np.uint8)
-    augm_magnitude, augm_angle = cv2.cartToPolar(augm[..., 0].astype(np.float32), augm[..., 1].astype(np.float32))
 
-    # A couple times, we've gotten NaNs out of the above...
-    nans = np.isnan(augm_magnitude)
-    if np.any(nans):
-        nans = np.where(nans)
-        augm_magnitude[nans] = 0.
+def resize_augm(augm, height, width):
+    old_height, old_width, _ = augm.shape
+    augm = cv2.resize(augm, (height, width), interpolation=cv2.INTER_LINEAR)
+    return augm
 
-    # Normalize
-    hsv[..., 0] = augm_angle * 180 / np.pi / 2
-    hsv[..., 1] = np.minimum(augm_magnitude * 255 / augm_mag_max, 255)
-    hsv[..., 2] = hsv[..., 1]
-    img = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-    return img
+
+def augm_to_image_gray(augm_original, mode_norm255=False):
+    # augm_mag_max = 3.0
+    # augm_max = tf.reduce_max(augm)
+    # augm_min = tf.reduce_min(augm)
+    # augm_original = tf.squeeze(augm_original) # tf.squeeze(
+    augm = np.zeros((augm_original.shape[0], augm_original.shape[1], 3), dtype=np.uint8)
+    print(augm_original)
+    print("augm")
+    if mode_norm255:
+        augm[:, :, 0] = augm_original.astype(np.float) * 255
+        augm[:, :, 1] = augm_original.astype(np.float) * 255
+        augm[:, :, 2] = augm_original.astype(np.float) * 255
+    else:
+        augm[:, :, 0] = augm_original.astype(np.float)
+        augm[:, :, 1] = augm_original.astype(np.float)
+        augm[:, :, 2] = augm_original.astype(np.float)
+    print(augm)
+    print("max--------------------------------")
+    augm_max = augm.max()
+    print(augm_max)
+    print("min--------------------------------")
+    augm_min = augm.min()
+    print(augm_min)
+    # # A couple times, we've gotten NaNs out of the above...
+    # nans = np.isnan(augm_magnitude)
+    # if np.any(nans):
+    #     nans = np.where(nans)
+    #     augm_magnitude[nans] = 0.
+    #
+    # # Normalize
+    # hsv[..., 0] = augm_angle * 180 / np.pi / 2
+    # hsv[..., 1] = np.minimum(augm_magnitude * 255 / augm_mag_max, 255)
+    # hsv[..., 2] = hsv[..., 1]
+
+
+    return augm
+
+def augm_to_image_rgb(augm_original1,augm_original2,augm_original3):
+    # augm_mag_max = 3.0
+    # augm_max = tf.reduce_max(augm)
+    # augm_min = tf.reduce_min(augm)
+    # augm_original = tf.squeeze(augm_original) # tf.squeeze(
+    augm = np.zeros((augm_original1.shape[0], augm_original1.shape[1], 3), dtype=np.uint8)
+    print(augm_original1)
+    print("augm")
+    augm[:, :, 0] = augm_original1.astype(np.float) * 10
+    augm[:, :, 1] = augm_original2.astype(np.float) * 255
+    augm[:, :, 2] = augm_original3.astype(np.float)
+    print(augm)
+    print("max--------------------------------")
+    augm_max = augm.max()
+    print(augm_max)
+    print("min--------------------------------")
+    augm_min = augm.min()
+    print(augm_min)
+    # # A couple times, we've gotten NaNs out of the above...
+    # nans = np.isnan(augm_magnitude)
+    # if np.any(nans):
+    #     nans = np.where(nans)
+    #     augm_magnitude[nans] = 0.
+    #
+    # # Normalize
+    # hsv[..., 0] = augm_angle * 180 / np.pi / 2
+    # hsv[..., 1] = np.minimum(augm_magnitude * 255 / augm_mag_max, 255)
+    # hsv[..., 2] = hsv[..., 1]
+
+    return augm
+
+
 def create_border_mask(flow):
     height = flow.shape[0]
     width = flow.shape[1]
     border_mask = np.zeros((height, width), dtype=bool)
     border_size = np.array([height, width]) * 0.1
-    border_mask[int(border_size[0]):int(height-border_size[0]), int(border_size[1]):int(width-border_size[1])] = True
+    border_mask[int(border_size[0]):int(height - border_size[0]),
+    int(border_size[1]):int(width - border_size[1])] = True
     return border_mask
 
 
@@ -195,6 +257,12 @@ def visualize(split):
     os.system('mkdir {}'.format(folder_inverse))
     os.system('mkdir {}'.format(folder_color))
     os.system('mkdir {}'.format(folder_color_inverse))
+    folder_belF = os.path.join(FLAGS.output, 'belF')
+    folder_belO = os.path.join(FLAGS.output, 'belO')
+    folder_zMaxDet = os.path.join(FLAGS.output, 'zMaxDet')
+    os.system('mkdir {}'.format(folder_belF))
+    os.system('mkdir {}'.format(folder_belO))
+    os.system('mkdir {}'.format(folder_zMaxDet))
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
@@ -214,6 +282,10 @@ def visualize(split):
             detection_scores = detection_graph.get_tensor_by_name('detection_scores:0')
             detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
             num_detections = detection_graph.get_tensor_by_name('num_detections:0')
+            belief_F_prediction = detection_graph.get_tensor_by_name('belief_F_prediction:0')
+            belief_O_prediction = detection_graph.get_tensor_by_name('belief_O_prediction:0')
+            z_max_detections_prediction = detection_graph.get_tensor_by_name('z_max_detections_prediction:0')
+            detections_drivingCorridor_prediction = detection_graph.get_tensor_by_name('detections_drivingCorridor_prediction:0')
             scene_splits = create_splits_scenes()
             for scene in nusc.scene:
                 if scene['name'] not in vis_set:
@@ -247,9 +319,10 @@ def visualize(split):
                     # Inference
                     start_time = time.time()
 
-                    (boxes_aligned, boxes_inclined, scores, classes, num) = sess.run(
+                    (boxes_aligned, boxes_inclined, scores, classes, num, belief_F_pred, belief_O_pred,
+                     z_max_detections_pred,  detections_drivingCorridor_pred) = sess.run(
                         [detection_boxes, detection_boxes_inclined, detection_scores, detection_classes,
-                         num_detections],
+                         num_detections, belief_F_prediction, belief_O_prediction, z_max_detections_prediction, detections_drivingCorridor_prediction],
                         feed_dict={image_tensor: image_stacked})
                     print('Inference time:', time.time() - start_time)
 
@@ -261,32 +334,31 @@ def visualize(split):
 
                     # Create grid map to visualize
                     image_vis = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
-                                        dtype=np.uint8)
-                    image_vis_inv  = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
-                                        dtype=np.uint8)
-                    image_vis_color = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
-                                        dtype=np.uint8) * 255  # todo
-                    image_vis_color_inv = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
-                                        dtype=np.uint8) * 255  # todo
-                    # for (v, u), val in np.ndenumerate(observation_mask):
-                    #     if val:
-                    #         image_vis[v, u, :] = 50
-                    # image_vis_inv = cv2.bitwise_not(image_vis)
-                    # for (v, u), val in np.ndenumerate(det_mask):
-                    #     if val:
-                    #         image_vis[v, u] = 255
-                    #         image_vis_inv[v, u] = 0
+                                         dtype=np.uint8)
+                    image_vis_inv = np.zeros((image_stacked.shape[1], image_stacked.shape[2], 3),
+                                             dtype=np.uint8)
 
-                    print("z_mask")
-                    print(z_mask)
-                    print("observation_mask")
-                    print(observation_mask)
-                    for v, u in itertools.product(range(image_stacked.shape[1]), range(image_stacked.shape[2])):
-                        image_vis_color[v, u, 0] = observation_mask[v, u] * 5
-                        image_vis_color[v, u, 1] = det_mask[v, u] * 10
-                        image_vis_color[v, u, 2] = z_mask[v, u]
+                    # Write augmentation maps
+                    # print("image_stacked--------------------------")
+                    # print(image_stacked.shape)
+                    # print("belief_F_prediction--------------------")
+                    # print(belief_F_pred)
+                    belief_F_prediction_np = resize_augm(belief_F_pred[0], image_stacked.shape[1], image_stacked.shape[2])
+                    belief_O_prediction_np = resize_augm(belief_O_pred[0], image_stacked.shape[1], image_stacked.shape[2])
+                    z_max_detections_prediction_np = resize_augm(z_max_detections_pred[0], image_stacked.shape[1], image_stacked.shape[2])
+                    detections_drivingCorridor_prediction_np = resize_augm(detections_drivingCorridor_pred[0], image_stacked.shape[1], image_stacked.shape[2])
+
+                    image_bel_F = augm_to_image_gray(belief_F_prediction_np, mode_norm255=True)
+                    image_bel_F = cv2.bitwise_not(image_bel_F)
+
+                    image_bel_O = augm_to_image_gray(belief_O_prediction_np, mode_norm255=True)
+                    image_bel_O = cv2.bitwise_not(image_bel_O)
+
+                    image_z_max_detections = augm_to_image_gray(z_max_detections_prediction_np, mode_norm255=False)
+                    image_z_max_detections = cv2.bitwise_not(image_z_max_detections)
+
+                    image_vis_color = augm_to_image_rgb(detections_drivingCorridor_prediction_np, belief_F_prediction_np,z_max_detections_prediction_np)
                     image_vis_color_inv = cv2.bitwise_not(image_vis_color)
-
 
                     for (v, u), val in np.ndenumerate(det_mask):
                         if val:
@@ -334,8 +406,40 @@ def visualize(split):
                         min_score_thresh=0.3,
                         use_normalized_coordinates=True,
                         line_thickness=3)
+                    print(image_vis.shape)
                     vis_util.visualize_boxes_and_labels_on_image_array(
                         image_vis_inv,
+                        np.squeeze(boxes_aligned),
+                        np.squeeze(classes).astype(np.int32),
+                        np.squeeze(scores),
+                        category_index,
+                        boxes_3d=np.squeeze(boxes_inclined),
+                        min_score_thresh=0.3,
+                        use_normalized_coordinates=True,
+                        line_thickness=3)
+                    print(image_bel_F.shape)
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_bel_F,
+                        np.squeeze(boxes_aligned),
+                        np.squeeze(classes).astype(np.int32),
+                        np.squeeze(scores),
+                        category_index,
+                        boxes_3d=np.squeeze(boxes_inclined),
+                        min_score_thresh=0.3,
+                        use_normalized_coordinates=True,
+                        line_thickness=3)
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_bel_O,
+                        np.squeeze(boxes_aligned),
+                        np.squeeze(classes).astype(np.int32),
+                        np.squeeze(scores),
+                        category_index,
+                        boxes_3d=np.squeeze(boxes_inclined),
+                        min_score_thresh=0.3,
+                        use_normalized_coordinates=True,
+                        line_thickness=3)
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_z_max_detections,
                         np.squeeze(boxes_aligned),
                         np.squeeze(classes).astype(np.int32),
                         np.squeeze(scores),
@@ -350,14 +454,21 @@ def visualize(split):
                     output_path = os.path.join(FLAGS.output, filename_prefix.split('/')[-1] + '.png')
                     cv2.imwrite(output_path, image_vis)
 
-
                     output_path_inv = os.path.join(folder_inverse, filename_prefix.split('/')[-1] + '.png')
-                    output_color_path = os.path.join(folder_color,filename_prefix.split('/')[-1] + '.png')
+                    output_color_path = os.path.join(folder_color, filename_prefix.split('/')[-1] + '.png')
                     output_color_path_inv = os.path.join(folder_color_inverse, filename_prefix.split('/')[-1] + '.png')
+
+                    output_path_belO = os.path.join(folder_belO, filename_prefix.split('/')[-1] + '.png')
+                    output_path_belF = os.path.join(folder_belF, filename_prefix.split('/')[-1] + '.png')
+                    output_path_zMaxDet = os.path.join(folder_zMaxDet, filename_prefix.split('/')[-1] + '.png')
 
                     cv2.imwrite(output_path_inv, image_vis_inv)
                     cv2.imwrite(output_color_path, image_vis_color)
                     cv2.imwrite(output_color_path_inv, image_vis_color_inv)
+
+                    cv2.imwrite(output_path_belO, image_bel_O)
+                    cv2.imwrite(output_path_belF, image_bel_F)
+                    cv2.imwrite(output_path_zMaxDet, image_z_max_detections)
 
                     current_sample_token = sample['next']
 

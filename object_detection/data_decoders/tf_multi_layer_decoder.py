@@ -289,6 +289,8 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             'layers/detections_drivingCorridor_FUSED/encoded': tf.FixedLenFeature((), tf.string),
             'layers/z_min_detections_FUSED/encoded': tf.FixedLenFeature((), tf.string),
 
+            'layers/intensity_FUSED/encoded': tf.FixedLenFeature((), tf.string),
+
             # 'layers/bel_O/encoded': tf.FixedLenFeature((), tf.string),
             # 'layers/bel_F/encoded': tf.FixedLenFeature((), tf.string),
             # 'layers/bel_U/encoded': tf.FixedLenFeature((), tf.string),
@@ -367,6 +369,11 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                 format_key='image/format',
                 channels=1,
                 dct_method=dct_method)
+            groundtruth_intensity = slim_example_decoder.Image(
+                image_key='layers/intensity_FUSED/encoded',
+                format_key='image/format',
+                channels=1,
+                dct_method=dct_method)
         else:
             image = MultilayerImages(
                 image_keys=image_keys, layer_channels=input_channels, format_key='image/format',
@@ -393,6 +400,10 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
                 channels=1)
             groundtruth_detections_drivingCorridor = slim_example_decoder.Image(
                 image_key='layers/detections_drivingCorridor_FUSED/encoded',
+                format_key='image/format',
+                channels=1)
+            groundtruth_intensity = slim_example_decoder.Image(
+                image_key='layers/intensity_FUSED/encoded',
                 format_key='image/format',
                 channels=1)
 
@@ -427,7 +438,8 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
             fields.InputDataFields.groundtruth_z_min_observations: groundtruth_z_min_observations,
             fields.InputDataFields.groundtruth_bel_U: groundtruth_bel_U,
             fields.InputDataFields.groundtruth_z_min_detections: groundtruth_z_min_detections,
-            fields.InputDataFields.groundtruth_detections_drivingCorridor: groundtruth_detections_drivingCorridor
+            fields.InputDataFields.groundtruth_detections_drivingCorridor: groundtruth_detections_drivingCorridor,
+            fields.InputDataFields.groundtruth_intensity: groundtruth_intensity
         }
         if load_multiclass_scores:
             self.keys_to_features[
@@ -510,9 +522,16 @@ class TfMultiLayerDecoder(data_decoder.DataDecoder):
         # tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, self._num_input_channels]) #   augmentation label
         tensor_dict[fields.InputDataFields.groundtruth_bel_O].set_shape([None, None, 1])  # augmentation label
         tensor_dict[fields.InputDataFields.groundtruth_bel_F].set_shape([None, None, 1])  # augmentation label
-        tensor_dict[fields.InputDataFields.groundtruth_z_min_observations].set_shape(
+        tensor_dict[fields.InputDataFields.groundtruth_bel_U].set_shape([None, None, 1])  # augmentation label
+        tensor_dict[fields.InputDataFields.groundtruth_z_min_detections].set_shape(
             [None, None, 1])  # augmentation label
         tensor_dict[fields.InputDataFields.groundtruth_z_max_detections].set_shape(
+            [None, None, 1])  # augmentation label
+        tensor_dict[fields.InputDataFields.groundtruth_z_min_observations].set_shape(
+            [None, None, 1])  # augmentation label
+        tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor].set_shape(
+            [None, None, 1])  # augmentation label
+        tensor_dict[fields.InputDataFields.groundtruth_intensity].set_shape(
             [None, None, 1])  # augmentation label
 
         tensor_dict[fields.InputDataFields.original_image_spatial_shape] = tf.shape(

@@ -102,6 +102,7 @@ class InputDataFields(object):
   groundtruth_bel_U = 'groundtruth_bel_U'
   groundtruth_z_min_detections = 'groundtruth_z_min_detections'  # augmentation labels
   groundtruth_detections_drivingCorridor = 'groundtruth_detections_drivingCorridor'  # augmentation labels
+  groundtruth_intensity = 'groundtruth_intensity'
 
 class DetectionResultFields(object):
   """Naming conventions for storing the output of the detector.
@@ -145,6 +146,7 @@ class DetectionResultFields(object):
   belief_F_prediction = 'belief_F_prediction'
   belief_O_prediction = 'belief_O_prediction'
   belief_U_prediction = 'belief_U_prediction'
+  intensity_prediction = 'intensity_prediction'
 
 class BoxListFields(object):
   """Naming conventions for BoxLists.
