@@ -98,6 +98,7 @@ class SSDFeatureExtractor(object):
     """
     pass
 
+
   @abc.abstractmethod
   def extract_features(self, preprocessed_inputs):
     """Extracts features from preprocessed inputs.
@@ -114,6 +115,38 @@ class SSDFeatureExtractor(object):
         [batch, height_i, width_i, depth_i]
     """
     raise NotImplementedError
+
+  def extract_features_shared_encoder_for_beliefs(self, preprocessed_inputs):
+    """Extracts features from preprocessed inputs.
+
+    This function is responsible for extracting feature maps from preprocessed
+    images.
+
+    Args:
+      preprocessed_inputs: a [batch, height, width, channels] float tensor
+        representing a batch of images.
+
+    Returns:
+      feature_maps: a list of tensors where the ith tensor has shape
+        [batch, height_i, width_i, depth_i]
+    """
+    pass
+
+  def extract_features_shared_encoder_for_augmentation(self, preprocessed_inputs):
+    """Extracts features from preprocessed inputs.
+
+    This function is responsible for extracting feature maps from preprocessed
+    images.
+
+    Args:
+      preprocessed_inputs: a [batch, height, width, channels] float tensor
+        representing a batch of images.
+
+    Returns:
+      feature_maps: a list of tensors where the ith tensor has shape
+        [batch, height_i, width_i, depth_i]
+    """
+    pass
 
   def restore_from_classification_checkpoint_fn(self, feature_extractor_scope):
     """Returns a map of variables to load from a foreign checkpoint.

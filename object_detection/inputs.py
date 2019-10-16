@@ -310,6 +310,7 @@ def pad_input_data_to_static_shapes(tensor_dict, max_num_boxes, num_classes,
       fields.InputDataFields.true_image_shape: [3],
       fields.InputDataFields.groundtruth_image_classes: [num_classes],
       fields.InputDataFields.groundtruth_image_confidences: [num_classes],
+
       fields.InputDataFields.groundtruth_bel_O: [height, width, 1],
       fields.InputDataFields.groundtruth_bel_F: [height, width, 1],
       fields.InputDataFields.groundtruth_z_max_detections: [height, width, 1],
@@ -357,18 +358,25 @@ def augment_input_data(tensor_dict, data_augmentation_options):
 
   tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_bel_O], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_bel_F], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_z_max_detections], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_z_min_observations], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_bel_U] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_bel_U], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_z_min_detections] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_z_min_detections], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor], 0)
+
   tensor_dict[fields.InputDataFields.groundtruth_intensity] = tf.expand_dims(
       tensor_dict[fields.InputDataFields.groundtruth_intensity], 0)
 
@@ -388,18 +396,25 @@ def augment_input_data(tensor_dict, data_augmentation_options):
       tensor_dict[fields.InputDataFields.image], axis=0)
   tensor_dict[fields.InputDataFields.groundtruth_bel_O] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_bel_O], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_bel_F] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_bel_F], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_z_max_detections], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_z_min_observations], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_bel_U] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_bel_U], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_z_min_detections] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_z_min_detections], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor], axis=0)
+
   tensor_dict[fields.InputDataFields.groundtruth_intensity] = tf.squeeze(
       tensor_dict[fields.InputDataFields.groundtruth_intensity], axis=0)
   return tensor_dict

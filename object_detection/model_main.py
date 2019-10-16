@@ -134,10 +134,42 @@ def main(unused_argv):
     if not flags.FLAGS.reload_ckpt:
         flags.mark_flag_as_required('pipeline_config_path')
         copyfile(FLAGS.pipeline_config_path, os.path.join(FLAGS.model_dir + '/correspondingPipelineConfig.config'))
+        config_name = os.path.basename(FLAGS.pipeline_config_path)
+        if 'sharedEncoder' in config_name:
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sharedEncoder_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_sharedEncoder_meta_arch.py'))
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/shared_encoder_predictor.py',
+                os.path.join(FLAGS.model_dir + '/shared_encoder_predictor.py'))
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/models/feature_map_generators.py',
+                os.path.join(FLAGS.model_dir + '/feature_map_generators.py'))
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/models/ssd_resnet_v1_fpn_feature_extractor.py',
+                os.path.join(FLAGS.model_dir + '/ssd_resnet_v1_fpn_feature_extractor.py'))
+        elif 'reuse' in config_name:
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
+        elif 'sequential' in config_name:
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sequential_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_sequential_meta_arch.py'))
+        elif 'ssd' in config_name:
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_meta_arch.py'))
+        elif 'hybridSeq' in config_name:
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_hybridSeq_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_hybridSeq_meta_arch.py'))
 
-        copyfile(
-            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
-            os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
+        else:
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
+
         copyfile(
             '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
             os.path.join(FLAGS.model_dir + '/u_net_predictor.py'))
@@ -160,6 +192,7 @@ def main(unused_argv):
     sess_config.gpu_options.allow_growth = True
     config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir,
                                     session_config=sess_config,
+                                    keep_checkpoint_max = 20,
                                     tf_random_seed=FLAGS.tf_random_seed,
                                     save_checkpoints_steps=FLAGS.save_checkpoints_steps)
     if not flags.FLAGS.reload_ckpt:

@@ -322,27 +322,35 @@ class DetectionModel(_BaseClass):
     if is_annotated_list:
       self._groundtruth_lists[
           fields.InputDataFields.is_annotated] = is_annotated_list
+
     if  groundtruth_bel_O_list:
       self._groundtruth_lists[
           fields.InputDataFields. groundtruth_bel_O] =  groundtruth_bel_O_list
+
     if  groundtruth_bel_F_list:
       self._groundtruth_lists[
           fields.InputDataFields. groundtruth_bel_F] =  groundtruth_bel_F_list
+
     if  groundtruth_z_min_observations_list:
       self._groundtruth_lists[
           fields.InputDataFields. groundtruth_z_min_observations] =  groundtruth_z_min_observations_list
+
     if  groundtruth_z_max_detections_list:
       self._groundtruth_lists[
           fields.InputDataFields. groundtruth_z_max_detections] =  groundtruth_z_max_detections_list
-    if groundtruth_bel_U_list:
-      self._groundtruth_lists[
-        fields.InputDataFields.groundtruth_detections_drivingCorridor] = groundtruth_detections_drivingCorridor_list
+
     if groundtruth_detections_drivingCorridor_list:
       self._groundtruth_lists[
-        fields.InputDataFields.groundtruth_bel_U] = groundtruth_bel_U_list
+        fields.InputDataFields.groundtruth_detections_drivingCorridor] = groundtruth_detections_drivingCorridor_list
+
     if groundtruth_bel_U_list:
       self._groundtruth_lists[
+        fields.InputDataFields.groundtruth_bel_U] = groundtruth_bel_U_list
+
+    if groundtruth_z_min_detections_list:
+      self._groundtruth_lists[
         fields.InputDataFields.groundtruth_z_min_detections] = groundtruth_z_min_detections_list
+
     if groundtruth_intensity_list:
       self._groundtruth_lists[
         fields.InputDataFields.groundtruth_intensity] = groundtruth_intensity_list

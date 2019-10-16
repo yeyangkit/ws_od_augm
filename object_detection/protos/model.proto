@@ -6,6 +6,8 @@ import "object_detection/protos/ssd.proto";
 import "object_detection/protos/ssd_augmentation.proto";
 import "object_detection/protos/ssd_augmentation_reuse.proto";
 import "object_detection/protos/ssd_augmentation_sequential.proto";
+import "object_detection/protos/ssd_augmentation_sharedEncoder.proto";
+import "object_detection/protos/ssd_augmentation_hybridSeq.proto";
 
 // Top level configuration for DetectionModels.
 message DetectionModel {
@@ -14,6 +16,8 @@ message DetectionModel {
     SsdAugmentation ssd_augmentation = 2;
     SsdAugmentationReuse ssd_augmentation_reuse = 5;
     SsdAugmentationSequential ssd_augmentation_sequential = 6;
+    SsdAugmentationSharedEncoder ssd_augmentation_shared_encoder = 7;
+    SsdAugmentationHybridSeq ssd_augmentation_hybrid_seq = 8;
   }
   repeated string input_features = 3;
   repeated int32 input_channels = 4;

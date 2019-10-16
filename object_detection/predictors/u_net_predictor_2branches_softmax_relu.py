@@ -13,6 +13,7 @@ Z_MIN_OBSERVATIONS_PREDICTION = beliefs_predictor.Z_MIN_OBSERVATIONS_PREDICTION
 BELIEF_U_PREDICTION = beliefs_predictor.BELIEF_U_PREDICTION
 Z_MIN_DETECTIONS_PREDICTION = beliefs_predictor.Z_MIN_DETECTIONS_PREDICTION
 DETECTIONS_DRIVINGCORRIDOR_PREDICTION = beliefs_predictor.DETECTIONS_DRIVINGCORRIDOR_PREDICTION
+INTENSITY_PREDICTION = beliefs_predictor.INTENSITY_PREDICTION
 
 class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
     """U Net Predictor with weight sharing."""
@@ -107,7 +108,7 @@ class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
         shortcut = self._create_input_conv_net(preprocessed_input)
 
         # Create Unet
-        pred_bels, pred_maps = self._create_unet_end(input, shortcut, bels_outputs_channels=3, maps_outputs_channels=4)
+        pred_bels, pred_maps = self._create_unet_end(input, shortcut, bels_outputs_channels=3, maps_outputs_channels=5)
 
         pred_bel_F = tf.expand_dims(pred_bels[:, :, :, 0], axis=3)
         pred_bel_O = tf.expand_dims(pred_bels[:, :, :, 1], axis=3)
@@ -117,6 +118,7 @@ class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
         pred_z_min_observations = tf.expand_dims(pred_maps[:, :, :, 1], axis=3)
         pred_z_min_detections = tf.expand_dims(pred_maps[:, :, :, 2], axis=3)
         pred_detections_drivingCorridor = tf.expand_dims(pred_maps[:, :, :, 3], axis=3)
+        pred_intensity = tf.expand_dims(pred_maps[:, :, :, 4], axis=3)
 
         predictions = {
             BELIEF_O_PREDICTION: [],
@@ -126,6 +128,7 @@ class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
             BELIEF_U_PREDICTION: [],
             Z_MIN_DETECTIONS_PREDICTION: [],
             DETECTIONS_DRIVINGCORRIDOR_PREDICTION: [],
+            INTENSITY_PREDICTION: []
         }
 
         predictions[BELIEF_O_PREDICTION] = pred_bel_O
@@ -135,6 +138,7 @@ class UNet2branchesPredictor(beliefs_predictor.BeliefPredictor):
         predictions[BELIEF_U_PREDICTION] = pred_bel_U
         predictions[Z_MIN_DETECTIONS_PREDICTION] = pred_z_min_detections
         predictions[DETECTIONS_DRIVINGCORRIDOR_PREDICTION] = pred_detections_drivingCorridor
+        predictions[INTENSITY_PREDICTION] = pred_intensity
 
 
         return predictions

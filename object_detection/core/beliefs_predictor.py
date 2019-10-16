@@ -8,6 +8,7 @@ Z_MIN_OBSERVATIONS_PREDICTION = 'z_min_observations_prediction'
 BELIEF_U_PREDICTION = 'belief_U_prediction'
 Z_MIN_DETECTIONS_PREDICTION = 'z_min_detections_prediction'
 DETECTIONS_DRIVINGCORRIDOR_PREDICTION = 'detections_drivingCorridor_prediction'
+INTENSITY_PREDICTION = 'intensity_prediction'
 
 class BeliefPredictor(object):
     """BeliefPredictor."""

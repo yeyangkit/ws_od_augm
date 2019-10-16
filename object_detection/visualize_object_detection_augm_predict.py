@@ -30,7 +30,11 @@ flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_
                     'Path to label map proto')
 
 vis_set = [
-    'scene-0401', 'scene-0252', 'scene-1062', 'scene-0075', 'scene-0133'
+    'scene-0401', 'scene-0252', 'scene-1062', 'scene-0075', 'scene-0133',
+'scene-0400', 'scene-0251', 'scene-1061', 'scene-0074', 'scene-0132',
+'scene-0402', 'scene-0253', 'scene-1063', 'scene-0076', 'scene-0134',
+'scene-0403', 'scene-0254', 'scene-1064', 'scene-0077', 'scene-0135',
+'scene-0404', 'scene-0255', 'scene-1065', 'scene-0078', 'scene-0136'
 ]
 vis_set_full = [
     'scene-0003', 'scene-0012', 'scene-0013',
@@ -349,7 +353,7 @@ def visualize(split):
                     detections_drivingCorridor_prediction_np = resize_augm(detections_drivingCorridor_pred[0], image_stacked.shape[1], image_stacked.shape[2])
 
                     image_bel_F = augm_to_image_gray(belief_F_prediction_np, mode_norm255=True)
-                    image_bel_F = cv2.bitwise_not(image_bel_F)
+                    # image_bel_F = cv2.bitwise_not(image_bel_F)
 
                     image_bel_O = augm_to_image_gray(belief_O_prediction_np, mode_norm255=True)
                     image_bel_O = cv2.bitwise_not(image_bel_O)
@@ -357,7 +361,7 @@ def visualize(split):
                     image_z_max_detections = augm_to_image_gray(z_max_detections_prediction_np, mode_norm255=False)
                     image_z_max_detections = cv2.bitwise_not(image_z_max_detections)
 
-                    image_vis_color = augm_to_image_rgb(detections_drivingCorridor_prediction_np, belief_F_prediction_np,z_max_detections_prediction_np)
+                    image_vis_color = augm_to_image_rgb(detections_drivingCorridor_prediction_np, belief_F_prediction_np, z_max_detections_prediction_np)
                     image_vis_color_inv = cv2.bitwise_not(image_vis_color)
 
                     for (v, u), val in np.ndenumerate(det_mask):
@@ -417,17 +421,21 @@ def visualize(split):
                         min_score_thresh=0.3,
                         use_normalized_coordinates=True,
                         line_thickness=3)
+
                     print(image_bel_F.shape)
-                    vis_util.visualize_boxes_and_labels_on_image_array(
-                        image_bel_F,
-                        np.squeeze(boxes_aligned),
-                        np.squeeze(classes).astype(np.int32),
-                        np.squeeze(scores),
-                        category_index,
-                        boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
-                        use_normalized_coordinates=True,
-                        line_thickness=3)
+
+                    # vis_util.visualize_boxes_and_labels_on_image_array(
+                    #     image_bel_F,
+                    #     np.squeeze(boxes_aligned),
+                    #     np.squeeze(classes).astype(np.int32),
+                    #     np.squeeze(scores),
+                    #     category_index,
+                    #     boxes_3d=np.squeeze(boxes_inclined),
+                    #     min_score_thresh=0.3,
+                    #     use_normalized_coordinates=True,
+                    #     line_thickness=3)
+
+
                     vis_util.visualize_boxes_and_labels_on_image_array(
                         image_bel_O,
                         np.squeeze(boxes_aligned),

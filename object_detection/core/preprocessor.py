@@ -581,29 +581,30 @@ def random_horizontal_flip(image,
                                                      lambda: _flip_image(groundtruth_z_min_observations),
                                                      lambda: groundtruth_z_min_observations)
             result.append(groundtruth_z_min_observations)
+
         if groundtruth_bel_U is not None:
             groundtruth_bel_U = tf.cond(do_a_flip_random, lambda: _flip_image(groundtruth_bel_U),
                                         lambda: groundtruth_bel_U)
-        result.append(groundtruth_bel_U)
+            result.append(groundtruth_bel_U)
 
         if groundtruth_z_min_detections is not None:
             groundtruth_z_min_detections = tf.cond(do_a_flip_random, lambda: _flip_image(groundtruth_z_min_detections),
                                                    lambda: groundtruth_z_min_detections)
-        result.append(groundtruth_z_min_detections)
+            result.append(groundtruth_z_min_detections)
 
         if groundtruth_detections_drivingCorridor is not None:
             groundtruth_detections_drivingCorridor = tf.cond(do_a_flip_random,
                                                              lambda: _flip_image(
                                                                  groundtruth_detections_drivingCorridor),
                                                              lambda: groundtruth_detections_drivingCorridor)
-        result.append(groundtruth_detections_drivingCorridor)
+            result.append(groundtruth_detections_drivingCorridor)
 
         if groundtruth_intensity is not None:
             groundtruth_intensity = tf.cond(do_a_flip_random,
                                                              lambda: _flip_image(
                                                                  groundtruth_intensity),
                                                              lambda: groundtruth_intensity)
-        result.append(groundtruth_intensity)
+            result.append(groundtruth_intensity)
 
         return tuple(result)
 
@@ -795,34 +796,41 @@ def random_rotation(image,
                 groundtruth_bel_O = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_bel_O),
                                             lambda: groundtruth_bel_O)
                 result.append(groundtruth_bel_O)
+
             if groundtruth_bel_F is not None:
                 groundtruth_bel_F = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_bel_F),
                                             lambda: groundtruth_bel_F)
                 result.append(groundtruth_bel_F)
+
             if groundtruth_z_max_detections is not None:
                 groundtruth_z_max_detections = tf.cond(all_boxes_in_image,
                                                        lambda: _rot_image(groundtruth_z_max_detections),
                                                        lambda: groundtruth_z_max_detections)
                 result.append(groundtruth_z_max_detections)
+
             if groundtruth_z_min_observations is not None:
                 groundtruth_z_min_observations = tf.cond(all_boxes_in_image,
                                                          lambda: _rot_image(groundtruth_z_min_observations),
                                                          lambda: groundtruth_z_min_observations)
                 result.append(groundtruth_z_min_observations)
+
             if groundtruth_bel_U is not None:
                 groundtruth_bel_U = tf.cond(all_boxes_in_image, lambda: _rot_image(groundtruth_bel_U),
                                             lambda: groundtruth_bel_U)
                 result.append(groundtruth_bel_U)
+
             if groundtruth_detections_drivingCorridor is not None:
                 groundtruth_detections_drivingCorridor = tf.cond(all_boxes_in_image,
                                                        lambda: _rot_image(groundtruth_detections_drivingCorridor),
                                                        lambda: groundtruth_detections_drivingCorridor)
                 result.append(groundtruth_detections_drivingCorridor)
+
             if groundtruth_z_min_detections is not None:
                 groundtruth_z_min_detections = tf.cond(all_boxes_in_image,
                                                          lambda: _rot_image(groundtruth_z_min_detections),
                                                          lambda: groundtruth_z_min_detections)
                 result.append(groundtruth_z_min_detections)
+
             if groundtruth_intensity is not None:
                 groundtruth_intensity = tf.cond(all_boxes_in_image,
                                                        lambda: _rot_image(groundtruth_intensity),
@@ -3331,8 +3339,11 @@ def get_default_func_arg_map(include_label_weights=True,
             fields.InputDataFields.groundtruth_bel_O,
             fields.InputDataFields.groundtruth_bel_F,
             fields.InputDataFields.groundtruth_z_max_detections,
+            fields.InputDataFields.groundtruth_z_min_detections,
             fields.InputDataFields.groundtruth_z_min_observations,
+            fields.InputDataFields.groundtruth_detections_drivingCorridor,
             fields.InputDataFields.groundtruth_intensity,
+            fields.InputDataFields.groundtruth_bel_U,
         ),
         random_vertical_flip: (
             fields.InputDataFields.image,
@@ -3349,10 +3360,11 @@ def get_default_func_arg_map(include_label_weights=True,
             fields.InputDataFields.groundtruth_bel_O,
             fields.InputDataFields.groundtruth_bel_F,
             fields.InputDataFields.groundtruth_z_max_detections,
-            fields.InputDataFields.groundtruth_z_min_observations,
             fields.InputDataFields.groundtruth_z_min_detections,
+            fields.InputDataFields.groundtruth_z_min_observations,
             fields.InputDataFields.groundtruth_detections_drivingCorridor,
             fields.InputDataFields.groundtruth_intensity,
+            fields.InputDataFields.groundtruth_bel_U,
         ),
         random_pixel_value_scale: (fields.InputDataFields.image,),
         random_image_scale: (
@@ -3508,32 +3520,50 @@ def preprocess(tensor_dict,
     # receive rank 3 tensor for image
     if fields.InputDataFields.image in tensor_dict:
         images = tensor_dict[fields.InputDataFields.image]
+
         groundtruth_bel_O = tensor_dict[fields.InputDataFields.groundtruth_bel_O]
+
         groundtruth_bel_F = tensor_dict[fields.InputDataFields.groundtruth_bel_F]
+
         groundtruth_bel_U = tensor_dict[fields.InputDataFields.groundtruth_bel_U]
+
+
         groundtruth_intensity = tensor_dict[fields.InputDataFields.groundtruth_intensity]
-        groundtruth_z_min_detections = tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor]
-        groundtruth_detections_drivingCorridor = tensor_dict[fields.InputDataFields.groundtruth_z_min_observations]
+
+        groundtruth_z_min_detections = tensor_dict[fields.InputDataFields.groundtruth_z_min_detections]
+
+        groundtruth_detections_drivingCorridor = tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor]
+
         groundtruth_z_max_detections = tensor_dict[fields.InputDataFields.groundtruth_z_max_detections]
+
         groundtruth_z_min_observations = tensor_dict[fields.InputDataFields.groundtruth_z_min_observations]
+
         if len(images.get_shape()) != 4:
             raise ValueError('images in tensor_dict should be rank 4')
         image = tf.squeeze(images, axis=0)
         tensor_dict[fields.InputDataFields.image] = image
         groundtruth_bel_O = tf.squeeze(groundtruth_bel_O, axis=0)
+
         tensor_dict[fields.InputDataFields.groundtruth_bel_O] = groundtruth_bel_O
+
         groundtruth_bel_F = tf.squeeze(groundtruth_bel_F, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_bel_F] = groundtruth_bel_F
+
         groundtruth_bel_U = tf.squeeze(groundtruth_bel_U, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_bel_U] = groundtruth_bel_U
+
         groundtruth_intensity = tf.squeeze(groundtruth_intensity, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_intensity] = groundtruth_intensity
+
         groundtruth_z_min_detections = tf.squeeze(groundtruth_z_min_detections, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_z_min_detections] = groundtruth_z_min_detections
+
         groundtruth_detections_drivingCorridor = tf.squeeze(groundtruth_detections_drivingCorridor, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_detections_drivingCorridor] = groundtruth_detections_drivingCorridor
+
         groundtruth_z_max_detections = tf.squeeze(groundtruth_z_max_detections, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_z_max_detections] = groundtruth_z_max_detections
+
         groundtruth_z_min_observations = tf.squeeze(groundtruth_z_min_observations, axis=0)
         tensor_dict[fields.InputDataFields.groundtruth_z_min_observations] = groundtruth_z_min_observations
 

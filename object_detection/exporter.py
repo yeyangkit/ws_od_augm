@@ -193,6 +193,8 @@ def add_output_tensor_nodes(postprocessed_tensors,
   classes = postprocessed_tensors.get(
       detection_fields.detection_classes) + label_id_offset
 
+  intensity_prediction = postprocessed_tensors.get(
+      detection_fields.intensity_prediction)
   detections_drivingCorridor_prediction = postprocessed_tensors.get(detection_fields.detections_drivingCorridor_prediction)
   z_min_detections_prediction = postprocessed_tensors.get(detection_fields.z_min_detections_prediction)
   z_max_detections_prediction = postprocessed_tensors.get(detection_fields.z_max_detections_prediction)
@@ -244,6 +246,9 @@ def add_output_tensor_nodes(postprocessed_tensors,
   if belief_U_prediction is not None:
     outputs[detection_fields.belief_U_prediction] = tf.identity(
         belief_U_prediction, name=detection_fields.belief_U_prediction)
+  if intensity_prediction is not None:
+    outputs[detection_fields.intensity_prediction] = tf.identity(
+        intensity_prediction, name=detection_fields.intensity_prediction)
 
   if feature_maps:
     for key, value in feature_maps.items():

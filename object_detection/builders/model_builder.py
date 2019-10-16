@@ -33,6 +33,8 @@ from object_detection.meta_architectures import ssd_meta_arch
 from object_detection.meta_architectures import ssd_augmentation_meta_arch
 from object_detection.meta_architectures import ssd_augmentation_reuse_meta_arch
 from object_detection.meta_architectures import ssd_augmentation_sequential_meta_arch
+from object_detection.meta_architectures import ssd_augmentation_sharedEncoder_meta_arch
+from object_detection.meta_architectures import ssd_augmentation_hybridSeq_meta_arch
 from object_detection.models import ssd_resnet_v1_fpn_feature_extractor as ssd_resnet_v1_fpn
 from object_detection.models import ssd_resnet_v1_multiscale_feature_extractor as ssd_resnet_multiscale
 from object_detection.models import ssd_resnet_v1_ppn_feature_extractor as ssd_resnet_v1_ppn
@@ -54,6 +56,7 @@ from object_detection.predictors import upsampling_predictor
 from object_detection.predictors import ht_predictor
 from object_detection.predictors import u_net_predictor_2branches_softmax_relu
 from object_detection.predictors import sequential_2branches
+from object_detection.predictors import shared_encoder_predictor
 from object_detection.protos import model_pb2
 from object_detection.utils import ops
 
@@ -121,7 +124,15 @@ def build(model_config, is_training, add_summaries=True):
                                              sum(model_config.input_channels),
                                              input_features)
     if meta_architecture == 'ssd_augmentation_sequential':
-        return _build_ssd_augmentation_sequential_model(model_config.ssd_augmentation, is_training, add_summaries,
+        return _build_ssd_augmentation_sequential_model(model_config.ssd_augmentation_sequential, is_training, add_summaries,
+                                             sum(model_config.input_channels),
+                                             input_features)
+    if meta_architecture == 'ssd_augmentation_shared_encoder':
+        return _build_ssd_augmentation_sharedEncoder_model(model_config.ssd_augmentation_shared_encoder, is_training, add_summaries,
+                                             sum(model_config.input_channels),
+                                             input_features)
+    if meta_architecture == 'ssd_augmentation_hybrid_seq':
+        return _build_ssd_augmentation_hybridSeq_model(model_config.ssd_augmentation_hybrid_seq, is_training, add_summaries,
                                              sum(model_config.input_channels),
                                              input_features)
     raise ValueError('Unknown meta architecture: {}'.format(meta_architecture))
@@ -478,6 +489,13 @@ def _build_ssd_augmentation_model(ssd_augm_config, is_training, add_summaries, n
             filters=ssd_augm_config.beliefs_predictor.filters)
     elif ssd_augm_config.beliefs_predictor.predictor == 'sequential':
         ssd_augmentation_predictor = sequential_2branches.Sequential2branchesPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'shared_encoder':
+        ssd_augmentation_predictor = shared_encoder_predictor.SharedEncoderPredictor(
             is_training=is_training,
             layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
             stack_size=ssd_augm_config.beliefs_predictor.stack_size,
@@ -840,6 +858,338 @@ def _build_ssd_augmentation_sequential_model(ssd_augm_config, is_training, add_s
     )
 
     ssd_augm_meta_arch_fn = ssd_augmentation_sequential_meta_arch.SSDAugmentationSequentialMetaArch
+    kwargs = {}
+
+    return ssd_augm_meta_arch_fn(
+        is_training=is_training,
+        anchor_generator=anchor_generator,
+        box_predictor=ssd_box_predictor,
+        augmentation_predictor=ssd_augmentation_predictor,
+        factor_loss_fused_bel_O=ssd_augm_config.augmentation_branch.factor_loss_fused_bel_O,
+        factor_loss_fused_bel_F=ssd_augm_config.augmentation_branch.factor_loss_fused_bel_F,
+        factor_loss_fused_zmax_det=ssd_augm_config.augmentation_branch.factor_loss_fused_zmax_det,
+        factor_loss_fused_obs_zmin=ssd_augm_config.augmentation_branch.factor_loss_fused_obs_zmin,
+        factor_loss_augm=ssd_augm_config.augmentation_branch.factor_loss_augm,
+        box_coder=box_coder,
+        feature_extractor=feature_extractor,
+        encode_background_as_zeros=encode_background_as_zeros,
+        image_resizer_fn=image_resizer_fn,
+        non_max_suppression_fn=non_max_suppression_fn,
+        score_conversion_fn=score_conversion_fn,
+        use_uncertainty_weighting_loss=ssd_augm_config.loss.use_uncertainty_weighting_loss,
+        classification_loss=classification_loss,
+        localization_loss=localization_loss,
+        classification_loss_weight=classification_weight,
+        localization_loss_weight=localization_weight,
+        normalize_loss_by_num_matches=normalize_loss_by_num_matches,
+        hard_example_miner=hard_example_miner,
+        target_assigner_instance=target_assigner_instance,
+        add_summaries=add_summaries,
+        normalize_loc_loss_by_codesize=normalize_loc_loss_by_codesize,
+        freeze_batchnorm=ssd_augm_config.freeze_batchnorm,
+        inplace_batchnorm_update=ssd_augm_config.inplace_batchnorm_update,
+        add_background_class=ssd_augm_config.add_background_class,
+        explicit_background_class=ssd_augm_config.explicit_background_class,
+        random_example_sampler=random_example_sampler,
+        expected_loss_weights_fn=expected_loss_weights_fn,
+        use_confidences_as_targets=ssd_augm_config.use_confidences_as_targets,
+        implicit_example_weight=ssd_augm_config.implicit_example_weight,
+        equalization_loss_config=equalization_loss_config,
+        **kwargs)
+
+
+def _build_ssd_augmentation_sharedEncoder_model(ssd_augm_config, is_training, add_summaries, num_input_channels,
+                                  input_features):
+    """Builds an SSD detection model based on the model config.
+
+    Args:
+      ssd_augmentation_config: A ssd.proto object containing the config for the desired
+        SSDMetaArch.
+      is_training: True if this model is being built for training purposes.
+      add_summaries: Whether to add tf summaries in the model.
+    Returns:
+      SSDMetaArch based on the config.
+
+    Raises:
+      ValueError: If ssd_augm_config.type is not recognized (i.e. not registered in
+        model_class_map).
+    """
+    num_classes = ssd_augm_config.num_classes
+
+    # Feature extractor
+    ssd_augm_config.feature_extractor.fpn.use_full_feature_extractor = False
+    feature_extractor = _build_ssd_feature_extractor(
+        feature_extractor_config=ssd_augm_config.feature_extractor,
+        freeze_batchnorm=ssd_augm_config.freeze_batchnorm,
+        is_training=is_training,
+        input_features=input_features,
+        num_input_channels=num_input_channels)
+
+    box_coder = box_coder_builder.build(ssd_augm_config.box_coder)
+    matcher = matcher_builder.build(ssd_augm_config.matcher)
+    region_similarity_calculator = sim_calc.build(
+        ssd_augm_config.similarity_calculator)
+    encode_background_as_zeros = ssd_augm_config.encode_background_as_zeros
+    negative_class_weight = ssd_augm_config.negative_class_weight
+    anchor_generator = anchor_generator_builder.build(
+        ssd_augm_config.anchor_generator
+
+        # ssd_augm_config.feature_extractor.include_root_block,
+        # ssd_augm_config.feature_extractor.root_downsampling_rate, ssd_augm_config.feature_extractor.type,
+        # ssd_augm_config.feature_extractor.store_non_strided_activations
+    )
+
+    if feature_extractor.is_keras_model:
+        ssd_box_predictor = box_predictor_builder.build_keras(
+            hyperparams_fn=hyperparams_builder.KerasLayerHyperparams,
+            freeze_batchnorm=ssd_augm_config.freeze_batchnorm,
+            inplace_batchnorm_update=False,
+            num_predictions_per_location_list=anchor_generator
+                .num_anchors_per_location(),
+            box_predictor_config=ssd_augm_config.box_predictor,
+            is_training=is_training,
+            num_classes=num_classes,
+            add_background_class=ssd_augm_config.add_background_class)
+    else:
+        ssd_box_predictor = box_predictor_builder.build(
+            hyperparams_builder.build, ssd_augm_config.box_predictor, is_training,
+            num_classes, ssd_augm_config.add_background_class)
+
+    ## Add augmentation network
+    if ssd_augm_config.beliefs_predictor.predictor == 'u_net':
+        ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'upsampling':
+        ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'hybrid_task_cascade':
+        ssd_augmentation_predictor = ht_predictor.HTPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'u_net_2branches':
+        ssd_augmentation_predictor = u_net_predictor_2branches_softmax_relu.UNet2branchesPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'sequential':
+        ssd_augmentation_predictor = sequential_2branches.Sequential2branchesPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'shared_encoder':
+        ssd_augmentation_predictor = shared_encoder_predictor.SharedEncoderPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    else:
+        raise RuntimeError('unknown predictor %s for augmentation branch' % ssd_augm_config.beliefs_predictor.predictor)
+
+    image_resizer_fn = image_resizer_builder.build(ssd_augm_config.image_resizer)
+    non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
+        ssd_augm_config.post_processing)
+    (classification_loss, localization_loss, classification_weight,
+     localization_weight, hard_example_miner, random_example_sampler,
+     expected_loss_weights_fn) = losses_builder.build(ssd_augm_config.loss)
+    normalize_loss_by_num_matches = ssd_augm_config.normalize_loss_by_num_matches
+    normalize_loc_loss_by_codesize = ssd_augm_config.normalize_loc_loss_by_codesize
+    # specific_threshold = ssd_augm_config.specific_threshold
+    # threshold_offset = ssd_augm_config.threshold_offset
+    # increse_small_object_size = ssd_augm_config.increse_small_object_size
+
+    equalization_loss_config = ops.EqualizationLossConfig(
+        weight=ssd_augm_config.loss.equalization_loss.weight,
+        exclude_prefixes=ssd_augm_config.loss.equalization_loss.exclude_prefixes)
+
+    target_assigner_instance = target_assigner.TargetAssigner(
+        region_similarity_calculator,
+        matcher,
+        box_coder,
+        negative_class_weight=negative_class_weight
+        # increse_small_object_size=increse_small_object_size,
+        # specific_threshold=specific_threshold,
+        # threshold_offset=threshold_offset
+    )
+
+    ssd_augm_meta_arch_fn = ssd_augmentation_sharedEncoder_meta_arch.SSDAugmentationSharedEncoderMetaArch
+    kwargs = {}
+
+    return ssd_augm_meta_arch_fn(
+        is_training=is_training,
+        anchor_generator=anchor_generator,
+        box_predictor=ssd_box_predictor,
+        augmentation_predictor=ssd_augmentation_predictor,
+        factor_loss_fused_bel_O=ssd_augm_config.augmentation_branch.factor_loss_fused_bel_O,
+        factor_loss_fused_bel_F=ssd_augm_config.augmentation_branch.factor_loss_fused_bel_F,
+        factor_loss_fused_zmax_det=ssd_augm_config.augmentation_branch.factor_loss_fused_zmax_det,
+        factor_loss_fused_obs_zmin=ssd_augm_config.augmentation_branch.factor_loss_fused_obs_zmin,
+        factor_loss_augm=ssd_augm_config.augmentation_branch.factor_loss_augm,
+        box_coder=box_coder,
+        feature_extractor=feature_extractor,
+        encode_background_as_zeros=encode_background_as_zeros,
+        image_resizer_fn=image_resizer_fn,
+        non_max_suppression_fn=non_max_suppression_fn,
+        score_conversion_fn=score_conversion_fn,
+        use_uncertainty_weighting_loss=ssd_augm_config.loss.use_uncertainty_weighting_loss,
+        classification_loss=classification_loss,
+        localization_loss=localization_loss,
+        classification_loss_weight=classification_weight,
+        localization_loss_weight=localization_weight,
+        normalize_loss_by_num_matches=normalize_loss_by_num_matches,
+        hard_example_miner=hard_example_miner,
+        target_assigner_instance=target_assigner_instance,
+        add_summaries=add_summaries,
+        normalize_loc_loss_by_codesize=normalize_loc_loss_by_codesize,
+        freeze_batchnorm=ssd_augm_config.freeze_batchnorm,
+        inplace_batchnorm_update=ssd_augm_config.inplace_batchnorm_update,
+        add_background_class=ssd_augm_config.add_background_class,
+        explicit_background_class=ssd_augm_config.explicit_background_class,
+        random_example_sampler=random_example_sampler,
+        expected_loss_weights_fn=expected_loss_weights_fn,
+        use_confidences_as_targets=ssd_augm_config.use_confidences_as_targets,
+        implicit_example_weight=ssd_augm_config.implicit_example_weight,
+        equalization_loss_config=equalization_loss_config,
+        **kwargs)
+
+def _build_ssd_augmentation_hybridSeq_model(ssd_augm_config, is_training, add_summaries, num_input_channels,
+                                  input_features):
+    """Builds an SSD detection model based on the model config.
+
+    Args:
+      ssd_augmentation_config: A ssd.proto object containing the config for the desired
+        SSDMetaArch.
+      is_training: True if this model is being built for training purposes.
+      add_summaries: Whether to add tf summaries in the model.
+    Returns:
+      SSDMetaArch based on the config.
+
+    Raises:
+      ValueError: If ssd_augm_config.type is not recognized (i.e. not registered in
+        model_class_map).
+    """
+    num_classes = ssd_augm_config.num_classes
+
+    # Feature extractor
+    ssd_augm_config.feature_extractor.fpn.use_full_feature_extractor = False
+    feature_extractor = _build_ssd_feature_extractor(
+        feature_extractor_config=ssd_augm_config.feature_extractor,
+        freeze_batchnorm=ssd_augm_config.freeze_batchnorm,
+        is_training=is_training,
+        input_features=input_features,
+        num_input_channels=num_input_channels)
+
+    box_coder = box_coder_builder.build(ssd_augm_config.box_coder)
+    matcher = matcher_builder.build(ssd_augm_config.matcher)
+    region_similarity_calculator = sim_calc.build(
+        ssd_augm_config.similarity_calculator)
+    encode_background_as_zeros = ssd_augm_config.encode_background_as_zeros
+    negative_class_weight = ssd_augm_config.negative_class_weight
+    anchor_generator = anchor_generator_builder.build(
+        ssd_augm_config.anchor_generator
+
+        # ssd_augm_config.feature_extractor.include_root_block,
+        # ssd_augm_config.feature_extractor.root_downsampling_rate, ssd_augm_config.feature_extractor.type,
+        # ssd_augm_config.feature_extractor.store_non_strided_activations
+    )
+
+    if feature_extractor.is_keras_model:
+        ssd_box_predictor = box_predictor_builder.build_keras(
+            hyperparams_fn=hyperparams_builder.KerasLayerHyperparams,
+            freeze_batchnorm=ssd_augm_config.freeze_batchnorm,
+            inplace_batchnorm_update=False,
+            num_predictions_per_location_list=anchor_generator
+                .num_anchors_per_location(),
+            box_predictor_config=ssd_augm_config.box_predictor,
+            is_training=is_training,
+            num_classes=num_classes,
+            add_background_class=ssd_augm_config.add_background_class)
+    else:
+        ssd_box_predictor = box_predictor_builder.build(
+            hyperparams_builder.build, ssd_augm_config.box_predictor, is_training,
+            num_classes, ssd_augm_config.add_background_class)
+
+    ## Add augmentation network
+    if ssd_augm_config.beliefs_predictor.predictor == 'u_net':
+        ssd_augmentation_predictor = u_net_predictor.UNetPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'upsampling':
+        ssd_augmentation_predictor = upsampling_predictor.UpsamplingPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'hybrid_task_cascade':
+        ssd_augmentation_predictor = ht_predictor.HTPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'u_net_2branches':
+        ssd_augmentation_predictor = u_net_predictor_2branches_softmax_relu.UNet2branchesPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'sequential':
+        ssd_augmentation_predictor = sequential_2branches.Sequential2branchesPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
+    else:
+        raise RuntimeError('unknown predictor %s for augmentation branch' % ssd_augm_config.beliefs_predictor.predictor)
+
+    image_resizer_fn = image_resizer_builder.build(ssd_augm_config.image_resizer)
+    non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
+        ssd_augm_config.post_processing)
+    (classification_loss, localization_loss, classification_weight,
+     localization_weight, hard_example_miner, random_example_sampler,
+     expected_loss_weights_fn) = losses_builder.build(ssd_augm_config.loss)
+    normalize_loss_by_num_matches = ssd_augm_config.normalize_loss_by_num_matches
+    normalize_loc_loss_by_codesize = ssd_augm_config.normalize_loc_loss_by_codesize
+    # specific_threshold = ssd_augm_config.specific_threshold
+    # threshold_offset = ssd_augm_config.threshold_offset
+    # increse_small_object_size = ssd_augm_config.increse_small_object_size
+
+    equalization_loss_config = ops.EqualizationLossConfig(
+        weight=ssd_augm_config.loss.equalization_loss.weight,
+        exclude_prefixes=ssd_augm_config.loss.equalization_loss.exclude_prefixes)
+
+    target_assigner_instance = target_assigner.TargetAssigner(
+        region_similarity_calculator,
+        matcher,
+        box_coder,
+        negative_class_weight=negative_class_weight
+        # increse_small_object_size=increse_small_object_size,
+        # specific_threshold=specific_threshold,
+        # threshold_offset=threshold_offset
+    )
+
+    ssd_augm_meta_arch_fn = ssd_augmentation_hybridSeq_meta_arch.SSDAugmentationHybridSeqMetaArch
     kwargs = {}
 
     return ssd_augm_meta_arch_fn(

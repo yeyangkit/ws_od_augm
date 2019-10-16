@@ -201,14 +201,23 @@ def _provide_groundtruth(model, labels):
     gt_boxes_3d_list = labels[fields.InputDataFields.groundtruth_boxes_3d]
     gt_classes_list = labels[fields.InputDataFields.groundtruth_classes]
     gt_weights_list = None
+
     gt_bel_O_list = labels[fields.InputDataFields.groundtruth_bel_O]  # augmentation labels
+
     gt_bel_F_list = labels[fields.InputDataFields.groundtruth_bel_F]  # augmentation labels
+
     gt_z_max_detections_list = labels[fields.InputDataFields.groundtruth_z_max_detections]  # augmentation labels
+
     gt_z_min_observations_list = labels[fields.InputDataFields.groundtruth_z_min_observations]  # augmentation labels
+
     gt_z_min_detections_list = labels[fields.InputDataFields.groundtruth_z_min_detections]  # augmentation labels
+
     gt_detections_drivingCorridor_list = labels[fields.InputDataFields.groundtruth_detections_drivingCorridor]  # augmentation labels
+
     gt_bel_U_list = labels[fields.InputDataFields.groundtruth_bel_U]  # augmentation labels
+
     gt_intensity_list = labels[fields.InputDataFields.groundtruth_intensity]  # augmentation labels
+
     if fields.InputDataFields.groundtruth_weights in labels:
         gt_weights_list = labels[fields.InputDataFields.groundtruth_weights]
     gt_confidences_list = None

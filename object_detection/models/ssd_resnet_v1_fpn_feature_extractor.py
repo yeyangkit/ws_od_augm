@@ -241,6 +241,188 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
             feature_maps.append(last_feature_map)
     return feature_maps
 
+  def extract_features_shared_encoder_for_augmentation(self, preprocessed_inputs):
+      """Extract features from preprocessed inputs.
+
+      Args:
+        preprocessed_inputs: a [batch, height, width, channels] float tensor
+          representing a batch of images.
+
+      Returns:
+        feature_maps: a list of tensors where the ith tensor has shape
+          [batch, height_i, width_i, depth_i]
+      """
+      preprocessed_inputs = shape_utils.check_min_image_dim(
+          129, preprocessed_inputs)
+
+      with tf.variable_scope(
+              self._resnet_scope_name, reuse=self._reuse_weights) as scope:
+
+          with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+              with (slim.arg_scope(self._conv_hyperparams_fn())
+              if self._override_base_feature_extractor_hyperparams else
+              context_manager.IdentityContextManager()):
+                  _, image_features = self._resnet_base_fn(
+                      inputs=ops.pad_to_multiple(preprocessed_inputs,
+                                                 self._pad_to_multiple),
+                      sparsity_type=self._sparsity_type,
+                      sparse_dense_branch=self._sparse_dense_branch,
+                      num_classes=None,
+                      is_training=None,
+                      global_pool=False,
+                      output_stride=None,
+                      # include_root_block=self._include_root_block,
+                      depthwise_convolution=self._depthwise_convolution,
+                      max_pool_subsample=self._max_pool_subsample,
+                      root_downsampling_rate=self._root_downsampling_rate,
+                      store_non_strided_activations=self._store_non_strided_activations,
+                      min_base_depth=self._min_depth,
+                      depth_multiplier=self._depth_multiplier,
+                      recompute_grad=self._recompute_grad,
+                      scope=scope)
+                  image_features = self._filter_features(image_features)
+          depth_fn = lambda d: max(int(d * self._depth_multiplier), self._min_depth)
+
+
+          with slim.arg_scope(self._conv_hyperparams_fn()):
+              with tf.variable_scope(self._fpn_scope_name,
+                                     reuse=self._reuse_weights):
+
+                  # base_fpn_max_level = min(self._fpn_max_level, 5)
+                  base_fpn_max_level = min(self._fpn_max_level, self._fpn_min_level + 3)
+                  fpn_level_resnet_block_offset = self._fpn_min_level - 1
+
+                  feature_block_list = []
+                  for level in range(self._fpn_min_level, base_fpn_max_level + 1):
+                      feature_block_list.append('block{}'.format(level - fpn_level_resnet_block_offset))
+
+                  if self._use_full_feature_extractor:
+                      deeper_feature_block_list = []
+                      for level in range(base_fpn_max_level + 1, 6):
+                          deeper_feature_block_list.append('block{}'.format(level - fpn_level_resnet_block_offset))
+                      fpn_features = feature_map_generators.full_fpn_top_down_feature_maps(
+                          [(key, image_features[key]) for key in feature_block_list],
+                          [(key, image_features[key]) for key in deeper_feature_block_list],
+                          depth=self._additional_layer_depth,
+                          use_deconvolution=self._use_deconvolution)
+                  else:
+                      fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_v1(  #   fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+                  feature_maps = []
+                  feature_maps_augm = []
+                  for level in range(self._fpn_min_level, base_fpn_max_level + 1):
+                      feature_maps.append(
+                          fpn_features['top_down_block{}'.format(level - fpn_level_resnet_block_offset)])
+                      feature_maps_augm.append(
+                          fpn_features_augm['top_down_augm_block{}'.format(level - fpn_level_resnet_block_offset)])
+                  last_feature_map = fpn_features['top_down_block{}'.format( # not used in ye's
+                      base_fpn_max_level - fpn_level_resnet_block_offset)]
+                  # Construct coarse features
+                  for i in range(base_fpn_max_level, self._fpn_max_level):
+                      last_feature_map = slim.conv2d(
+                          last_feature_map,
+                          num_outputs=depth_fn(self._additional_layer_depth),
+                          kernel_size=[3, 3],
+                          stride=2,
+                          padding='SAME',
+                          scope='bottom_up_augm_block{}'.format(i))
+                      feature_maps.append(last_feature_map)
+      return feature_maps, feature_maps_augm
+
+
+  def extract_features_shared_encoder_for_beliefs(self, preprocessed_inputs):
+        """Extract features from preprocessed inputs.
+
+        Args:
+          preprocessed_inputs: a [batch, height, width, channels] float tensor
+            representing a batch of images.
+
+        Returns:
+          feature_maps: a list of tensors where the ith tensor has shape
+            [batch, height_i, width_i, depth_i]
+        """
+        preprocessed_inputs = shape_utils.check_min_image_dim(
+            129, preprocessed_inputs)
+
+        with tf.variable_scope(
+                self._resnet_scope_name, reuse=self._reuse_weights) as scope:
+
+            with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+                with (slim.arg_scope(self._conv_hyperparams_fn())
+                if self._override_base_feature_extractor_hyperparams else
+                context_manager.IdentityContextManager()):
+                    _, image_features = self._resnet_base_fn(
+                        inputs=ops.pad_to_multiple(preprocessed_inputs,
+                                                   self._pad_to_multiple),
+                        sparsity_type=self._sparsity_type,
+                        sparse_dense_branch=self._sparse_dense_branch,
+                        num_classes=None,
+                        is_training=None,
+                        global_pool=False,
+                        output_stride=None,
+                        # include_root_block=self._include_root_block,
+                        depthwise_convolution=self._depthwise_convolution,
+                        max_pool_subsample=self._max_pool_subsample,
+                        root_downsampling_rate=self._root_downsampling_rate,
+                        store_non_strided_activations=self._store_non_strided_activations,
+                        min_base_depth=self._min_depth,
+                        depth_multiplier=self._depth_multiplier,
+                        recompute_grad=self._recompute_grad,
+                        scope=scope)
+                    image_features = self._filter_features(image_features)
+            depth_fn = lambda d: max(int(d * self._depth_multiplier), self._min_depth)
+
+            with slim.arg_scope(self._conv_hyperparams_fn()):
+                with tf.variable_scope(self._fpn_scope_name,
+                                       reuse=self._reuse_weights):
+
+                    # base_fpn_max_level = min(self._fpn_max_level, 5)
+                    base_fpn_max_level = min(self._fpn_max_level, self._fpn_min_level + 3)
+                    fpn_level_resnet_block_offset = self._fpn_min_level - 1
+
+                    feature_block_list = []
+                    for level in range(self._fpn_min_level, base_fpn_max_level + 1):
+                        feature_block_list.append('block{}'.format(level - fpn_level_resnet_block_offset))
+
+                    if self._use_full_feature_extractor:
+                        deeper_feature_block_list = []
+                        for level in range(base_fpn_max_level + 1, 6):
+                            deeper_feature_block_list.append('block{}'.format(level - fpn_level_resnet_block_offset))
+                        fpn_features = feature_map_generators.full_fpn_top_down_feature_maps(
+                            [(key, image_features[key]) for key in feature_block_list],
+                            [(key, image_features[key]) for key in deeper_feature_block_list],
+                            depth=self._additional_layer_depth,
+                            use_deconvolution=self._use_deconvolution)
+                    else:
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_htc(
+                            # fpn_top_down_feature_maps_augmentation
+                            [(key, image_features[key]) for key in feature_block_list],
+                            depth=depth_fn(self._additional_layer_depth),
+                            use_deconvolution=self._use_deconvolution)
+                    feature_maps = []
+                    feature_maps_augm = []
+                    for level in range(self._fpn_min_level, base_fpn_max_level + 1):
+                        feature_maps.append(
+                            fpn_features['top_down_block{}'.format(level - fpn_level_resnet_block_offset)])
+                        feature_maps_augm.append(
+                            fpn_features_augm['top_down_augm_block{}'.format(level - fpn_level_resnet_block_offset)])
+                    last_feature_map = fpn_features['top_down_block{}'.format(  # not used in ye's
+                        base_fpn_max_level - fpn_level_resnet_block_offset)]
+                    # Construct coarse features
+                    for i in range(base_fpn_max_level, self._fpn_max_level):
+                        last_feature_map = slim.conv2d(
+                            last_feature_map,
+                            num_outputs=depth_fn(self._additional_layer_depth),
+                            kernel_size=[3, 3],
+                            stride=2,
+                            padding='SAME',
+                            scope='bottom_up_augm_block{}'.format(i))
+                        feature_maps.append(last_feature_map)
+        return feature_maps, feature_maps_augm
+
+
 class SSDResnet18V1FpnFeatureExtractor(SSDResnetV1FpnFeatureExtractor):
   """SSD Resnet18 V1 FPN feature extractor."""
 
