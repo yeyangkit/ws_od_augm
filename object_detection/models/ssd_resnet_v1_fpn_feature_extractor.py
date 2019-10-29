@@ -306,7 +306,7 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                           depth=self._additional_layer_depth,
                           use_deconvolution=self._use_deconvolution)
                   else:
-                      fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_v1(  #   fpn_top_down_feature_maps_augmentation
+                      fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_v_bug_UpConcMultiOut(  #   fpn_top_down_feature_maps_augmentation
                           [(key, image_features[key]) for key in feature_block_list],
                           depth=depth_fn(self._additional_layer_depth),
                           use_deconvolution=self._use_deconvolution)

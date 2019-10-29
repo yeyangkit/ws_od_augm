@@ -572,78 +572,78 @@ class SSDAugmentationMetaArch(model.DetectionModel):
         # concated_inputs_stop = tf.stop_gradient(concated_inputs)
         # feature_maps = self._feature_extractor.extract_features(concated_inputs_stop)
 
-        ## for tensorboard
-
-        pred_z_min_detections = predictor_augm_dict['z_min_detections_prediction']
-        pred_detections_drivingCorridor = predictor_augm_dict['detections_drivingCorridor_prediction']
-        pred_z_max_detections = predictor_augm_dict['z_max_detections_prediction']
-        pred_z_min_observations = predictor_augm_dict['z_min_observations_prediction']
-        pred_intensity = predictor_augm_dict['intensity_prediction']
-
-
-        label_z_min_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_detections)
-        label_detections_drivingCorridor = self.groundtruth_lists(
-            fields.InputDataFields.groundtruth_detections_drivingCorridor)
-        label_z_max_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_max_detections)
-        label_z_min_observations = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_observations)
-        label_intensity = self.groundtruth_lists(fields.InputDataFields.groundtruth_intensity)
-
-        z_max_detections = tf.expand_dims(tf.concat(
-            (prepr_inputs_zmax, pred_z_max_detections[0, :, :, :], tf.cast(label_z_max_detections[0], dtype=float)), axis=1), 0)
-        z_min_detections = tf.expand_dims(tf.concat(
-            (prepr_inputs_zmin, pred_z_min_detections[0, :, :, :], tf.cast(label_z_min_detections[0], dtype=float)), axis=1), 0)
-        detections_drivingCorridor = tf.expand_dims( tf.concat((prepr_inputs_det,pred_detections_drivingCorridor[0, :, :, :],
-                tf.cast(label_detections_drivingCorridor[0], dtype=float)), axis=1), 0)
-        intensity = tf.expand_dims(tf.concat(
-            (prepr_inputs_int, pred_intensity[0, :, :, :], tf.cast(label_intensity[0], dtype=float)),axis=1), 0)
-        z_min_observations = tf.expand_dims(tf.concat(
-            (prepr_inputs_obs, prepr_inputs_occ, pred_z_min_observations[0, :, :, :], tf.cast(label_z_min_observations[0], dtype=float)), axis=1), 0)
-
-        # zMin_inputs = tf.concat(
-        #     (tf.cast(prepr_inputs_zmin, dtype=float),tf.expand_dims(pred_z_min_detections[0, :, :, :],axis=0)), axis=2)
-        # zMax_inputs = tf.concat(
-        #     (tf.cast(prepr_inputs_zmax, dtype=float),tf.expand_dims(pred_z_max_detections[0, :, :, :],axis=0)), axis=2)
-        # det_inputs = tf.concat(
-        #     (tf.cast(prepr_inputs_det, dtype=float),tf.expand_dims(pred_detections_drivingCorridor[0, :, :, :],axis=0)), axis=2)
-        # obs_inputs = tf.concat(
-        #     ( tf.cast(prepr_inputs_obs, dtype=float),tf.cast(prepr_inputs_occ,dtype=float),tf.expand_dims(pred_z_min_observations[0, :, :, :],axis=0)), axis=2)
-
-        # tf.summary.image("prepr_inputs_int",prepr_inputs_int, family="final_inputs_for_OD")
-
-        tf.summary.image("zMin_l_input__m_pred__r_target", z_min_detections, family="final_inputs_for_OD")
-        tf.summary.image("zMax__l_input__m_pred__r_target", z_max_detections, family="final_inputs_for_OD")
-        tf.summary.image("det__l_input__m_pred__r_target", detections_drivingCorridor, family="final_inputs_for_OD")
-        tf.summary.image("obs_inputs__l_s_obs__m_s_occ__r_f_obsZMin", z_min_observations, family="final_inputs_for_OD")
-        tf.summary.image("int__l_input__m_pred__r_target", intensity, family="final_inputs_for_OD")
-
-
-        pred_bel_U = predictor_augm_dict['belief_U_prediction']
-        pred_bel_F = predictor_augm_dict['belief_F_prediction']
-        pred_bel_O = predictor_augm_dict['belief_O_prediction']
-        # bels = tf.concat((tf.expand_dims(pred_bel_O[0, :, :, :],axis=0),tf.expand_dims(pred_bel_F[0, :, :, :],axis=0),tf.expand_dims(pred_bel_U[0, :, :, :],axis=0)), axis=2)
-        # bels=tf.Print(bels, [tf.reduce_max(bels)],  message='tf_reduce_max(bels)-----------------------------')
-        # tf.summary.image("concat_inputs_bels", bels * 255, family="final_inputs_for_OD")
-
-        label_bel_U_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_U)
-        label_bel_F_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
-        label_bel_O_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
-
-        label_bel_U = tf.expand_dims(tf.cast(label_bel_U_list[0], dtype=float), axis=0)
-        label_bel_O = tf.expand_dims(tf.cast(label_bel_O_list[0], dtype=float), axis=0)
-        label_bel_F = tf.expand_dims(tf.cast(label_bel_F_list[0], dtype=float), axis=0)
-
-        label_bel_U = label_bel_U / 255.
-        label_bel_O = label_bel_O / 255.
-        label_bel_F = label_bel_F / 255.
-
-        bel_o = tf.expand_dims(tf.concat((pred_bel_O[0, :, :, :], tf.cast(label_bel_O[0], dtype=float)), axis=1), 0)
-        bel_f = tf.expand_dims(tf.concat((pred_bel_F[0, :, :, :], tf.cast(label_bel_F[0], dtype=float)), axis=1), 0)
-        bel_u = tf.expand_dims(tf.concat((pred_bel_U[0, :, :, :], tf.cast(label_bel_U[0], dtype=float)), axis=1), 0)
-        bel_u = tf.Print(bel_u, [tf.reduce_max(bel_u)], message="tf_reduce_max(bel_u)-----------------------------")
-
-        tf.summary.image('bel_O_leftPred_rightLabel', bel_o, family="final_inputs_for_OD")
-        tf.summary.image('bel_F_leftPred_rightLabel', bel_f, family="final_inputs_for_OD")
-        tf.summary.image('bel_U_leftPred_rightLabel', bel_u, family="final_inputs_for_OD")
+        # ## for tensorboard
+        #
+        # pred_z_min_detections = predictor_augm_dict['z_min_detections_prediction']
+        # pred_detections_drivingCorridor = predictor_augm_dict['detections_drivingCorridor_prediction']
+        # pred_z_max_detections = predictor_augm_dict['z_max_detections_prediction']
+        # pred_z_min_observations = predictor_augm_dict['z_min_observations_prediction']
+        # pred_intensity = predictor_augm_dict['intensity_prediction']
+        #
+        #
+        # label_z_min_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_detections)
+        # label_detections_drivingCorridor = self.groundtruth_lists(
+        #     fields.InputDataFields.groundtruth_detections_drivingCorridor)
+        # label_z_max_detections = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_max_detections)
+        # label_z_min_observations = self.groundtruth_lists(fields.InputDataFields.groundtruth_z_min_observations)
+        # label_intensity = self.groundtruth_lists(fields.InputDataFields.groundtruth_intensity)
+        #
+        # z_max_detections = tf.expand_dims(tf.concat(
+        #     (prepr_inputs_zmax, pred_z_max_detections[0, :, :, :], tf.cast(label_z_max_detections[0], dtype=float)), axis=1), 0)
+        # z_min_detections = tf.expand_dims(tf.concat(
+        #     (prepr_inputs_zmin, pred_z_min_detections[0, :, :, :], tf.cast(label_z_min_detections[0], dtype=float)), axis=1), 0)
+        # detections_drivingCorridor = tf.expand_dims( tf.concat((prepr_inputs_det,pred_detections_drivingCorridor[0, :, :, :],
+        #         tf.cast(label_detections_drivingCorridor[0], dtype=float)), axis=1), 0)
+        # intensity = tf.expand_dims(tf.concat(
+        #     (prepr_inputs_int, pred_intensity[0, :, :, :], tf.cast(label_intensity[0], dtype=float)),axis=1), 0)
+        # z_min_observations = tf.expand_dims(tf.concat(
+        #     (prepr_inputs_obs, prepr_inputs_occ, pred_z_min_observations[0, :, :, :], tf.cast(label_z_min_observations[0], dtype=float)), axis=1), 0)
+        #
+        # # zMin_inputs = tf.concat(
+        # #     (tf.cast(prepr_inputs_zmin, dtype=float),tf.expand_dims(pred_z_min_detections[0, :, :, :],axis=0)), axis=2)
+        # # zMax_inputs = tf.concat(
+        # #     (tf.cast(prepr_inputs_zmax, dtype=float),tf.expand_dims(pred_z_max_detections[0, :, :, :],axis=0)), axis=2)
+        # # det_inputs = tf.concat(
+        # #     (tf.cast(prepr_inputs_det, dtype=float),tf.expand_dims(pred_detections_drivingCorridor[0, :, :, :],axis=0)), axis=2)
+        # # obs_inputs = tf.concat(
+        # #     ( tf.cast(prepr_inputs_obs, dtype=float),tf.cast(prepr_inputs_occ,dtype=float),tf.expand_dims(pred_z_min_observations[0, :, :, :],axis=0)), axis=2)
+        #
+        # # tf.summary.image("prepr_inputs_int",prepr_inputs_int, family="final_inputs_for_OD")
+        #
+        # tf.summary.image("zMin_l_input__m_pred__r_target", z_min_detections, family="final_inputs_for_OD")
+        # tf.summary.image("zMax__l_input__m_pred__r_target", z_max_detections, family="final_inputs_for_OD")
+        # tf.summary.image("det__l_input__m_pred__r_target", detections_drivingCorridor, family="final_inputs_for_OD")
+        # tf.summary.image("obs_inputs__l_s_obs__m_s_occ__r_f_obsZMin", z_min_observations, family="final_inputs_for_OD")
+        # tf.summary.image("int__l_input__m_pred__r_target", intensity, family="final_inputs_for_OD")
+        #
+        #
+        # pred_bel_U = predictor_augm_dict['belief_U_prediction']
+        # pred_bel_F = predictor_augm_dict['belief_F_prediction']
+        # pred_bel_O = predictor_augm_dict['belief_O_prediction']
+        # # bels = tf.concat((tf.expand_dims(pred_bel_O[0, :, :, :],axis=0),tf.expand_dims(pred_bel_F[0, :, :, :],axis=0),tf.expand_dims(pred_bel_U[0, :, :, :],axis=0)), axis=2)
+        # # bels=tf.Print(bels, [tf.reduce_max(bels)],  message='tf_reduce_max(bels)-----------------------------')
+        # # tf.summary.image("concat_inputs_bels", bels * 255, family="final_inputs_for_OD")
+        #
+        # label_bel_U_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_U)
+        # label_bel_F_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_F)
+        # label_bel_O_list = self.groundtruth_lists(fields.InputDataFields.groundtruth_bel_O)
+        #
+        # label_bel_U = tf.expand_dims(tf.cast(label_bel_U_list[0], dtype=float), axis=0)
+        # label_bel_O = tf.expand_dims(tf.cast(label_bel_O_list[0], dtype=float), axis=0)
+        # label_bel_F = tf.expand_dims(tf.cast(label_bel_F_list[0], dtype=float), axis=0)
+        #
+        # label_bel_U = label_bel_U / 255.
+        # label_bel_O = label_bel_O / 255.
+        # label_bel_F = label_bel_F / 255.
+        #
+        # bel_o = tf.expand_dims(tf.concat((pred_bel_O[0, :, :, :], tf.cast(label_bel_O[0], dtype=float)), axis=1), 0)
+        # bel_f = tf.expand_dims(tf.concat((pred_bel_F[0, :, :, :], tf.cast(label_bel_F[0], dtype=float)), axis=1), 0)
+        # bel_u = tf.expand_dims(tf.concat((pred_bel_U[0, :, :, :], tf.cast(label_bel_U[0], dtype=float)), axis=1), 0)
+        # bel_u = tf.Print(bel_u, [tf.reduce_max(bel_u)], message="tf_reduce_max(bel_u)-----------------------------")
+        #
+        # tf.summary.image('bel_O_leftPred_rightLabel', bel_o, family="final_inputs_for_OD")
+        # tf.summary.image('bel_F_leftPred_rightLabel', bel_f, family="final_inputs_for_OD")
+        # tf.summary.image('bel_U_leftPred_rightLabel', bel_u, family="final_inputs_for_OD")
 
 
 

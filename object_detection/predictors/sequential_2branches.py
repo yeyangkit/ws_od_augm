@@ -126,8 +126,11 @@ class Sequential2branchesPredictor(beliefs_predictor.BeliefPredictor):
 
                     short_cut = skips.pop()
 
-                    attention_map = tf.concat((tf.layers.conv2d(short_cut, filters=f*(2**i), kernel_size=1, strides=[2,2], name='attetion_skip_conv') \
-                                          , tf.layers.conv2d(x, filters=f, kernel_size=1,name='attention_coarse_conv')), axis=3)
+                    use_separable_conv = True
+
+
+                    attention_map = tf.concat((tf.layers.conv2d(short_cut, filters=f, kernel_size=1, strides=[2,2], name='attetion_skip_conv') \
+                                        , tf.layers.conv2d(x, filters=f, kernel_size=1,name='attention_coarse_conv')), axis=3)
                     attention_map = tf.nn.relu(attention_map, name='attention_relu')
                     attention_map = tf.layers.conv2d(attention_map, filters=f, kernel_size=1, name='attention_psai_conv', padding='same')
 
@@ -193,7 +196,7 @@ class Sequential2branchesPredictor(beliefs_predictor.BeliefPredictor):
     def _predict(self, image_features, preprocessed_input, scope=None):
 
         # Create Unet
-        pred_bels, pred_maps = self._create_unet(preprocessed_input, training=True, depth=5, f=self._min_filter, kernel_size=3,
+        pred_bels, pred_maps = self._create_unet(preprocessed_input, training=True, depth=4, f=self._min_filter, kernel_size=3,
                                                  stack_size=self._stack_size, maps_outputs_channels=5,
                                                  bels_outputs_channels=3)
 
