@@ -241,7 +241,7 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
             feature_maps.append(last_feature_map)
     return feature_maps
 
-  def extract_features_shared_encoder_for_augmentation(self, preprocessed_inputs):
+  def extract_features_shared_encoder_for_augmentation(self, preprocessed_inputs, shared_encoder_version):
       """Extract features from preprocessed inputs.
 
       Args:
@@ -306,10 +306,49 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                           depth=self._additional_layer_depth,
                           use_deconvolution=self._use_deconvolution)
                   else:
-                      fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_v_bug_UpConcMultiOut(  #   fpn_top_down_feature_maps_augmentation
+
+                      if shared_encoder_version == 'c_s128_c':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_s128_c(
+                          # fpn_top_down_feature_maps_augmentation
                           [(key, image_features[key]) for key in feature_block_list],
                           depth=depth_fn(self._additional_layer_depth),
                           use_deconvolution=self._use_deconvolution)
+
+                      if shared_encoder_version == 'c_s32_c':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_s32_c(
+                          # fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+
+                      elif shared_encoder_version == 's_s32_s':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_s32_s(
+                          # fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+
+                      elif shared_encoder_version == 's_s128_s':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_s128_s(
+                          # fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+
+                      elif shared_encoder_version == 'c_umMo_b32_c':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_umMo_b32_c(
+                          # fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+
+                      elif shared_encoder_version == 'c_umMo_128_32_s':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_umMo_128_32_s(
+                          # fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+
                   feature_maps = []
                   feature_maps_augm = []
                   for level in range(self._fpn_min_level, base_fpn_max_level + 1):
@@ -330,6 +369,7 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                           scope='bottom_up_augm_block{}'.format(i))
                       feature_maps.append(last_feature_map)
       return feature_maps, feature_maps_augm
+
 
 
   def extract_features_shared_encoder_for_beliefs(self, preprocessed_inputs):

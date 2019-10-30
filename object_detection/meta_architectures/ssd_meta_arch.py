@@ -132,7 +132,7 @@ class SSDFeatureExtractor(object):
     """
     pass
 
-  def extract_features_shared_encoder_for_augmentation(self, preprocessed_inputs):
+  def extract_features_shared_encoder_for_augmentation(self, preprocessed_inputs, shared_encoder_version):
     """Extracts features from preprocessed inputs.
 
     This function is responsible for extracting feature maps from preprocessed

@@ -136,25 +136,38 @@ class Sequential2branchesPredictor(beliefs_predictor.BeliefPredictor):
 
                     attention_map = tf.nn.sigmoid(attention_map, name='attention_sigmoid')
 
-                    attention_map = tf.layers.conv2d_transpose(attention_map, filters=f, kernel_size=4, strides=[2,2], name='attention_map_interpolation', padding='same')
+                    # attention_map = tf.layers.conv2d_transpose(attention_map, filters=f, kernel_size=4, strides=[2,2], name='attention_map_interpolation', padding='same')
+                    attention_map = tf.image.resize_images(attention_map, [short_cut.shape[1], short_cut.shape[2]], align_corners=True)
 
                     # visulize the attention maps
                     attention = tf.expand_dims(
-                                tf.concat((preprocessed_input[0, :, :, 0], preprocessed_input[0, :, :, 2], preprocessed_input[0,:,:,3], preprocessed_input[0,:,:,5]), axis=1), 0)
+                                tf.concat((preprocessed_input[0, :, :, 0], preprocessed_input[0, :, :, 2], preprocessed_input[0,:,:,5], tf.reduce_mean(255*attention_map[0,:,:,:], axis=2)), axis=1), 0)
+
                     for i in range(int(f/4)):
                         j = 0
                         attention_row = tf.expand_dims(
                             tf.concat((255*attention_map[0, :, :, 4*i+j], 255*attention_map[0, :, :, 4*i+j+1], 255*attention_map[0, :, :, 4*i+j+2], 255*attention_map[0, :, :, 4*i+j+3]), axis=1), 0)
                         attention = tf.concat((attention, attention_row), axis=1)
                     attention = tf.expand_dims(attention, axis=-1)
-                    tf.summary.image('attention', attention, family='sequential_model_watcher')
+                    tf.summary.image('attention_mask', attention, family='sequential_model_watcher')
+
+
+                    short_cut_with_attention = attention_map * short_cut
+                    attention = tf.expand_dims(
+                                tf.concat((preprocessed_input[0, :, :, 0], preprocessed_input[0, :, :, 2], preprocessed_input[0,:,:,5], tf.reduce_mean(short_cut_with_attention[0,:,:,:], axis=2)), axis=1), 0)
+                    for i in range(int(f/4)):
+                        j = 0
+                        attention_row = tf.expand_dims(
+                            tf.concat((short_cut_with_attention[0, :, :, 4*i+j], short_cut_with_attention[0, :, :, 4*i+j+1], short_cut_with_attention[0, :, :, 4*i+j+2], short_cut_with_attention[0, :, :, 4*i+j+3]), axis=1), 0)
+                        attention = tf.concat((attention, attention_row), axis=1)
+                    attention = tf.expand_dims(attention, axis=-1)
+                    tf.summary.image('multiplied with_attention', attention, family='sequential_model_watcher')
 
                     with tf.variable_scope('augment_up_conv_%i' % (i + 1)):
                         x = tf.layers.conv2d_transpose(x, filters=f * (2 ** i), kernel_size=kernel_size, strides=2,
                                                        padding='same')
 
 
-                    short_cut_with_attention = attention_map * short_cut
                     x = tf.concat((short_cut_with_attention, x), axis=3)
 
                     x = self._multiResUnet_block(x, depth=f * (2 ** i), name="augment_dec_%i" % i)

@@ -79,13 +79,57 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
         x = self._multiResUnet_resPath(preprocessed_input, depth=int(self._detectionFM_filters), stack_size=1, name='preprocessed_input')
         return x    #   tf.nn.relu(x)
 
-    def _create_unet_end(self, last_feature_maps_augm, short_cut, bels_outputs_channels, maps_outputs_channels):
+    def _create_unet_end(self, last_feature_maps_augm, short_cut, preprocessed_input, bels_outputs_channels, maps_outputs_channels):
 
-        x = self._multiResUnet_block(last_feature_maps_augm, depth=int(self._detectionFM_filters/2), stack_size=self._stack_size, name='last_feature_maps_augm')
+        x_coarse = self._multiResUnet_block(last_feature_maps_augm, depth=int(self._detectionFM_filters/2), stack_size=self._stack_size, name='last_feature_maps_augm')
 
-        x = tf.layers.conv2d_transpose(x, filters=int(self._detectionFM_filters / 2), kernel_size=3, strides=2,
+        x = tf.layers.conv2d_transpose(x_coarse, filters=int(self._detectionFM_filters / 2), kernel_size=3, strides=2,
                                        padding='same', name='augm_transpose')
 
+
+        ## self-attention mechanism
+        f = self._detectionFM_filters
+        attention_map = tf.concat(
+          (tf.layers.conv2d(short_cut, filters=f, kernel_size=1, strides=[2, 2], name='attetion_skip_conv') \
+             , tf.layers.conv2d(x_coarse, filters=f, kernel_size=1, name='attention_coarse_conv')), axis=3)
+        attention_map = tf.nn.relu(attention_map, name='attention_relu')
+        attention_map = tf.layers.conv2d(attention_map, filters=f, kernel_size=1, name='attention_psai_conv',
+                                         padding='same')
+
+        attention_map = tf.nn.sigmoid(attention_map, name='attention_sigmoid')
+
+        # attention_map = tf.layers.conv2d_transpose(attention_map, filters=f, kernel_size=4, strides=[2,2], name='attention_map_interpolation', padding='same')
+        attention_map = tf.image.resize_images(attention_map, [short_cut.shape[1], short_cut.shape[2]],
+                                               align_corners=True)
+
+        # visulize the attention maps
+        attention = tf.expand_dims(
+          tf.concat((preprocessed_input[0, :, :, 0], preprocessed_input[0, :, :, 2], preprocessed_input[0, :, :, 5],
+                     tf.reduce_mean(255*attention_map[0, :, :, :], axis=2)), axis=1), 0)
+
+        for i in range(int(f / 4)):
+          j = 0
+          attention_row = tf.expand_dims(
+            tf.concat((255 * attention_map[0, :, :, 4 * i + j], 255 * attention_map[0, :, :, 4 * i + j + 1],
+                       255 * attention_map[0, :, :, 4 * i + j + 2], 255 * attention_map[0, :, :, 4 * i + j + 3]),
+                      axis=1), 0)
+          attention = tf.concat((attention, attention_row), axis=1)
+        attention = tf.expand_dims(attention, axis=-1)
+        tf.summary.image('attention_mask', attention, family='watcher')
+
+        short_cut_with_attention = attention_map * short_cut
+        attention = tf.expand_dims(
+          tf.concat((preprocessed_input[0, :, :, 0], preprocessed_input[0, :, :, 2], preprocessed_input[0, :, :, 5],
+                     tf.reduce_mean(short_cut_with_attention[0, :, :, :], axis=2)), axis=1), 0)
+        for i in range(int(f / 4)):
+          j = 0
+          attention_row = tf.expand_dims(
+            tf.concat((short_cut_with_attention[0, :, :, 4 * i + j], short_cut_with_attention[0, :, :, 4 * i + j + 1],
+                       short_cut_with_attention[0, :, :, 4 * i + j + 2],
+                       short_cut_with_attention[0, :, :, 4 * i + j + 3]), axis=1), 0)
+          attention = tf.concat((attention, attention_row), axis=1)
+        attention = tf.expand_dims(attention, axis=-1)
+        tf.summary.image('multiplied with_attention', attention, family='watcher')
 
         x = tf.concat([x, short_cut], 3, name='concate_original_dim')
 
@@ -115,7 +159,7 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
         shortcut = self._create_input_conv_net(preprocessed_input)
 
         # Create Unet
-        pred_bels, pred_maps = self._create_unet_end(input, shortcut, bels_outputs_channels=3, maps_outputs_channels=5)
+        pred_bels, pred_maps = self._create_unet_end(input, shortcut, preprocessed_input, bels_outputs_channels=3, maps_outputs_channels=5)
 
         pred_bel_F = tf.expand_dims(pred_bels[:, :, :, 0], axis=3)
         pred_bel_O = tf.expand_dims(pred_bels[:, :, :, 1], axis=3)

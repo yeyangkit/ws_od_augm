@@ -47,6 +47,71 @@ INPUT_BUILDER_UTIL_MAP = {
 }
 
 
+def boxes2mask(self, gt_boxes, img_shape):
+  def make_box_representation(x_min, x_max, y_min, y_max, mask):
+    outer_box_width = mask.shape[2]
+
+    x_max = tf.Print(x_max, [x_max], message='x_max')
+    x_min = tf.Print(x_min, [x_min], message='x_min')
+    y_max = tf.Print(x_max, [y_max], message='y_max')
+    y_min = tf.Print(y_min, [y_min], message='y_min')
+    # print("x_max")
+    # print(x_max)
+    x_min = tf.cast(x_min, dtype=tf.int16)
+
+    # print("x_min")
+    # print(x_min)
+    x_max = tf.cast(x_max, dtype=tf.int16)
+    y_min = tf.cast(y_min, dtype=tf.int16)
+    y_max = tf.cast(y_max, dtype=tf.int16)
+
+    # x_min = x_min.eval()
+    #
+    # print("x_min")
+    # print(x_min)
+    # x_max = x_max.eval()
+    # y_min = y_min.eval()
+    # y_max = y_max.eval()
+
+    x, y = x_max - x_min, y_max - y_min
+
+    # print(y)
+    # print(outer_box_width)
+    outer_box_width = tf.constant(outer_box_width, dtype=tf.int16)
+
+    print("outerboxwidth")
+    print(outer_box_width)
+    x = tf.Print(x, [x], message='x is')
+
+    inner_box = tf.ones((1, y, x, 1))
+
+    left_padding = tf.zeros((1, y, x_min, 1))
+    right_padding = tf.zeros((1, y, (outer_box_width - x_max), 1))
+
+    mask = tf.concat([left_padding, inner_box, right_padding], axis=2)
+
+    top_padding = tf.zeros((1, y_min, outer_box_width, 1))
+    bottom_padding = tf.zeros((1, outer_box_width - y_max, outer_box_width, 1))
+
+    mask = tf.concat([top_padding, mask, bottom_padding], axis=1)
+
+    return mask
+
+  boxes_mask = tf.zeros([img_shape[0], img_shape[1], img_shape[2], 1], tf.float32)
+  print("gt_boxes:")
+  print(gt_boxes)
+  for img_num in range(gt_boxes.shape[0]):
+    box_mask = tf.zeros([1, img_shape[1], img_shape[2], 1], tf.float32)
+    for i in range(gt_boxes.shape[1]):
+      # box_mask = make_box_representation(gt_boxes[img_num, i, 1], gt_boxes[img_num, i, 3], gt_boxes[img_num, i, 0], gt_boxes[img_num, i, 2], box_mask)
+      gt_boxes[img_num, i, 1]
+      # boxes_mask[]
+      print("box_mask:")
+      print(box_mask)
+      boxes_mask[img_num, :, :, :] = box_mask + boxes_mask[img_num, :, :, :]
+  return boxes_mask
+
+
 def transform_input_data(tensor_dict,
                          model_preprocess_fn,
                          image_resizer_fn,
