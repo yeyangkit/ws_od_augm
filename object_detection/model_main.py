@@ -152,39 +152,62 @@ def main(unused_argv):
             copyfile(
                 '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
                 os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
-        elif 'sequential' in config_name:
-            copyfile(
-                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sequential_meta_arch.py',
-                os.path.join(FLAGS.model_dir + '/ssd_augmentation_sequential_meta_arch.py'))
+
         elif 'ssd' in config_name:
             copyfile(
                 '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_meta_arch.py',
                 os.path.join(FLAGS.model_dir + '/ssd_meta_arch.py'))
-        elif 'hybridSeq' in config_name:
+        elif 'Seq' or 'seq' in config_name:
             copyfile(
                 '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_hybridSeq_meta_arch.py',
                 os.path.join(FLAGS.model_dir + '/ssd_augmentation_hybridSeq_meta_arch.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sharedEncoder_meta_arch.py',
+              os.path.join(FLAGS.model_dir + '/ssd_augmentation_sharedEncoder_meta_arch.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/shared_encoder_predictor.py',
+              os.path.join(FLAGS.model_dir + '/shared_encoder_predictor.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/models/feature_map_generators.py',
+              os.path.join(FLAGS.model_dir + '/feature_map_generators.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/models/ssd_resnet_v1_fpn_feature_extractor.py',
+              os.path.join(FLAGS.model_dir + '/ssd_resnet_v1_fpn_feature_extractor.py'))
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sequential_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_sequential_meta_arch.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/sequential_2branches.py',
+              os.path.join(FLAGS.model_dir + '/sequential_2branches.py'))
+
 
         else:
             copyfile(
                 '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_meta_arch.py',
                 os.path.join(FLAGS.model_dir + '/ssd_augmentation_meta_arch.py'))
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_hybridSeq_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_hybridSeq_meta_arch.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sharedEncoder_meta_arch.py',
+              os.path.join(FLAGS.model_dir + '/ssd_augmentation_sharedEncoder_meta_arch.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/shared_encoder_predictor.py',
+              os.path.join(FLAGS.model_dir + '/shared_encoder_predictor.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/models/feature_map_generators.py',
+              os.path.join(FLAGS.model_dir + '/feature_map_generators.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/models/ssd_resnet_v1_fpn_feature_extractor.py',
+              os.path.join(FLAGS.model_dir + '/ssd_resnet_v1_fpn_feature_extractor.py'))
+            copyfile(
+                '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/meta_architectures/ssd_augmentation_sequential_meta_arch.py',
+                os.path.join(FLAGS.model_dir + '/ssd_augmentation_sequential_meta_arch.py'))
+            copyfile(
+              '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/sequential_2branches.py',
+              os.path.join(FLAGS.model_dir + '/sequential_2branches.py'))
 
-        copyfile(
-            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor.py',
-            os.path.join(FLAGS.model_dir + '/u_net_predictor.py'))
-        copyfile(
-            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/u_net_predictor_2branches_softmax_relu.py',
-            os.path.join(FLAGS.model_dir + '/u_net_predictor_2branches_softmax_relu.py'))
-        copyfile(
-            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/sequential_2branches.py',
-            os.path.join(FLAGS.model_dir + '/sequential_2branches.py'))
-        copyfile(
-            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/upsampling_predictor.py',
-            os.path.join(FLAGS.model_dir + '/upsampling_predictor.py'))
-        copyfile(
-            '/mrtstorage/users/students/yeyang/ws/ws_od_augm/tensorflow_grid_map/object_detection/predictors/ht_predictor.py',
-            os.path.join(FLAGS.model_dir + '/ht_predictor.py'))
+
     else:
         FLAGS.pipeline_config_path = "{}/correspondingPipelineConfig.config".format(FLAGS.model_dir)
 

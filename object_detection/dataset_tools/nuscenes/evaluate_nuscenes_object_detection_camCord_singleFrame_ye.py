@@ -1,6 +1,3 @@
-import sys
-# sys.path.remove('/opt/mrtsoftware/release/lib/python2.7/dist-packages')
-# sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 import json
 import math
@@ -21,29 +18,25 @@ from object_detection.utils import label_map_util
 FLAGS = flags.FLAGS
 # flags.DEFINE_string('data', None, 'Directory to grid maps.')
 # flags.DEFINE_string('param', None, 'Directory to grid map parameter file.')
-flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1.0-trainval_meta',
-                    'Directory to grid maps.')
-flags.DEFINE_string('data_beliefs',
-                    '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/processed0904NuScenes_fused7Layers_keyFrame_trainval',
-                    'Directory to evidential grid maps.')
-flags.DEFINE_string('param',
-                    '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml',
-                    'Directory to grid map parameter file.')
+# flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
+# flags.DEFINE_string('nuscenes', None, 'Directory to nuscenes data.')
+flags.DEFINE_string('data', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/v1.0-trainval_meta', 'Directory to grid maps.')
+flags.DEFINE_string('data_beliefs', '/mrtstorage/projects/grid_map_learning/nuScenes_erzeugte_lidar_gridMaps/processed0904NuScenes_fused7Layers_keyFrame_trainval', 'Directory to evidential grid maps.')
+flags.DEFINE_string('param', '/mrtstorage/datasets/nuscenes/grid_map/15cm_100m/batch_processor_parameters_nuscenes.yaml', 'Directory to grid map parameter file.')
 flags.DEFINE_string('graph', None, 'Directory to frozen inferecne graph.')
 flags.DEFINE_string('nuscenes', '/mrtstorage/datasets/nuscenes/data/v1.0-trainval/v1.0-trainval_meta', 'Directory to nuscenes data.')
+
 flags.DEFINE_string('output', '/tmp/', 'Output directory of json file.')
 flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt',
                     'Path to label map proto')
-# flags.DEFINE_integer('range', None, 'The range of ROI. None if ranges of x and y are 100m.')
 
 
 def read_params(param_dir):
-    with open(param_dir, 'r') as stream:
-        params = yaml.load(stream)
-        return params
+  with open(param_dir, 'r') as stream:
+    params = yaml.load(stream)
+    return params
 
-
-def read_images(data_dir, data_beliefs_dir, prefix):
+def read_images(data_dir, data_beliefs, prefix):
     image_path_det = os.path.join(data_dir, prefix + '_detections_cartesian.png')
     image_path_obs = os.path.join(data_dir, prefix + '_observations_cartesian.png')
     image_path_int = os.path.join(data_dir, prefix + '_intensity_cartesian.png')
@@ -51,16 +44,6 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     image_path_zmax = os.path.join(data_dir, prefix + '_z_max_detections_cartesian.png')
     image_path_occ = os.path.join(data_dir, prefix + '_z_max_occlusions_cartesian.png')
     image_path_ground = os.path.join(data_dir, prefix + '_ground_surface_cartesian.png')
-
-    image_path_fused_zmax_det = os.path.join(data_beliefs_dir, prefix + '_z_max_detections_FUSED_cartesian.png')
-    image_path_fused_obs_zmin = os.path.join(data_beliefs_dir, prefix + '_observations_z_min_FUSED_cartesian.png')
-    image_path_fused_bel_F = os.path.join(data_beliefs_dir, prefix + '_bel_F_FUSED_cartesian.png')
-    image_path_fused_bel_O = os.path.join(data_beliefs_dir, prefix + '_bel_O_FUSED_cartesian.png')
-    image_path_fused_bel_U = os.path.join(data_beliefs_dir, prefix + '_bel_U_FUSED_cartesian.png')
-    image_path_fused_zmin_det = os.path.join(data_beliefs_dir, prefix + '_z_min_detections_FUSED_cartesian.png')
-    image_path_fused_detDC = os.path.join(data_beliefs_dir, prefix + '_detections_drivingCorridor_FUSED_cartesian.png')
-    image_path_fused_int = os.path.join(data_beliefs_dir, prefix + '_intensity_FUSED_cartesian.png')
-
     image_det = cv2.imread(image_path_det, 0)
     image_obs = cv2.imread(image_path_obs, 0)
     image_int = cv2.imread(image_path_int, 0)
@@ -68,76 +51,23 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     image_zmax = cv2.imread(image_path_zmax, 0)
     image_occ = cv2.imread(image_path_occ, 0)
     image_ground = cv2.imread(image_path_ground, 0)
-
-    image_fused_zmax_det = cv2.imread(image_path_fused_zmax_det, 0)
-    image_fused_obs_zmin = cv2.imread(image_path_fused_obs_zmin, 0)
-    image_fused_zmin_det = cv2.imread(image_path_fused_zmin_det, 0)
-    image_fused_detDC = cv2.imread(image_path_fused_detDC, 0)
-
-    image_fused_bel_F = cv2.imread(image_path_fused_bel_F, 0)
-    image_fused_bel_O = cv2.imread(image_path_fused_bel_O, 0)
-    image_fused_bel_U = cv2.imread(image_path_fused_bel_U, 0)
-    # print(image_path_fused_bel_F)
-    #
-    # print('image_det.shape')
-    # height, width = image_det.shape
-    # print(height)
-    # print(width)
-    # # print(channels)
-
-
-
-    print('image_fused_zmin_det.shape')
-    a, b = image_fused_zmin_det.shape
-    print(a)
-    print(b)
-
-    print('image_int.shape')
-    a, b = image_int.shape
-    print(a)
-    print(b)
-
-    print('image_fused_detDC.shape')
-    a, b = image_fused_detDC.shape
-    print(a)
-    print(b)
-
-    print('image_fused_zmax_det.shape')
-    a, b = image_fused_zmax_det.shape
-    print(a)
-    print(b)
-    # print('image_fused_bel_F.shape')
-    # print(image_fused_bel_F.shape)
-    #
-    # print('image_fused_bel_O.shape')
-    # print(image_fused_bel_O.shape)
-    print('image_fused_bel_U.shape')
-    a, b = image_fused_bel_U.shape
-    print(a)
-    print(b)
-
-    image_stacked = np.stack(
-        [image_fused_zmax_det, image_fused_bel_F, image_fused_obs_zmin, image_fused_bel_O,
-         image_det , image_obs, image_int, image_zmin, image_zmax, image_occ,
-         image_fused_zmin_det, image_fused_detDC, image_fused_bel_U], axis=-1)
-
-
+    image_stacked = np.stack([image_det, image_obs, image_occ, image_int, image_zmin, image_zmax], axis=-1)
     detection_mask = image_det > 0.0001
-    return np.expand_dims(image_stacked, axis=0), detection_mask, image_ground, image_zmax
 
+    image_path_det_fused = os.path.join(data_dir, prefix + '_detections_cartesian.png')
+    image_path_obs = os.path.join(data_dir, prefix + '_observations_cartesian.png')
+    image_path_int = os.path.join(data_dir, prefix + '_intensity_cartesian.png')
+    image_path_zmin = os.path.join(data_dir, prefix + '_z_min_detections_cartesian.png')
+    image_path_zmax = os.path.join(data_dir, prefix + '_z_max_detections_cartesian.png')
+    image_path_occ = os.path.join(data_dir, prefix + '_z_max_occlusions_cartesian.png')
+
+    return np.expand_dims(image_stacked, axis=0), detection_mask, image_ground, image_zmax
 
 def calculate_object_box(box_aligned, box_inclined, image_ground, image_zmax, object_class, score, p):
     # Grid Map data
     resolution = p['pointcloud_grid_map_interface']['grids']['cartesian']['resolution']['x']
     if resolution - p['pointcloud_grid_map_interface']['grids']['cartesian']['resolution']['y'] > 0.001:
         raise ValueError('Grid Map resolution in x and y direction need to be equal')
-    # if FLAGS.range is None:
-    #     grid_map_data_origin_idx = np.array(
-    #         [p['pointcloud_grid_map_interface']['grids']['cartesian']['range']['x'] / 2 +
-    #          p['pointcloud_grid_map_interface']['grids']['cartesian']['offset']['x'],
-    #          p['pointcloud_grid_map_interface']['grids']['cartesian']['range']['y'] / 2])
-    # else:
-    #     grid_map_data_origin_idx = np.array([float(FLAGS.range) / 2, float(FLAGS.range) / 2])
     grid_map_data_origin_idx = np.array(
         [p['pointcloud_grid_map_interface']['grids']['cartesian']['range']['x'] / 2 +
          p['pointcloud_grid_map_interface']['grids']['cartesian']['offset']['x'],
@@ -159,14 +89,11 @@ def calculate_object_box(box_aligned, box_inclined, image_ground, image_zmax, ob
     sin_angle = box_inclined[4]
     cos_angle = box_inclined[5]
     angle_rad = math.atan2(sin_angle, cos_angle) / 2
-    # Tranform angle from kitti camera to kitti lidar:
-    # angle_rad = - angle_rad - math.pi / 2
-
     vec_s_x = math.cos(angle_rad)
     vec_s_y = math.sin(angle_rad)
     object_width = w_s * resolution / \
                    math.sqrt(vec_s_x * vec_s_x / (height * height) + vec_s_y * vec_s_y / (width * width))
-    object_length = h_s * resolution / \
+    object_length = h_s * resolution/ \
                     math.sqrt(vec_s_x * vec_s_x / (width * width) + vec_s_y * vec_s_y / (height * height))
     image_ground_box = image_ground[int(y_min):math.ceil(y_max),
                        int(x_min):math.ceil(x_max)]
@@ -190,7 +117,6 @@ def calculate_object_box(box_aligned, box_inclined, image_ground, image_zmax, ob
     return Box(object_center_velo, object_wlh, object_quat, score=score,
                velocity=(0, 0, 0), name=object_class)
 
-
 def box_to_sample_result(sample_token, box):
     sample_result = dict()
     sample_result['sample_token'] = sample_token
@@ -202,20 +128,6 @@ def box_to_sample_result(sample_token, box):
     sample_result['detection_score'] = box.score
     sample_result['attribute_name'] = ''
     return sample_result
-
-
-def empty_box_to_sample_result(sample_token):
-    sample_result = dict()
-    sample_result['sample_token'] = sample_token
-    sample_result['translation'] = [0,0,0]
-    sample_result['size'] = [1,1,1]
-    sample_result['rotation'] = None
-    sample_result['velocity'] = None
-    sample_result['detection_name'] = None
-    sample_result['detection_score'] = None
-    sample_result['attribute_name'] = ''
-    return sample_result
-
 
 def evaluate(split):
     params = read_params(FLAGS.param)
@@ -231,6 +143,7 @@ def evaluate(split):
     }
     results = {}
     results_0_3 = {}
+    results_0_2 = {}
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
@@ -242,12 +155,10 @@ def evaluate(split):
                 if 'BatchMultiClassNonMaxSuppression' in node.name:
                     node.device = '/device:CPU:0'
             tf.import_graph_def(od_graph_def, name='')
-
     with detection_graph.as_default():
-        sess_config = tf.ConfigProto()
-        # sess_config.gpu_options.per_process_gpu_memory_fraction = 0.5
-        sess_config.gpu_options.allow_growth = True
-        with tf.Session(graph=detection_graph, config=sess_config) as sess:
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        with tf.Session(graph=detection_graph, config=config) as sess:
             image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
             detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
             detection_boxes_inclined = detection_graph.get_tensor_by_name('detection_boxes_3d:0')
@@ -261,17 +172,10 @@ def evaluate(split):
                 current_sample_token = scene['first_sample_token']
                 last_sample_token = scene['last_sample_token']
                 sample_in_scene = True
-                skip_first_sample_mode = True
                 while sample_in_scene:
                     if current_sample_token == last_sample_token:
                         sample_in_scene = False
                     sample = nusc.get('sample', current_sample_token)
-                    if skip_first_sample_mode:
-                        if current_sample_token == scene['first_sample_token']:
-                            results[current_sample_token] = []
-                            results_0_3[current_sample_token] = []
-                            current_sample_token = sample['next']
-                            continue
                     lidar_top_data = nusc.get('sample_data', sample['data'][sensor])
                     # Get global pose and calibration data
                     ego_pose = nusc.get('ego_pose', lidar_top_data['ego_pose_token'])
@@ -281,9 +185,7 @@ def evaluate(split):
 
                     # Read input data
                     filename_prefix = os.path.splitext(os.path.splitext(lidar_top_data['filename'])[0])[0]
-                    image_stacked, det_mask, image_ground, image_zmax = read_images(FLAGS.data, FLAGS.data_beliefs,
-                                                                                    filename_prefix)
-                    # print(image_stacked.shape)
+                    image_stacked, det_mask, image_ground, image_zmax = read_images(FLAGS.data, filename_prefix)
                     # Inference
                     start_time = time.time()
                     (boxes_aligned, boxes_inclined, scores, classes, num) = sess.run(
@@ -299,6 +201,7 @@ def evaluate(split):
                     category_index = label_map_util.create_category_index(categories)
                     boxes = []
                     boxes_0_3 = []
+                    boxes_0_2 = []
                     scores = np.squeeze(scores)
                     for i in range(scores.shape[0]):
                         if scores[i] > .5:
@@ -317,7 +220,6 @@ def evaluate(split):
                             boxes.append(box)
                     for i in range(scores.shape[0]):
                         if scores[i] > .3:
-                            print("object detected test")
                             object_class = category_index[int(np.squeeze(classes)[i])]['name']
                             box = calculate_object_box(tuple(np.squeeze(boxes_aligned)[i]),
                                                        tuple(np.squeeze(boxes_inclined)[i]), image_ground, image_zmax,
@@ -331,6 +233,22 @@ def evaluate(split):
                             box.rotate(Quaternion(matrix=ego_to_global[:3, :3]))
                             box.translate(ego_to_global[:3, 3])
                             boxes_0_3.append(box)
+                    for i in range(scores.shape[0]):
+                        if scores[i] > .2:
+                            object_class = category_index[int(np.squeeze(classes)[i])]['name']
+                            box = calculate_object_box(tuple(np.squeeze(boxes_aligned)[i]),
+                                                       tuple(np.squeeze(boxes_inclined)[i]), image_ground, image_zmax,
+                                                       object_class, scores[i], params)
+                            # Transformation box coordinate system to nuscenes lidar coordinate system
+                            box.rotate(kitti_to_nu_lidar)
+                            # Transformation nuscenes lidar coordinate system to ego vehicle frame
+                            box.rotate(Quaternion(matrix=lidar_to_ego[:3, :3]))
+                            box.translate(lidar_to_ego[:3, 3])
+                            # Transformation ego vehicle frame to global frame
+                            box.rotate(Quaternion(matrix=ego_to_global[:3, :3]))
+                            box.translate(ego_to_global[:3, 3])
+                            boxes_0_2.append(box)
+
                     # Convert boxes to nuScenes detection challenge result format.
                     sample_results = [box_to_sample_result(current_sample_token, box) for box in boxes]
                     results[current_sample_token] = sample_results
@@ -338,7 +256,12 @@ def evaluate(split):
                     sample_results_0_3 = [box_to_sample_result(current_sample_token, box) for box in boxes_0_3]
                     results_0_3[current_sample_token] = sample_results_0_3
 
+                    sample_results_0_2 = [box_to_sample_result(current_sample_token, box) for box in boxes_0_2]
+                    results_0_2[current_sample_token] = sample_results_0_2
+
                     current_sample_token = sample['next']
+
+
 
     submission = {
         'meta': meta,
@@ -356,9 +279,17 @@ def evaluate(split):
     with open(submission_path_0_3, 'w') as f:
         json.dump(submission_0_3, f, indent=2)
 
+    submission_0_2 = {
+        'meta': meta,
+        'results': results_0_2
+    }
+    submission_path_0_2 = os.path.join(FLAGS.output, 'submission_0_2.json')
+    with open(submission_path_0_2, 'w') as f:
+        json.dump(submission_0_2, f, indent=2)
+
 def main(_):
     evaluate('val')
 
 
 if __name__ == '__main__':
-    tf.app.run()
+  tf.app.run()

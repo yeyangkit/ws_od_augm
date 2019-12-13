@@ -148,7 +148,7 @@ def evaluate(split):
             tf.import_graph_def(od_graph_def, name='')
     with detection_graph.as_default():
         config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
+        config.gpu_options.allow_growth = False
         with tf.Session(graph=detection_graph, config=config) as sess:
             image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
             detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
@@ -157,6 +157,11 @@ def evaluate(split):
             detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
             num_detections = detection_graph.get_tensor_by_name('num_detections:0')
             scene_splits = create_splits_scenes()
+
+            # os.system('touch {}'.format())
+
+            inf_time_list = []
+
             for scene in nusc.scene:
                 if scene['name'] not in scene_splits[split]:
                     continue
@@ -183,7 +188,11 @@ def evaluate(split):
                         [detection_boxes, detection_boxes_inclined, detection_scores, detection_classes,
                          num_detections],
                         feed_dict={image_tensor: image_stacked})
-                    print('Inference time:', time.time() - start_time)
+                    inf_time = time.time() - start_time
+                    print('Inference time:', inf_time)
+                    inf_time_list.append(inf_time)
+
+
 
                     # Evaluate object detection
                     label_map = label_map_util.load_labelmap(FLAGS.label_map)
@@ -194,7 +203,7 @@ def evaluate(split):
                     boxes_0_3 = []
                     scores = np.squeeze(scores)
                     for i in range(scores.shape[0]):
-                        if scores[i] > .5:
+                        if scores[i] > .230:
                             object_class = category_index[int(np.squeeze(classes)[i])]['name']
                             box = calculate_object_box(tuple(np.squeeze(boxes_aligned)[i]),
                                                        tuple(np.squeeze(boxes_inclined)[i]), image_ground, image_zmax,
@@ -209,7 +218,7 @@ def evaluate(split):
                             box.translate(ego_to_global[:3, 3])
                             boxes.append(box)
                     for i in range(scores.shape[0]):
-                        if scores[i] > .3:
+                        if scores[i] > .225:
                             object_class = category_index[int(np.squeeze(classes)[i])]['name']
                             box = calculate_object_box(tuple(np.squeeze(boxes_aligned)[i]),
                                                        tuple(np.squeeze(boxes_inclined)[i]), image_ground, image_zmax,
@@ -231,12 +240,16 @@ def evaluate(split):
                     results_0_3[current_sample_token] = sample_results_0_3
 
                     current_sample_token = sample['next']
-
+    f_info = open(
+                os.path.join(FLAGS.output, 'inference_time.txt'),'w+')
+    average_inf_time = sum(inf_time_list) / float(len(inf_time_list))
+    f_info.write('average time:{}\n'.format(average_inf_time))
+    f_info.write(str(inf_time_list))
     submission = {
         'meta': meta,
         'results': results
     }
-    submission_path = os.path.join(FLAGS.output, 'submission.json')
+    submission_path = os.path.join(FLAGS.output, 'submission_0_3nn30.json')
     with open(submission_path, 'w') as f:
         json.dump(submission, f, indent=2)
 
@@ -244,7 +257,7 @@ def evaluate(split):
         'meta': meta,
         'results': results_0_3
     }
-    submission_path_0_3 = os.path.join(FLAGS.output, 'submission_0_3.json')
+    submission_path_0_3 = os.path.join(FLAGS.output, 'submission_0_3nn25.json')
     with open(submission_path_0_3, 'w') as f:
         json.dump(submission_0_3, f, indent=2)
 

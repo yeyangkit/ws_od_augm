@@ -35,14 +35,14 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
         reference https://arxiv.org/abs/1902.04049
         """
         for i in range(stack_size):
-            x = tf.layers.conv2d(x, depth, [1, 1], name="multiRes_Block_{}_{}_bottleneckIn".format(name, i))
-            x1 = tf.layers.conv2d(x, depth, [3, 3], name="multiRes_Block_{}_{}_inception3x3conv".format(name, i), padding='same')
-            x2 = tf.layers.conv2d(x1, depth, [3, 3], name="multiRes_Block_{}_{}_inception5x5conv".format(name, i), padding='same')
-            x3 = tf.layers.conv2d(x2, depth, [3, 3], name="multiRes_Block_{}_{}_inception7x7conv".format(name, i), padding='same')
-            x4 = tf.concat((x1, x2, x3), axis=3, name="multiRes_Block_{}_{}_concat".format(name, i))
-            x4 = tf.layers.conv2d(x4, depth, [1, 1], name="multiRes_Block_{}_{}_bottleneckOut".format(name, i))
+            x = tf.layers.conv2d(x, depth, [1, 1], name="SEmultiRes_Block_{}_{}_bottleneckIn".format(name, i))
+            x1 = tf.layers.conv2d(x, depth, [3, 3], name="SEmultiRes_Block_{}_{}_inception3x3conv".format(name, i), padding='same')
+            x2 = tf.layers.conv2d(x1, depth, [3, 3], name="SEmultiRes_Block_{}_{}_inception5x5conv".format(name, i), padding='same')
+            x3 = tf.layers.conv2d(x2, depth, [3, 3], name="SEmultiRes_Block_{}_{}_inception7x7conv".format(name, i), padding='same')
+            x4 = tf.concat((x1, x2, x3), axis=3, name="SEmultiRes_Block_{}_{}_concat".format(name, i))
+            x4 = tf.layers.conv2d(x4, depth, [1, 1], name="SEmultiRes_Block_{}_{}_bottleneckOut".format(name, i))
             x += x4
-        return tf.nn.relu(x, name="multiRes_Block_{}_relu".format(name))
+        return tf.nn.relu(x, name="SEmultiRes_Block_{}_relu".format(name))
 
 
     def _multiResUnet_resPath(self, x, depth, name, stack_size=1):
@@ -51,7 +51,7 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
       """
       for i in range(stack_size):
         x1 = tf.layers.conv2d(x, depth, [3, 3], name="multiRes_shortcut_{}_{}_3x3conv".format(name, i), padding='same')
-        x2 = tf.layers.conv2d(x, depth, [1, 1], name="multiRes_shortcut_{}_{}_1x1conv".format(name, i))
+        x2 = tf.layers.conv2d(x, depth, [1, 1], name="multiRes_shortcut_{}_{}_1x1conv".format(name, i), padding='same')
         x = x1 + x2
       return x
 
@@ -76,8 +76,8 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
             return x
 
     def _create_input_conv_net(self, preprocessed_input):
-        x = self._multiResUnet_resPath(preprocessed_input, depth=int(self._detectionFM_filters), stack_size=1, name='preprocessed_input')
-        return x    #   tf.nn.relu(x)
+        short_cut = self._multiResUnet_block(preprocessed_input, depth=int(self._detectionFM_filters/4), stack_size=1, name='preprocessed_input')
+        return tf.nn.relu(short_cut)
 
     def _create_unet_end(self, last_feature_maps_augm, short_cut, preprocessed_input, bels_outputs_channels, maps_outputs_channels):
 
@@ -88,7 +88,7 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
 
 
         ## self-attention mechanism
-        f = self._detectionFM_filters
+        f = self._detectionFM_filters / 4
         attention_map = tf.concat(
           (tf.layers.conv2d(short_cut, filters=f, kernel_size=1, strides=[2, 2], name='attetion_skip_conv') \
              , tf.layers.conv2d(x_coarse, filters=f, kernel_size=1, name='attention_coarse_conv')), axis=3)
@@ -193,4 +193,9 @@ class SharedEncoderPredictor(beliefs_predictor.BeliefPredictor):  #
 
 
         return predictions
+
+
+
+
+
 

@@ -103,6 +103,8 @@ class InputDataFields(object):
   groundtruth_z_min_detections = 'groundtruth_z_min_detections'  # augmentation labels
   groundtruth_detections_drivingCorridor = 'groundtruth_detections_drivingCorridor'  # augmentation labels
   groundtruth_intensity = 'groundtruth_intensity'
+  groundtruth_boxes_mask = 'groundtruth_boxes_mask'
+  groundtruth_height = 'groundtruth_height'
 
 class DetectionResultFields(object):
   """Naming conventions for storing the output of the detector.

@@ -2828,7 +2828,7 @@ def fpn_top_down_feature_maps_augmentation_s128_c(image_features,
         # # top_down_augm = multiResUnet_block(top_down_augm_merge, depth=depth/2, name="{}".format(level))
         # top_down_augm = multiResUnet_block_v2(top_down_augm_merge, depth=depth / pow(2, 3 - level), depth_out=depth / 2,
         #                                       name="{}".format(level))
-        top_down_augm = tf.concat([residual_augm, top_down_augm], axis=3, name='s32_c_concat_level%d' % level)
+        top_down_augm = tf.concat([residual_augm, top_down_augm], axis=3, name='s128_c_concat_level%d' % level)
         top_down_augm = slim.conv2d(top_down_augm, depth, [3, 3], activation_fn=None, normalizer_fn=None,
                                     scope='conv_after_conc_%d' % level)
 
@@ -2994,6 +2994,132 @@ def fpn_top_down_feature_maps_augmentation_s32_s(image_features,
         list(zip(output_feature_map_keys, output_feature_maps_list)))), collections.OrderedDict(reversed(
         list(zip(output_feature_map_augm_keys, output_feature_maps_augm_list))))
 
+def fpn_top_down_feature_maps_augmentation_s128_s(image_features,
+                                                 depth,
+                                                 use_depthwise=False,
+                                                 use_deconvolution=False,
+                                                 use_explicit_padding=False,
+                                                 use_bounded_activations=False,
+                                                 scope=None,
+                                                 use_native_resize_op=False):
+  """Generates `top-down` feature maps for Feature Pyramid Networks.
+
+  See https://arxiv.org/abs/1612.03144 for details.
+
+  Args:
+    image_features: list of tuples of (tensor_name, image_feature_tensor).
+      Spatial resolutions of succesive tensors must reduce exactly by a factor
+      of 2.
+    depth: depth of output feature maps.
+    use_depthwise: whether to use depthwise separable conv instead of regular
+      conv.
+    use_explicit_padding: whether to use explicit padding.
+    use_bounded_activations: Whether or not to clip activations to range
+      [-ACTIVATION_BOUND, ACTIVATION_BOUND]. Bounded activations better lend
+      themselves to quantized inference.
+    scope: A scope name to wrap this op under.
+    use_native_resize_op: If True, uses tf.image.resize_nearest_neighbor op for
+      the upsampling process instead of reshape and broadcasting implementation.
+
+  Returns:
+    feature_maps: an OrderedDict mapping keys (feature map names) to
+      tensors where each tensor has shape [batch, height_i, width_i, depth_i].
+  """
+  with tf.name_scope(scope, 'top_down'):
+    num_levels = len(image_features)
+    output_feature_maps_list = []
+    output_feature_map_keys = []
+    output_feature_maps_augm_list = []
+    output_feature_map_augm_keys = []
+
+    padding = 'VALID' if use_explicit_padding else 'SAME'
+    kernel_size = 3
+    with slim.arg_scope(
+      [slim.conv2d, slim.separable_conv2d], padding=padding, stride=1):
+
+      top_down_od = slim.conv2d(
+        image_features[-1][1],
+        depth, [1, 1], activation_fn=None, normalizer_fn=None,
+        scope='projection_%d' % num_levels)
+      top_down_augm = slim.conv2d(
+        image_features[-1][1],
+        depth, [1, 1], activation_fn=None, normalizer_fn=None,
+        scope='projection_augm_%d' % num_levels)
+
+      if use_bounded_activations:  # not defined in config and default proto
+        top_down_od = tf.clip_by_value(top_down_od, -ACTIVATION_BOUND,
+                                       ACTIVATION_BOUND)
+      output_feature_maps_list.append(top_down_od)
+      output_feature_map_keys.append(
+        'top_down_%s' % image_features[-1][0])
+      output_feature_maps_augm_list.append(top_down_augm)
+      output_feature_map_augm_keys.append(
+        'top_down_augm_%s' % image_features[-1][0])
+
+      for level in reversed(range(num_levels - 1)):  # num_levels=4, level=2,1,0
+        if use_native_resize_op:
+          with tf.name_scope('nearest_neighbor_upsampling_augm'):
+            top_down_shape = top_down.shape.as_list()
+            top_down_od = tf.image.resize_nearest_neighbor(
+              top_down_od, [top_down_shape[1] * 2, top_down_shape[2] * 2])
+        elif use_deconvolution:  # True in config
+          top_down_od = slim.conv2d_transpose(top_down_od, depth , [3, 3], 2,
+                                              scope='deconvolutional_upsampling_%d' % level)
+          top_down_augm = slim.conv2d_transpose(top_down_augm, depth, [3, 3], 2,
+                                                scope='deconvolutional_upsampling_augm_%d' % level)
+        else:
+          top_down = ops.nearest_neighbor_upsampling(top_down, 2)
+
+        residual = slim.conv2d(
+            image_features[level][1], depth, [1, 1],    #   short cut like unet, but conv[1x1], for box predictor
+            activation_fn=None, normalizer_fn=None,
+            scope='projection_%d' % (level + 1))
+
+        residual_augm = slim.conv2d(
+            image_features[level][1], depth, [1, 1],    #   short cut like unet, but conv[1x1], for augmentation branch
+            activation_fn=None, normalizer_fn=None,
+            scope='projection_augm_%d' % (level + 1))
+
+        top_down_od += residual
+        # top_down_augm_merge = tf.concat((top_down_augm, residual_augm), axis=3)
+        # # top_down_augm = multiResUnet_block(top_down_augm_merge, depth=depth/2, name="{}".format(level))
+        # top_down_augm = multiResUnet_block_v2(top_down_augm_merge, depth=depth / pow(2, 3 - level), depth_out=depth / 2,
+        #                                       name="{}".format(level))
+        top_down_augm += residual_augm
+
+        if use_bounded_activations:  # not defined in config and default proto
+          top_down_od = tf.clip_by_value(top_down_od, -ACTIVATION_BOUND,
+                                         ACTIVATION_BOUND)
+        if use_depthwise:  # not used in config and default
+          conv_op = functools.partial(slim.separable_conv2d, depth_multiplier=1)
+        else:
+          conv_op = slim.conv2d
+
+        if use_explicit_padding:  # not used in config and default
+          top_down_od = ops.fixed_padding(top_down_od, kernel_size)
+
+        output_feature_maps_list.append(conv_op(
+          top_down_od,
+          depth, [kernel_size, kernel_size],
+          scope='smoothing_%d' % (level + 1)))
+        output_feature_map_keys.append('top_down_%s' % image_features[level][0])
+
+        output_feature_maps_augm_list.append(conv_op(
+          top_down_augm,
+          depth, [kernel_size, kernel_size],
+          scope='smoothing_augm_%d' % (level + 1)))
+        output_feature_map_augm_keys.append('top_down_augm_%s' % image_features[level][0])
+
+        # #   yy append the down_top_feature_maps to the list
+        # output_feature_maps_list.append(conv_op(
+        #     residual,
+        #     depth, [kernel_size, kernel_size],
+        #     scope='smoothingDownTop_augm_%d' % (level + 1)))
+        # output_feature_map_keys.append('down_top_augm_%s' % image_features[level][0])
+
+      return collections.OrderedDict(reversed(
+        list(zip(output_feature_map_keys, output_feature_maps_list)))), collections.OrderedDict(reversed(
+        list(zip(output_feature_map_augm_keys, output_feature_maps_augm_list))))
 
 def fpn_top_down_feature_maps_augmentation_umMo_b32_c(image_features,
                                                       depth,

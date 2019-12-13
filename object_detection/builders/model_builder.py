@@ -120,7 +120,7 @@ def build(model_config, is_training, add_summaries=True):
                                              sum(model_config.input_channels),
                                              input_features)
     if meta_architecture == 'ssd_augmentation_reuse':
-        return _build_ssd_augmentation_reuse_model(model_config.ssd_augmentation, is_training, add_summaries,
+        return _build_ssd_augmentation_reuse_model(model_config.ssd_augmentation_reuse, is_training, add_summaries,
                                              sum(model_config.input_channels),
                                              input_features)
     if meta_architecture == 'ssd_augmentation_sequential':
@@ -664,6 +664,13 @@ def _build_ssd_augmentation_reuse_model(ssd_augm_config, is_training, add_summar
             stack_size=ssd_augm_config.beliefs_predictor.stack_size,
             kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
             filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'shared_encoder':
+        ssd_augmentation_predictor = shared_encoder_predictor.SharedEncoderPredictor(
+            is_training=is_training,
+            layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+            stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+            kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+            filters=ssd_augm_config.beliefs_predictor.filters)
     else:
         raise RuntimeError('unknown predictor %s for augmentation branch' % ssd_augm_config.beliefs_predictor.predictor)
 
@@ -1160,6 +1167,13 @@ def _build_ssd_augmentation_hybridSeq_model(ssd_augm_config, is_training, add_su
             stack_size=ssd_augm_config.beliefs_predictor.stack_size,
             kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
             filters=ssd_augm_config.beliefs_predictor.filters)
+    elif ssd_augm_config.beliefs_predictor.predictor == 'shared_encoder':
+        ssd_augmentation_predictor = shared_encoder_predictor.SharedEncoderPredictor(
+          is_training=is_training,
+          layer_norm=ssd_augm_config.beliefs_predictor.layer_norm,
+          stack_size=ssd_augm_config.beliefs_predictor.stack_size,
+          kernel_size=ssd_augm_config.beliefs_predictor.kernel_size,
+          filters=ssd_augm_config.beliefs_predictor.filters)
     else:
         raise RuntimeError('unknown predictor %s for augmentation branch' % ssd_augm_config.beliefs_predictor.predictor)
 

@@ -275,6 +275,7 @@ class DetectionModel(_BaseClass):
                           groundtruth_z_min_detections_list=None,
                           groundtruth_confidences_list=None,
                           groundtruth_is_crowd_list=None,
+                          groundtruth_boxes_mask_list=None,
                           is_annotated_list=None):
     """Provide groundtruth tensors.
 
@@ -310,6 +311,10 @@ class DetectionModel(_BaseClass):
     self._groundtruth_lists[fields.BoxListFields.boxes_3d] = groundtruth_boxes_3d_list
     self._groundtruth_lists[
         fields.BoxListFields.classes] = groundtruth_classes_list
+
+    if groundtruth_boxes_mask_list:
+      self._groundtruth_lists[fields.InputDataFields.groundtruth_boxes_mask] = groundtruth_boxes_mask_list
+
     if groundtruth_weights_list:
       self._groundtruth_lists[fields.BoxListFields.
                               weights] = groundtruth_weights_list

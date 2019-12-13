@@ -29,9 +29,20 @@ flags.DEFINE_string('output', '/tmp/', 'Output directory of json file.')
 flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_label_map.pbtxt',
                     'Path to label map proto')
 
-vis_set = [
+vis_set_0 = [
 'scene-0401', 'scene-0252', 'scene-1062','scene-0075', 'scene-0133'
     ]
+
+vis_set = [
+    'scene-0401', 'scene-0252', 'scene-1062', 'scene-0075', 'scene-0133', 'scene-0655',
+'scene-0400',
+  'scene-0251',
+  'scene-1061', 'scene-0074', 'scene-0132',
+'scene-0402', 'scene-0253', 'scene-1063', 'scene-0076', 'scene-0134',
+'scene-0403', 'scene-0254', 'scene-1064', 'scene-0077', 'scene-0135',
+'scene-0404', 'scene-0255', 'scene-1065', 'scene-0078', 'scene-0136',
+'scene-0291'
+]
 vis_set_full = [
 'scene-0003', 'scene-0012', 'scene-0013',
     'scene-0014',
@@ -110,28 +121,28 @@ def read_images(data_dir, data_beliefs_dir, prefix):
     image_fused_bel_F = cv2.imread(image_path_fused_bel_F, 0)
     image_fused_bel_O = cv2.imread(image_path_fused_bel_O, 0)
     image_fused_bel_U = cv2.imread(image_path_fused_bel_U, 0)
-    print(image_path_fused_bel_F)
-
-    print('image_det.shape')
-    height, width = image_det.shape
-    print(height)
-    print(width)
-    # print(channels)
-
+    # print(image_path_fused_bel_F)
+    #
+    # print('image_det.shape')
+    # height, width = image_det.shape
+    # print(height)
+    # print(width)
+    # # print(channels)
+    #
+    # # print('image_fused_bel_U.shape')
+    # # a, b = image_fused_bel_U.shape
+    # # print(a)
+    # # print(b)
+    #
+    # print('image_fused_bel_F.shape')
+    # height1, width1 = image_fused_bel_F.shape
+    # print(height1)
+    # print(width1)
+    #
     # print('image_fused_bel_U.shape')
-    # a, b = image_fused_bel_U.shape
-    # print(a)
-    # print(b)
-
-    print('image_fused_bel_F.shape')
-    height1, width1 = image_fused_bel_F.shape
-    print(height1)
-    print(width1)
-
-    print('image_fused_bel_U.shape')
-    height21, width21 = image_fused_bel_U.shape
-    print(height21)
-    print(width21)
+    # height21, width21 = image_fused_bel_U.shape
+    # print(height21)
+    # print(width21)
 
     # image_stacked = np.stack(
     #     [image_fused_bel_O, image_fused_bel_F, image_occ, image_det, image_obs, image_int, image_zmin, image_zmax,
@@ -189,12 +200,7 @@ def visualize(split):
     # if not pipeline_config.model.HasField('ssd_augmentation'):
     #     raise ValueError('Model with ssd_augmentation estimation is required.')
 
-    folder_inverse = os.path.join(FLAGS.output, 'inverse')
-    folder_color = os.path.join(FLAGS.output, 'color')
-    folder_color_inverse = os.path.join(FLAGS.output, 'color_inverse')
-    os.system('mkdir {}'.format(folder_inverse))
-    os.system('mkdir {}'.format(folder_color))
-    os.system('mkdir {}'.format(folder_color_inverse))
+
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
@@ -218,6 +224,16 @@ def visualize(split):
             for scene in nusc.scene:
                 if scene['name'] not in vis_set:
                     continue
+                scene_dir = os.path.join(FLAGS.output, scene['name'])
+                os.system('mkdir {}'.format(scene_dir))
+                folder_inverse = os.path.join(scene_dir, 'inverse')
+
+                os.system('mkdir {}'.format(folder_inverse))
+
+
+
+
+
                 current_sample_token = scene['first_sample_token']
                 last_sample_token = scene['last_sample_token']
                 # first_sample = nusc.get('sample', scene['first_sample_token'])
@@ -277,10 +293,10 @@ def visualize(split):
                     #         image_vis[v, u] = 255
                     #         image_vis_inv[v, u] = 0
 
-                    print("z_mask")
-                    print(z_mask)
-                    print("observation_mask")
-                    print(observation_mask)
+                    # print("z_mask")
+                    # print(z_mask)
+                    # print("observation_mask")
+                    # print(observation_mask)
                     for v, u in itertools.product(range(image_stacked.shape[1]), range(image_stacked.shape[2])):
                         image_vis_color[v, u, 0] = observation_mask[v, u] * 5
                         image_vis_color[v, u, 1] = det_mask[v, u] * 10
@@ -347,17 +363,17 @@ def visualize(split):
 
                     # Save image
                     print(filename_prefix.split('/')[-1])
-                    output_path = os.path.join(FLAGS.output, filename_prefix.split('/')[-1] + '.png')
+                    output_path = os.path.join(scene_dir, filename_prefix.split('/')[-1] + '.png')
                     cv2.imwrite(output_path, image_vis)
 
 
                     output_path_inv = os.path.join(folder_inverse, filename_prefix.split('/')[-1] + '.png')
-                    output_color_path = os.path.join(folder_color,filename_prefix.split('/')[-1] + '.png')
-                    output_color_path_inv = os.path.join(folder_color_inverse, filename_prefix.split('/')[-1] + '.png')
+                    # output_color_path = os.path.join(folder_color,filename_prefix.split('/')[-1] + '.png')
+                    # output_color_path_inv = os.path.join(folder_color_inverse, filename_prefix.split('/')[-1] + '.png')
 
                     cv2.imwrite(output_path_inv, image_vis_inv)
-                    cv2.imwrite(output_color_path, image_vis_color)
-                    cv2.imwrite(output_color_path_inv, image_vis_color_inv)
+                    # cv2.imwrite(output_color_path, image_vis_color)
+                    # cv2.imwrite(output_color_path_inv, image_vis_color_inv)
 
                     current_sample_token = sample['next']
 

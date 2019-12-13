@@ -30,11 +30,15 @@ flags.DEFINE_string('label_map', '/mrtstorage/datasets/nuscenes/nuscenes_object_
                     'Path to label map proto')
 
 vis_set = [
-    'scene-0401', 'scene-0252', 'scene-1062', 'scene-0075', 'scene-0133',
-'scene-0400', 'scene-0251', 'scene-1061', 'scene-0074', 'scene-0132',
+    'scene-0401', 'scene-0252', 'scene-1062', 'scene-0075', 'scene-0133', 'scene-0655',
+'scene-0400',
+  'scene-0251',
+  'scene-1061', 'scene-0074', 'scene-0132',
 'scene-0402', 'scene-0253', 'scene-1063', 'scene-0076', 'scene-0134',
 'scene-0403', 'scene-0254', 'scene-1064', 'scene-0077', 'scene-0135',
-'scene-0404', 'scene-0255', 'scene-1065', 'scene-0078', 'scene-0136'
+'scene-0404', 'scene-0255', 'scene-1065', 'scene-0078', 'scene-0136',
+'scene-0291'
+
 ]
 vis_set_full = [
     'scene-0003', 'scene-0012', 'scene-0013',
@@ -151,7 +155,7 @@ def read_images(data_dir, data_beliefs_dir, prefix):
 
     detection_mask = image_det > 0.0001
     observation_mask = image_obs > 0.0001
-    zmax_mask = image_zmax > 0.0001
+    zmax_mask = image_zmax > 0.00001
     occ_mask = image_occ > 0.0001
 
     fused_zmax_det_mask = image_fused_zmax_det > 0.0001
@@ -162,6 +166,7 @@ def read_images(data_dir, data_beliefs_dir, prefix):
 
 def resize_augm(augm, height, width):
     old_height, old_width, _ = augm.shape
+
     augm = cv2.resize(augm, (height, width), interpolation=cv2.INTER_LINEAR)
     return augm
 
@@ -203,6 +208,47 @@ def augm_to_image_gray(augm_original, mode_norm255=False):
 
     return augm
 
+
+def augm_to_image_gray_8(augm_original, mode_norm255=False):
+  # augm_mag_max = 3.0
+  # augm_max = tf.reduce_max(augm)
+  # augm_min = tf.reduce_min(augm)
+  # augm_original = tf.squeeze(augm_original) # tf.squeeze(
+  tv=8
+  augm = np.zeros((augm_original.shape[0], augm_original.shape[1], 3), dtype=np.uint8)
+  print(augm_original)
+  tm = np.float32([ [1,0,0],[0,1,tv]])
+  augm_original_t = cv2.warpAffine(augm_original,tm, (augm_original.shape[0], augm_original.shape[1]))
+  print("augm")
+  if mode_norm255:
+    augm[tv:,:, 0] = augm_original_t[tv:,:].astype(np.float) * 255
+    augm[tv:,:, 1] = augm_original_t[tv:,:].astype(np.float) * 255
+    augm[tv:,:, 2] = augm_original_t[tv:,:].astype(np.float) * 255
+  else:
+    augm[tv:,:, 0] = augm_original_t[tv:,:].astype(np.float)
+    augm[tv:,:, 1] = augm_original_t[tv:,:].astype(np.float)
+    augm[tv:,:, 2] = augm_original_t[tv:,:].astype(np.float)
+  print(augm)
+  print("max--------------------------------")
+  augm_max = augm.max()
+  print(augm_max)
+  print("min--------------------------------")
+  augm_min = augm.min()
+  print(augm_min)
+  # # A couple times, we've gotten NaNs out of the above...
+  # nans = np.isnan(augm_magnitude)
+  # if np.any(nans):
+  #     nans = np.where(nans)
+  #     augm_magnitude[nans] = 0.
+  #
+  # # Normalize
+  # hsv[..., 0] = augm_angle * 180 / np.pi / 2
+  # hsv[..., 1] = np.minimum(augm_magnitude * 255 / augm_mag_max, 255)
+  # hsv[..., 2] = hsv[..., 1]
+
+  return augm
+
+
 def augm_to_image_rgb(augm_original1,augm_original2,augm_original3):
     # augm_mag_max = 3.0
     # augm_max = tf.reduce_max(augm)
@@ -212,8 +258,8 @@ def augm_to_image_rgb(augm_original1,augm_original2,augm_original3):
     print(augm_original1)
     print("augm")
     augm[:, :, 0] = augm_original1.astype(np.float) * 10
-    augm[:, :, 1] = augm_original2.astype(np.float) * 255
-    augm[:, :, 2] = augm_original3.astype(np.float)
+    augm[:, :, 1] = augm_original2.astype(np.float) * 40
+    augm[:, :, 2] = augm_original3.astype(np.float) * 25
     print(augm)
     print("max--------------------------------")
     augm_max = augm.max()
@@ -235,6 +281,40 @@ def augm_to_image_rgb(augm_original1,augm_original2,augm_original3):
     return augm
 
 
+def augm_to_image_rg( augm_original2, augm_original3):
+  # augm_mag_max = 3.0
+  # augm_max = tf.reduce_max(augm)
+  # augm_min = tf.reduce_min(augm)
+  # augm_original = tf.squeeze(augm_original) # tf.squeeze(
+  augm = np.zeros((augm_original2.shape[0], augm_original2.shape[1], 3), dtype=np.uint8)
+
+  print("augm1")
+  print(augm_original2)
+  print("augm2")
+  print(augm_original3)
+  augm[:, :, 0] = augm_original3.astype(np.float) * 4
+  augm[:, :, 1] = augm_original2.astype(np.float) * 40
+  augm[:, :, 2] = 0
+  print(augm)
+  print("max--------------------------------")
+  augm_max = augm.max()
+  print(augm_max)
+  print("min--------------------------------")
+  augm_min = augm.min()
+  print(augm_min)
+  # # A couple times, we've gotten NaNs out of the above...
+  # nans = np.isnan(augm_magnitude)
+  # if np.any(nans):
+  #     nans = np.where(nans)
+  #     augm_magnitude[nans] = 0.
+  #
+  # # Normalize
+  # hsv[..., 0] = augm_angle * 180 / np.pi / 2
+  # hsv[..., 1] = np.minimum(augm_magnitude * 255 / augm_mag_max, 255)
+  # hsv[..., 2] = hsv[..., 1]
+
+  return augm
+
 def create_border_mask(flow):
     height = flow.shape[0]
     width = flow.shape[1]
@@ -255,18 +335,7 @@ def visualize(split):
     # if not pipeline_config.model.HasField('ssd_augmentation'):
     #     raise ValueError('Model with ssd_augmentation estimation is required.')
 
-    folder_inverse = os.path.join(FLAGS.output, 'inverse')
-    folder_color = os.path.join(FLAGS.output, 'color')
-    folder_color_inverse = os.path.join(FLAGS.output, 'color_inverse')
-    os.system('mkdir {}'.format(folder_inverse))
-    os.system('mkdir {}'.format(folder_color))
-    os.system('mkdir {}'.format(folder_color_inverse))
-    folder_belF = os.path.join(FLAGS.output, 'belF')
-    folder_belO = os.path.join(FLAGS.output, 'belO')
-    folder_zMaxDet = os.path.join(FLAGS.output, 'zMaxDet')
-    os.system('mkdir {}'.format(folder_belF))
-    os.system('mkdir {}'.format(folder_belO))
-    os.system('mkdir {}'.format(folder_zMaxDet))
+
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():
@@ -294,6 +363,29 @@ def visualize(split):
             for scene in nusc.scene:
                 if scene['name'] not in vis_set:
                     continue
+                scene_dir = os.path.join(FLAGS.output, scene['name'])
+                os.system('mkdir {}'.format(scene_dir))
+                folder_inverse = os.path.join(scene_dir, 'inverse')
+                folder_color = os.path.join(scene_dir, 'color')
+                folder_color_inverse = os.path.join(scene_dir, 'color_inverse')
+                os.system('mkdir {}'.format(folder_inverse))
+                os.system('mkdir {}'.format(folder_color))
+                os.system('mkdir {}'.format(folder_color_inverse))
+                folder_belF = os.path.join(scene_dir, 'belF')
+                folder_belO = os.path.join(scene_dir, 'belO')
+                folder_zMaxDet = os.path.join(scene_dir, 'zMaxDet')
+                os.system('mkdir {}'.format(folder_belF))
+                os.system('mkdir {}'.format(folder_belO))
+                os.system('mkdir {}'.format(folder_zMaxDet))
+
+                folder_belF_clean = os.path.join(scene_dir, 'belF_clean')
+                folder_belO_clean = os.path.join(scene_dir, 'belO_clean')
+                folder_zMaxDet_clean = os.path.join(scene_dir, 'zMaxDet_clean')
+                os.system('mkdir {}'.format(folder_belF_clean))
+                os.system('mkdir {}'.format(folder_belO_clean))
+                os.system('mkdir {}'.format(folder_zMaxDet_clean))
+
+
                 current_sample_token = scene['first_sample_token']
                 last_sample_token = scene['last_sample_token']
                 # first_sample = nusc.get('sample', scene['first_sample_token'])
@@ -352,16 +444,21 @@ def visualize(split):
                     z_max_detections_prediction_np = resize_augm(z_max_detections_pred[0], image_stacked.shape[1], image_stacked.shape[2])
                     detections_drivingCorridor_prediction_np = resize_augm(detections_drivingCorridor_pred[0], image_stacked.shape[1], image_stacked.shape[2])
 
-                    image_bel_F = augm_to_image_gray(belief_F_prediction_np, mode_norm255=True)
+                    image_bel_F = augm_to_image_gray_8(belief_F_prediction_np, mode_norm255=True)
                     # image_bel_F = cv2.bitwise_not(image_bel_F)
+                    image_bel_F_clean = image_bel_F.copy()
 
-                    image_bel_O = augm_to_image_gray(belief_O_prediction_np, mode_norm255=True)
+                    image_bel_O = augm_to_image_gray_8(belief_O_prediction_np, mode_norm255=True)
                     image_bel_O = cv2.bitwise_not(image_bel_O)
+                    image_bel_O_clean = image_bel_O.copy()
 
-                    image_z_max_detections = augm_to_image_gray(z_max_detections_prediction_np, mode_norm255=False)
+                    image_z_max_detections = augm_to_image_gray_8(z_max_detections_prediction_np, mode_norm255=False)
                     image_z_max_detections = cv2.bitwise_not(image_z_max_detections)
+                    image_z_max_detections_clean = image_z_max_detections.copy()
 
-                    image_vis_color = augm_to_image_rgb(detections_drivingCorridor_prediction_np, belief_F_prediction_np, z_max_detections_prediction_np)
+                    # image_vis_color = augm_to_image_rgb(detections_drivingCorridor_prediction_np, belief_F_prediction_np, z_max_detections_prediction_np)
+                    image_vis_color = augm_to_image_rg(belief_F_prediction_np, z_max_detections_prediction_np)
+
                     image_vis_color_inv = cv2.bitwise_not(image_vis_color)
 
                     for (v, u), val in np.ndenumerate(det_mask):
@@ -387,7 +484,7 @@ def visualize(split):
                         np.squeeze(scores),
                         category_index,
                         boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
+                        min_score_thresh=0.23,
                         use_normalized_coordinates=True,
                         line_thickness=3)
                     vis_util.visualize_boxes_and_labels_on_image_array(
@@ -397,7 +494,7 @@ def visualize(split):
                         np.squeeze(scores),
                         category_index,
                         boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
+                        min_score_thresh=0.23,
                         use_normalized_coordinates=True,
                         line_thickness=3)
                     vis_util.visualize_boxes_and_labels_on_image_array(
@@ -407,7 +504,7 @@ def visualize(split):
                         np.squeeze(scores),
                         category_index,
                         boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
+                        min_score_thresh=0.23,
                         use_normalized_coordinates=True,
                         line_thickness=3)
                     print(image_vis.shape)
@@ -418,22 +515,22 @@ def visualize(split):
                         np.squeeze(scores),
                         category_index,
                         boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
+                        min_score_thresh=0.23,
                         use_normalized_coordinates=True,
                         line_thickness=3)
 
                     print(image_bel_F.shape)
 
-                    # vis_util.visualize_boxes_and_labels_on_image_array(
-                    #     image_bel_F,
-                    #     np.squeeze(boxes_aligned),
-                    #     np.squeeze(classes).astype(np.int32),
-                    #     np.squeeze(scores),
-                    #     category_index,
-                    #     boxes_3d=np.squeeze(boxes_inclined),
-                    #     min_score_thresh=0.3,
-                    #     use_normalized_coordinates=True,
-                    #     line_thickness=3)
+                    vis_util.visualize_boxes_and_labels_on_image_array(
+                        image_bel_F,
+                        np.squeeze(boxes_aligned),
+                        np.squeeze(classes).astype(np.int32),
+                        np.squeeze(scores),
+                        category_index,
+                        boxes_3d=np.squeeze(boxes_inclined),
+                        min_score_thresh=0.23,
+                        use_normalized_coordinates=True,
+                        line_thickness=3)
 
 
                     vis_util.visualize_boxes_and_labels_on_image_array(
@@ -443,7 +540,7 @@ def visualize(split):
                         np.squeeze(scores),
                         category_index,
                         boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
+                        min_score_thresh=0.23,
                         use_normalized_coordinates=True,
                         line_thickness=3)
                     vis_util.visualize_boxes_and_labels_on_image_array(
@@ -453,22 +550,26 @@ def visualize(split):
                         np.squeeze(scores),
                         category_index,
                         boxes_3d=np.squeeze(boxes_inclined),
-                        min_score_thresh=0.3,
+                        min_score_thresh=0.23,
                         use_normalized_coordinates=True,
                         line_thickness=3)
 
                     # Save image
                     print(filename_prefix.split('/')[-1])
-                    output_path = os.path.join(FLAGS.output, filename_prefix.split('/')[-1] + '.png')
+                    output_path = os.path.join(scene_dir, filename_prefix.split('/')[-1] + '.png')
                     cv2.imwrite(output_path, image_vis)
 
-                    output_path_inv = os.path.join(folder_inverse, filename_prefix.split('/')[-1] + '.png')
-                    output_color_path = os.path.join(folder_color, filename_prefix.split('/')[-1] + '.png')
-                    output_color_path_inv = os.path.join(folder_color_inverse, filename_prefix.split('/')[-1] + '.png')
+                    output_path_inv = os.path.join(folder_inverse, filename_prefix.split('/')[-1] + 'inv.png')
+                    output_color_path = os.path.join(folder_color, filename_prefix.split('/')[-1] + 'color.png')
+                    output_color_path_inv = os.path.join(folder_color_inverse, filename_prefix.split('/')[-1] + 'colorInv.png')
 
-                    output_path_belO = os.path.join(folder_belO, filename_prefix.split('/')[-1] + '.png')
-                    output_path_belF = os.path.join(folder_belF, filename_prefix.split('/')[-1] + '.png')
-                    output_path_zMaxDet = os.path.join(folder_zMaxDet, filename_prefix.split('/')[-1] + '.png')
+                    output_path_belO = os.path.join(folder_belO, filename_prefix.split('/')[-1] + 'belo.png')
+                    output_path_belF = os.path.join(folder_belF, filename_prefix.split('/')[-1] + 'belf.png')
+                    output_path_zMaxDet = os.path.join(folder_zMaxDet, filename_prefix.split('/')[-1] + 'zmax.png')
+
+                    output_path_belO_clean = os.path.join(folder_belO_clean, filename_prefix.split('/')[-1] + 'belo_clean.png')
+                    output_path_belF_clean = os.path.join(folder_belF_clean, filename_prefix.split('/')[-1] + 'belf_clean.png')
+                    output_path_zMaxDet_clean = os.path.join(folder_zMaxDet_clean, filename_prefix.split('/')[-1] + 'zmax_clean.png')
 
                     cv2.imwrite(output_path_inv, image_vis_inv)
                     cv2.imwrite(output_color_path, image_vis_color)
@@ -478,6 +579,9 @@ def visualize(split):
                     cv2.imwrite(output_path_belF, image_bel_F)
                     cv2.imwrite(output_path_zMaxDet, image_z_max_detections)
 
+                    cv2.imwrite(output_path_belO_clean, image_bel_O_clean)
+                    cv2.imwrite(output_path_belF_clean, image_bel_F_clean)
+                    cv2.imwrite(output_path_zMaxDet_clean, image_z_max_detections_clean)
                     current_sample_token = sample['next']
 
                     # current_token = lidar_top_data['next']

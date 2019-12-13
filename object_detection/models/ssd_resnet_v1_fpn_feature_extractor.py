@@ -314,6 +314,13 @@ class SSDResnetV1FpnFeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
                           depth=depth_fn(self._additional_layer_depth),
                           use_deconvolution=self._use_deconvolution)
 
+                      if shared_encoder_version == 'c_s128_c_attention':
+                        fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_s128_c_attention(
+                          # fpn_top_down_feature_maps_augmentation
+                          [(key, image_features[key]) for key in feature_block_list],
+                          depth=depth_fn(self._additional_layer_depth),
+                          use_deconvolution=self._use_deconvolution)
+
                       if shared_encoder_version == 'c_s32_c':
                         fpn_features, fpn_features_augm = feature_map_generators.fpn_top_down_feature_maps_augmentation_s32_c(
                           # fpn_top_down_feature_maps_augmentation
